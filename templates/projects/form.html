@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} - Oopsie{% endblock %}
+{% block content %}
+<h1>{{ title }}</h1>
+<form method="post" action="{% if project %}/projects/{{ project.id }}{% else %}/projects{% endif %}">
+  <label for="name">Name</label>
+  <input type="text" id="name" name="name" required value="{{ project.name if project else '' }}" placeholder="My Project">
+
+  <label for="github_repo_url">GitHub Repo URL</label>
+  <input type="url" id="github_repo_url" name="github_repo_url" required value="{{ project.github_repo_url if project else '' }}" placeholder="https://github.com/user/repo">
+
+  <label for="github_token">GitHub Token</label>
+  <input type="password" id="github_token" name="github_token" {% if not project %}required{% endif %} placeholder="{% if project %}Leave blank to keep current{% else %}github_xxx{% endif %}">
+  {% if project %}<span class="help">Leave blank to keep the existing token.</span>{% endif %}
+
+  <label for="default_branch">Default Branch</label>
+  <input type="text" id="default_branch" name="default_branch" value="{{ project.default_branch if project else 'main' }}" placeholder="main">
+
+  <label for="error_threshold">Error Threshold</label>
+  <input type="number" id="error_threshold" name="error_threshold" min="1" value="{{ project.error_threshold if project else 10 }}" placeholder="10">
+
+  <div class="actions">
+    <button type="submit" class="primary">{{ 'Update' if project else 'Create' }}</button>
+    {% if project %}<a href="/projects/{{ project.id }}/errors" class="btn secondary">View Errors</a>{% endif %}
+    {% if project %}<a href="/projects/{{ project.id }}/api-key" class="btn secondary">View API Key</a>{% endif %}
+    <a href="/projects" class="btn secondary">Cancel</a>
+  </div>
+</form>
+{% endblock %}

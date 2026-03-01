@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Project Created - Oopsie{% endblock %}
+{% block content %}
+<h1>Project Created</h1>
+<p>Your project has been created. <strong>Copy the API key now</strong> — it won't be shown again:</p>
+<pre style="background: #f3f4f6; padding: 1rem; border-radius: 4px; overflow-x: auto;">{{ api_key }}</pre>
+<p><a href="/projects">Back to Projects</a></p>
+{% endblock %}

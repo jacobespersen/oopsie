@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Errors - {{ project.name }} - Oopsie{% endblock %}
+{% block content %}
+<h1>Errors: {{ project.name }}</h1>
+<p><a href="/projects/{{ project.id }}/edit">Edit Project</a> · <a href="/projects">Back to Projects</a></p>
+
+{% if errors %}
+<table>
+  <thead>
+    <tr>
+      <th>Error Class</th>
+      <th>Message</th>
+      <th>Count</th>
+      <th>Status</th>
+      <th>Last Seen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in errors %}
+    <tr>
+      <td>{{ e.error_class }}</td>
+      <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ e.message }}">{{ e.message[:80] }}{% if e.message|length > 80 %}…{% endif %}</td>
+      <td>{{ e.occurrence_count }}</td>
+      <td>{{ e.status }}</td>
+      <td>{{ e.last_seen_at.strftime('%Y-%m-%d %H:%M') if e.last_seen_at else '-' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No errors recorded for this project yet.</p>
+{% endif %}
+{% endblock %}

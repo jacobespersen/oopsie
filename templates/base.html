@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Oopsie{% endblock %}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 900px; margin: 0 auto; padding: 1.5rem; color: #1a1a1a; }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    nav { margin-bottom: 1.5rem; }
+    nav a { margin-right: 1rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; table-layout: fixed; }
+    th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { font-weight: 600; background: #f9fafb; }
+    .col-name { width: 18%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-repo { width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-repo a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .col-branch { width: 12%; }
+    .col-threshold { width: 10%; }
+    .col-actions { width: 20%; white-space: nowrap; }
+    form { max-width: 500px; }
+    label { display: block; margin-top: 1rem; font-weight: 500; }
+    input[type="text"], input[type="url"], input[type="password"], input[type="number"] {
+      width: 100%; padding: 0.5rem; margin-top: 0.25rem; border: 1px solid #d1d5db; border-radius: 4px;
+    }
+    button, .btn { padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 0.875rem; border: none; }
+    button.primary, .btn-primary { background: #2563eb; color: white; }
+    button.primary:hover, .btn-primary:hover { background: #1d4ed8; }
+    button.danger, .btn-danger { background: #dc2626; color: white; }
+    button.danger:hover, .btn-danger:hover { background: #b91c1c; }
+    button.secondary { background: #e5e7eb; color: #374151; }
+    .actions { margin-top: 1.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .actions form { display: inline; }
+    .help { font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/projects">Projects</a>
+    <a href="/projects/new">New Project</a>
+  </nav>
+  {% block content %}{% endblock %}
+</body>
+</html>

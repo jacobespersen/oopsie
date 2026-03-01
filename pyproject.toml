@@ -10,20 +10,61 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi",
+    "jinja2",
+    "python-multipart",
     "uvicorn[standard]",
     "sqlalchemy",
     "asyncpg",
     "alembic",
     "pydantic-settings",
     "cryptography",
+    "greenlet",
+    "psycopg2-binary",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
     "httpx",
+    "ruff",
+    "mypy",
+    "bandit",
+    "pip-audit",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["oopsie*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["oopsie", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]  # assert_used – pytest uses asserts
+
+[tool.coverage.run]
+source = ["oopsie"]
+omit = ["tests/*"]
+concurrency = ["greenlet", "thread"]
+
+[tool.coverage.report]
+fail_under = 90

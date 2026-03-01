@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Projects - Oopsie{% endblock %}
+{% block content %}
+<h1>Projects</h1>
+{% if projects %}
+<table>
+  <thead>
+    <tr>
+      <th class="col-name">Name</th>
+      <th class="col-repo">GitHub Repo</th>
+      <th class="col-branch">Default Branch</th>
+      <th class="col-threshold">Error Threshold</th>
+      <th class="col-actions">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in projects %}
+    <tr>
+      <td class="col-name">{{ p.name }}</td>
+      <td class="col-repo" title="{{ p.github_repo_url }}"><a href="{{ p.github_repo_url }}" target="_blank" rel="noopener">{{ p.github_repo_url }}</a></td>
+      <td class="col-branch">{{ p.default_branch }}</td>
+      <td class="col-threshold">{{ p.error_threshold }}</td>
+      <td class="col-actions">
+        <a href="/projects/{{ p.id }}/errors">Errors</a>
+        <a href="/projects/{{ p.id }}/api-key" style="margin-left: 0.5rem;">API Key</a>
+        <a href="/projects/{{ p.id }}/edit" style="margin-left: 0.5rem;">Edit</a>
+        <form action="/projects/{{ p.id }}/delete" method="post" style="display:inline; margin-left: 0.5rem;">
+          <button type="submit" class="btn btn-danger" onclick="return confirm('Delete this project?');">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No projects yet. <a href="/projects/new">Create your first project</a>.</p>
+{% endif %}
+{% endblock %}

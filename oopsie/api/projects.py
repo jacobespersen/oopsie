@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.api.deps import get_session
 from oopsie.config import get_settings
+from oopsie.logging import logger
 from oopsie.models.project import Project
 from oopsie.utils.encryption import encrypt_value, hash_api_key
 
@@ -100,6 +101,7 @@ async def create_project(
     )
     session.add(project)
     await session.flush()
+    logger.info("project_created", project_id=str(project.id), name=body.name)
     return {
         "id": str(project.id),
         "name": project.name,
@@ -150,3 +152,4 @@ async def delete_project(
         raise HTTPException(status_code=404, detail="Project not found")
     await session.delete(project)
     await session.flush()
+    logger.info("project_deleted", project_id=str(project_id))

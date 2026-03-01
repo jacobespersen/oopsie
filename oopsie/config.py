@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     test_database_url: str | None = None
     encryption_key: str = ""
     anthropic_api_key: str = ""
+    log_level: str = "INFO"
+    log_format: str = "json"
 
     @model_validator(mode="after")
     def _validate_encryption_key(self) -> "Settings":

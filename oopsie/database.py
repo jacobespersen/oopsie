@@ -5,6 +5,7 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from oopsie.config import get_settings
+from oopsie.logging import logger
 
 engine = create_async_engine(
     get_settings().database_url,
@@ -26,6 +27,7 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             yield session
             await session.commit()
         except Exception:
+            logger.warning("db_session_rollback")
             await session.rollback()
             raise
         finally:

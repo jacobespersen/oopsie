@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.database import get_session
+from oopsie.logging import logger
 from oopsie.models.project import Project
 from oopsie.utils.encryption import hash_api_key
 
@@ -21,6 +22,7 @@ async def get_project_from_api_key(
     Raises 401 if missing or invalid.
     """
     if not credentials or not credentials.credentials:
+        logger.warning("auth_missing_credentials")
         raise HTTPException(
             status_code=401,
             detail="Missing or invalid Authorization header",
@@ -31,6 +33,7 @@ async def get_project_from_api_key(
     )
     project = result.scalar_one_or_none()
     if not project:
+        logger.warning("auth_invalid_api_key")
         raise HTTPException(status_code=401, detail="Invalid API key")
     return project
 

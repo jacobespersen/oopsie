@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from oopsie.logging import logger
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.error_occurrence import ErrorOccurrence
 from oopsie.utils.fingerprint import compute_fingerprint
@@ -35,6 +36,12 @@ async def upsert_error(
         error.occurrence_count += 1
         error.last_seen_at = now
         error.updated_at = now
+        logger.info(
+            "error_deduplicated",
+            error_id=str(error.id),
+            project_id=str(project_id),
+            occurrence_count=error.occurrence_count,
+        )
     else:
         error = Error(
             project_id=project_id,
@@ -47,6 +54,13 @@ async def upsert_error(
         )
         session.add(error)
     await session.flush()
+    if error.occurrence_count == 1:
+        logger.info(
+            "error_created",
+            error_id=str(error.id),
+            project_id=str(project_id),
+            error_class=error_class,
+        )
     occurrence = ErrorOccurrence(error_id=error.id)
     session.add(occurrence)
     await session.flush()

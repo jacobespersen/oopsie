@@ -20,6 +20,7 @@ dependencies = [
     "cryptography",
     "greenlet",
     "psycopg2-binary",
+    "structlog",
 ]
 
 [project.optional-dependencies]

@@ -12,6 +12,7 @@ from starlette.templating import Jinja2Templates
 
 from oopsie.api.deps import get_session
 from oopsie.config import get_settings
+from oopsie.logging import logger
 from oopsie.models.error import Error
 from oopsie.models.project import Project
 from oopsie.utils.encryption import encrypt_value, hash_api_key
@@ -69,6 +70,7 @@ async def create_project_action(
     )
     session.add(project)
     await session.flush()
+    logger.info("project_created", project_id=str(project.id), name=name)
     # Redirect to a "created" page that shows the API key, then link to list
     return RedirectResponse(
         url=f"/projects/{project.id}/created?api_key={api_key}",
@@ -127,6 +129,7 @@ async def regenerate_api_key_action(
     new_api_key = secrets.token_urlsafe(32)
     project.api_key_hash = hash_api_key(new_api_key)
     await session.flush()
+    logger.info("api_key_regenerated", project_id=str(project_id))
     return RedirectResponse(
         url=f"/projects/{project_id}/api-key?api_key={new_api_key}",
         status_code=303,
@@ -220,4 +223,5 @@ async def delete_project_action(
         raise HTTPException(status_code=404, detail="Project not found")
     await session.delete(project)
     await session.flush()
+    logger.info("project_deleted", project_id=str(project_id))
     return RedirectResponse(url="/projects", status_code=303)

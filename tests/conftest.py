@@ -3,7 +3,8 @@
 import os
 import warnings
 
-# Set a test encryption key before Settings is instantiated.
+# Must be set before Settings is imported (it reads env vars at import time).
+# This is a dummy Fernet key for tests only — never use it outside of tests.
 os.environ.setdefault("ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U=")
 
 import pytest_asyncio  # noqa: E402

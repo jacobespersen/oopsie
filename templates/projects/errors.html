@@ -19,7 +19,7 @@
   <tbody>
     {% for e in errors %}
     <tr>
-      <td>{{ e.error_class }}</td>
+      <td><a href="/projects/{{ project.id }}/errors/{{ e.id }}">{{ e.error_class }}</a></td>
       <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ e.message }}">{{ e.message[:80] }}{% if e.message|length > 80 %}…{% endif %}</td>
       <td>{{ e.occurrence_count }}</td>
       <td>{{ e.status }}</td>

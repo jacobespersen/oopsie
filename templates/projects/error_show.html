@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ error.error_class }} - {{ project.name }} - Oopsie{% endblock %}
+{% block content %}
+<h1>{{ error.error_class }}</h1>
+<p><a href="/projects/{{ project.id }}/errors">Back to Errors</a> · <a href="/projects/{{ project.id }}/edit">Edit Project</a></p>
+
+<section>
+  <h2>Error Details</h2>
+  <table style="table-layout: auto;">
+    <tbody>
+      <tr><th>Status</th><td>{{ error.status }}</td></tr>
+      <tr><th>Occurrences</th><td>{{ error.occurrence_count }}</td></tr>
+      <tr><th>First Seen</th><td>{{ error.first_seen_at.strftime('%Y-%m-%d %H:%M UTC') if error.first_seen_at else '-' }}</td></tr>
+      <tr><th>Last Seen</th><td>{{ error.last_seen_at.strftime('%Y-%m-%d %H:%M UTC') if error.last_seen_at else '-' }}</td></tr>
+      <tr><th>Message</th><td>{{ error.message }}</td></tr>
+    </tbody>
+  </table>
+
+  {% if error.stack_trace %}
+  <h3>Stack Trace</h3>
+  <pre style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:4px; padding:1rem; overflow-x:auto; white-space:pre-wrap; word-break:break-word; font-size:0.8rem;">{{ error.stack_trace }}</pre>
+  {% endif %}
+
+  <div class="actions">
+    {% if fix_attempts %}
+      {% set latest = fix_attempts[0] %}
+      {% if error.status == 'open' and latest.status not in ['pending', 'running'] %}
+      <form action="/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
+        <button type="submit" class="btn btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
+      </form>
+      {% elif latest.status == 'failed' %}
+      <form action="/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
+        <button type="submit" class="btn btn-secondary">Retry</button>
+      </form>
+      {% elif latest.status == 'pending' %}
+      <span class="badge badge-warning">Queued</span>
+      {% elif latest.status == 'running' %}
+      <span class="badge badge-info">Fixing...</span>
+      {% endif %}
+    {% elif error.status == 'open' %}
+    <form action="/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
+      <button type="submit" class="btn btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<section style="margin-top:2rem;">
+  <h2>Fix Attempts</h2>
+  {% if fix_attempts %}
+  <table>
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Branch</th>
+        <th>PR</th>
+        <th>Started</th>
+        <th>Duration</th>
+        <th>Claude Output</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fa in fix_attempts %}
+      <tr>
+        <td>
+          {% if fa.status == 'pending' %}<span class="badge badge-warning">Pending</span>
+          {% elif fa.status == 'running' %}<span class="badge badge-info">Running</span>
+          {% elif fa.status == 'success' %}<span class="badge badge-success">Success</span>
+          {% elif fa.status == 'failed' %}<span class="badge badge-danger">Failed</span>
+          {% else %}{{ fa.status }}{% endif %}
+        </td>
+        <td style="font-family:monospace; font-size:0.85rem;">{{ fa.branch_name or '-' }}</td>
+        <td>{% if fa.pr_url %}<a href="{{ fa.pr_url }}" target="_blank" rel="noopener">PR</a>{% else %}-{% endif %}</td>
+        <td>{{ fa.started_at.strftime('%Y-%m-%d %H:%M') if fa.started_at else '-' }}</td>
+        <td>
+          {% if fa.started_at and fa.completed_at %}
+            {% set duration = (fa.completed_at - fa.started_at).total_seconds()|int %}
+            {{ duration }}s
+          {% else %}-{% endif %}
+        </td>
+        <td>
+          {% if fa.claude_output %}
+          <details>
+            <summary style="cursor:pointer; font-size:0.875rem;">Show output</summary>
+            <pre style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:4px; padding:0.75rem; margin-top:0.5rem; overflow-x:auto; white-space:pre-wrap; word-break:break-word; font-size:0.75rem;">{{ fa.claude_output }}</pre>
+          </details>
+          {% else %}-{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No fix attempts yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

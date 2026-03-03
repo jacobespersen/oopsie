@@ -92,6 +92,18 @@ async def complete_fix_attempt(
     return fix_attempt
 
 
+async def get_fix_attempts_for_error(
+    session: AsyncSession, error_id: UUID
+) -> list[FixAttempt]:
+    """Return all FixAttempts for the given error, most recent first."""
+    result = await session.execute(
+        select(FixAttempt)
+        .where(FixAttempt.error_id == error_id)
+        .order_by(FixAttempt.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
 async def get_fix_attempt_status_for_errors(
     session: AsyncSession, error_ids: list[UUID]
 ) -> dict[UUID, str | None]:

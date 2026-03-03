@@ -5,7 +5,6 @@ from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from oopsie.config import Settings
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
 from oopsie.models.project import Project
@@ -13,47 +12,15 @@ from oopsie.services.exceptions import (
     ClaudeCodeError,
     GitOperationError,
 )
-from oopsie.utils.encryption import encrypt_value, hash_api_key
 from oopsie.worker.fix_pipeline import run_fix_pipeline
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-_settings = Settings()
 
 _WS = "oopsie.services.pipeline_service.worker_session"
 _GH = "oopsie.services.pipeline_service.github_service"
 _CL = "oopsie.services.pipeline_service.claude_service"
 _TF = "oopsie.services.pipeline_service.tempfile"
 _SH = "oopsie.services.pipeline_service.shutil"
-
-
-@pytest.fixture
-async def project(db_session: AsyncSession) -> Project:
-    p = Project(
-        name="pipeline-test",
-        github_repo_url="https://github.com/owner/repo",
-        github_token_encrypted=encrypt_value("ghp_tok", _settings.encryption_key),
-        api_key_hash=hash_api_key("key"),
-        default_branch="main",
-    )
-    db_session.add(p)
-    await db_session.flush()
-    return p
-
-
-@pytest.fixture
-async def error(db_session: AsyncSession, project: Project) -> Error:
-    e = Error(
-        project_id=project.id,
-        error_class="ValueError",
-        message="bad value",
-        stack_trace="  File main.py, line 1",
-        fingerprint="fp123",
-        status=ErrorStatus.OPEN,
-    )
-    db_session.add(e)
-    await db_session.flush()
-    return e
 
 
 def _mock_worker_session(db_session):

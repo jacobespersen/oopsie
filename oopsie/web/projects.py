@@ -18,6 +18,7 @@ from oopsie.models.project import Project
 from oopsie.queue import enqueue_fix_job
 from oopsie.services.fix_service import (
     get_fix_attempt_status_for_errors,
+    get_fix_attempts_for_error,
     has_active_fix_attempt,
 )
 from oopsie.utils.encryption import encrypt_value, hash_api_key
@@ -169,6 +170,35 @@ async def project_errors_page(
         request=request,
         name="projects/errors.html",
         context={"project": project, "errors": errors, "fix_statuses": fix_statuses},
+    )
+
+
+@router.get("/projects/{project_id}/errors/{error_id}", response_class=HTMLResponse)
+async def error_show_page(
+    request: Request,
+    project_id: uuid.UUID,
+    error_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Show details for a single error."""
+    result = await session.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    err_result = await session.execute(
+        select(Error).where(Error.id == error_id, Error.project_id == project_id)
+    )
+    error = err_result.scalar_one_or_none()
+    if not error:
+        raise HTTPException(status_code=404, detail="Error not found")
+
+    fix_attempts = await get_fix_attempts_for_error(session, error_id)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="projects/error_show.html",
+        context={"project": project, "error": error, "fix_attempts": fix_attempts},
     )
 
 

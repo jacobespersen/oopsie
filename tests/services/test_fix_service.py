@@ -3,7 +3,6 @@
 import uuid
 
 import pytest
-from oopsie.config import Settings
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.fix_attempt import FixAttemptStatus
 from oopsie.models.project import Project
@@ -12,26 +11,11 @@ from oopsie.services.fix_service import (
     create_fix_attempt,
     generate_branch_name,
     get_fix_attempt_status_for_errors,
+    get_fix_attempts_for_error,
     has_active_fix_attempt,
     mark_fix_attempt_running,
 )
-from oopsie.utils.encryption import encrypt_value, hash_api_key
 from sqlalchemy.ext.asyncio import AsyncSession
-
-_settings = Settings()
-
-
-@pytest.fixture
-async def project(db_session: AsyncSession) -> Project:
-    p = Project(
-        name="fix-test",
-        github_repo_url="https://github.com/o/r",
-        github_token_encrypted=encrypt_value("ghp_t", _settings.encryption_key),
-        api_key_hash=hash_api_key("key"),
-    )
-    db_session.add(p)
-    await db_session.flush()
-    return p
 
 
 @pytest.fixture
@@ -216,3 +200,30 @@ async def test_get_fix_attempt_status_for_errors_empty(
 ):
     result = await get_fix_attempt_status_for_errors(db_session, [])
     assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_get_fix_attempts_for_error_empty(
+    db_session: AsyncSession, error: Error
+):
+    """Returns empty list when no attempts exist."""
+    result = await get_fix_attempts_for_error(db_session, error.id)
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_fix_attempts_for_error_ordered_desc(
+    db_session: AsyncSession, error: Error
+):
+    """Returns all attempts ordered by created_at DESC."""
+    fa1 = await create_fix_attempt(db_session, error.id, "branch-1")
+    fa2 = await create_fix_attempt(db_session, error.id, "branch-2")
+    await complete_fix_attempt(
+        db_session, fa1.id, success=False, pr_url=None, claude_output="err"
+    )
+
+    result = await get_fix_attempts_for_error(db_session, error.id)
+    assert len(result) == 2
+    # Most recent first — fa2 was created after fa1
+    assert result[0].id == fa2.id
+    assert result[1].id == fa1.id

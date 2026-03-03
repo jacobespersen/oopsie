@@ -31,6 +31,7 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
+    "factory-boy>=3.3",
     "ruff",
     "mypy",
     "bandit",

@@ -2,20 +2,25 @@
 
 import pytest
 from oopsie.models import Error, ErrorOccurrence
+from oopsie.utils.encryption import hash_api_key
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tests.factories import ProjectFactory
+
+_API_KEY = "test-api-key-123"
 
 
 @pytest.mark.asyncio
 async def test_ingest_error_creates_error_and_occurrence(
     api_client,
     db_session: AsyncSession,
-    project_with_api_key,
+    factory,
 ):
     """POST /api/v1/errors with valid API key returns 202."""
+    project = await factory(ProjectFactory, api_key_hash=hash_api_key(_API_KEY))
     response = await api_client.post(
         "/api/v1/errors",
-        headers={"Authorization": "Bearer test-api-key-123"},
+        headers={"Authorization": f"Bearer {_API_KEY}"},
         json={
             "error_class": "NoMethodError",
             "message": "undefined method 'foo' for nil:NilClass",
@@ -31,7 +36,7 @@ async def test_ingest_error_creates_error_and_occurrence(
     assert error.error_class == "NoMethodError"
     assert error.message == "undefined method 'foo' for nil:NilClass"
     assert error.occurrence_count == 1
-    assert error.project_id == project_with_api_key.id
+    assert error.project_id == project.id
 
     result = await db_session.execute(select(ErrorOccurrence))
     occurrence = result.scalar_one_or_none()
@@ -43,15 +48,16 @@ async def test_ingest_error_creates_error_and_occurrence(
 async def test_ingest_error_duplicate_increments_count_and_adds_occurrence(
     api_client,
     db_session: AsyncSession,
-    project_with_api_key,
+    factory,
 ):
     """Duplicate request increments count and adds occurrence."""
+    project = await factory(ProjectFactory, api_key_hash=hash_api_key(_API_KEY))
     body = {
         "error_class": "NoMethodError",
         "message": "undefined method 'foo' for nil:NilClass",
         "stack_trace": "app/models/user.rb:42",
     }
-    headers = {"Authorization": "Bearer test-api-key-123"}
+    headers = {"Authorization": f"Bearer {_API_KEY}"}
 
     r1 = await api_client.post("/api/v1/errors", headers=headers, json=body)
     assert r1.status_code == 202
@@ -60,7 +66,7 @@ async def test_ingest_error_duplicate_increments_count_and_adds_occurrence(
     assert r2.status_code == 202
 
     result = await db_session.execute(
-        select(Error).where(Error.project_id == project_with_api_key.id)
+        select(Error).where(Error.project_id == project.id)
     )
     error = result.scalar_one()
     assert error.occurrence_count == 2
@@ -83,11 +89,9 @@ async def test_ingest_error_unauthorized_without_api_key(api_client):
 
 
 @pytest.mark.asyncio
-async def test_ingest_error_unauthorized_invalid_api_key(
-    api_client,
-    project_with_api_key,
-):
+async def test_ingest_error_unauthorized_invalid_api_key(api_client, factory):
     """POST /api/v1/errors with wrong API key returns 401."""
+    await factory(ProjectFactory, api_key_hash=hash_api_key(_API_KEY))
     response = await api_client.post(
         "/api/v1/errors",
         headers={"Authorization": "Bearer wrong-key"},

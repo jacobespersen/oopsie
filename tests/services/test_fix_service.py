@@ -5,7 +5,6 @@ import uuid
 import pytest
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.fix_attempt import FixAttemptStatus
-from oopsie.models.project import Project
 from oopsie.services.fix_service import (
     complete_fix_attempt,
     create_fix_attempt,
@@ -17,19 +16,7 @@ from oopsie.services.fix_service import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-
-@pytest.fixture
-async def error(db_session: AsyncSession, project: Project) -> Error:
-    e = Error(
-        project_id=project.id,
-        error_class="ValueError",
-        message="bad value",
-        fingerprint="abc123",
-        status=ErrorStatus.OPEN,
-    )
-    db_session.add(e)
-    await db_session.flush()
-    return e
+from tests.factories import ErrorFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
@@ -45,7 +32,9 @@ async def test_generate_branch_name_from_string():
 
 
 @pytest.mark.asyncio
-async def test_create_fix_attempt(db_session: AsyncSession, error: Error):
+async def test_create_fix_attempt(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     fa = await create_fix_attempt(db_session, error.id, "oopsie/fix-abc")
     assert fa.error_id == error.id
     assert fa.branch_name == "oopsie/fix-abc"
@@ -54,14 +43,18 @@ async def test_create_fix_attempt(db_session: AsyncSession, error: Error):
 
 
 @pytest.mark.asyncio
-async def test_has_active_fix_attempt_pending(db_session: AsyncSession, error: Error):
+async def test_has_active_fix_attempt_pending(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     await create_fix_attempt(db_session, error.id, "branch")
     result = await has_active_fix_attempt(db_session, error.id)
     assert result is True
 
 
 @pytest.mark.asyncio
-async def test_has_active_fix_attempt_running(db_session: AsyncSession, error: Error):
+async def test_has_active_fix_attempt_running(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     fa = await create_fix_attempt(db_session, error.id, "branch")
     await mark_fix_attempt_running(db_session, fa.id)
     result = await has_active_fix_attempt(db_session, error.id)
@@ -69,7 +62,9 @@ async def test_has_active_fix_attempt_running(db_session: AsyncSession, error: E
 
 
 @pytest.mark.asyncio
-async def test_has_active_fix_attempt_success(db_session: AsyncSession, error: Error):
+async def test_has_active_fix_attempt_success(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     fa = await create_fix_attempt(db_session, error.id, "branch")
     await complete_fix_attempt(
         db_session,
@@ -83,7 +78,9 @@ async def test_has_active_fix_attempt_success(db_session: AsyncSession, error: E
 
 
 @pytest.mark.asyncio
-async def test_has_active_fix_attempt_failed(db_session: AsyncSession, error: Error):
+async def test_has_active_fix_attempt_failed(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     fa = await create_fix_attempt(db_session, error.id, "branch")
     await complete_fix_attempt(
         db_session,
@@ -97,13 +94,17 @@ async def test_has_active_fix_attempt_failed(db_session: AsyncSession, error: Er
 
 
 @pytest.mark.asyncio
-async def test_has_active_fix_attempt_none(db_session: AsyncSession, error: Error):
+async def test_has_active_fix_attempt_none(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     result = await has_active_fix_attempt(db_session, error.id)
     assert result is False
 
 
 @pytest.mark.asyncio
-async def test_mark_fix_attempt_running(db_session: AsyncSession, error: Error):
+async def test_mark_fix_attempt_running(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     fa = await create_fix_attempt(db_session, error.id, "branch")
     updated = await mark_fix_attempt_running(db_session, fa.id)
     assert updated.status == FixAttemptStatus.RUNNING
@@ -111,7 +112,9 @@ async def test_mark_fix_attempt_running(db_session: AsyncSession, error: Error):
 
 
 @pytest.mark.asyncio
-async def test_complete_fix_attempt_success(db_session: AsyncSession, error: Error):
+async def test_complete_fix_attempt_success(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     fa = await create_fix_attempt(db_session, error.id, "branch")
     completed = await complete_fix_attempt(
         db_session,
@@ -130,7 +133,9 @@ async def test_complete_fix_attempt_success(db_session: AsyncSession, error: Err
 
 
 @pytest.mark.asyncio
-async def test_complete_fix_attempt_failure(db_session: AsyncSession, error: Error):
+async def test_complete_fix_attempt_failure(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     fa = await create_fix_attempt(db_session, error.id, "branch")
     completed = await complete_fix_attempt(
         db_session,
@@ -149,32 +154,13 @@ async def test_complete_fix_attempt_failure(db_session: AsyncSession, error: Err
 
 @pytest.mark.asyncio
 async def test_get_fix_attempt_status_for_errors_mixed(
-    db_session: AsyncSession, project: Project
+    db_session: AsyncSession, factory
 ):
     """Test batch status query with various scenarios."""
-    e1 = Error(
-        project_id=project.id,
-        error_class="E1",
-        message="m1",
-        fingerprint="f1",
-        status=ErrorStatus.OPEN,
-    )
-    e2 = Error(
-        project_id=project.id,
-        error_class="E2",
-        message="m2",
-        fingerprint="f2",
-        status=ErrorStatus.OPEN,
-    )
-    e3 = Error(
-        project_id=project.id,
-        error_class="E3",
-        message="m3",
-        fingerprint="f3",
-        status=ErrorStatus.OPEN,
-    )
-    db_session.add_all([e1, e2, e3])
-    await db_session.flush()
+    project = await factory(ProjectFactory)
+    e1 = await factory(ErrorFactory, project_id=project.id, fingerprint="f1")
+    e2 = await factory(ErrorFactory, project_id=project.id, fingerprint="f2")
+    e3 = await factory(ErrorFactory, project_id=project.id, fingerprint="f3")
 
     await create_fix_attempt(db_session, e2.id, "branch2")
     fa3 = await create_fix_attempt(db_session, e3.id, "branch3")
@@ -203,19 +189,21 @@ async def test_get_fix_attempt_status_for_errors_empty(
 
 
 @pytest.mark.asyncio
-async def test_get_fix_attempts_for_error_empty(
-    db_session: AsyncSession, error: Error
-):
+async def test_get_fix_attempts_for_error_empty(db_session: AsyncSession, factory):
     """Returns empty list when no attempts exist."""
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     result = await get_fix_attempts_for_error(db_session, error.id)
     assert result == []
 
 
 @pytest.mark.asyncio
 async def test_get_fix_attempts_for_error_ordered_desc(
-    db_session: AsyncSession, error: Error
+    db_session: AsyncSession, factory
 ):
     """Returns all attempts ordered by created_at DESC."""
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
     fa1 = await create_fix_attempt(db_session, error.id, "branch-1")
     fa2 = await create_fix_attempt(db_session, error.id, "branch-2")
     await complete_fix_attempt(

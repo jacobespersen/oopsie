@@ -82,9 +82,10 @@ async def test_create_project(api_client, db_session: AsyncSession):
     assert project.name == "my-app"
     assert project.github_repo_url == "https://github.com/user/repo"
     # github_token is now encrypted in the DB
-    assert decrypt_value(
-        project.github_token_encrypted, _settings.encryption_key
-    ) == "ghp_secret"
+    assert (
+        decrypt_value(project.github_token_encrypted, _settings.encryption_key)
+        == "ghp_secret"
+    )
     # api_key is hashed — the hash of the returned key should match the DB
     assert project.api_key_hash == hash_api_key(data["api_key"])
 
@@ -119,9 +120,10 @@ async def test_create_project_with_optional_fields(
     )
     project = result.scalar_one()
     assert project.name == "optional-fields-app"
-    assert decrypt_value(
-        project.github_token_encrypted, _settings.encryption_key
-    ) == "ghp_custom_token"
+    assert (
+        decrypt_value(project.github_token_encrypted, _settings.encryption_key)
+        == "ghp_custom_token"
+    )
 
 
 @pytest.mark.asyncio
@@ -323,9 +325,10 @@ async def test_web_update_project_with_new_token(
     )
     project = result.scalar_one()
     assert project.name == "updated-with-token"
-    assert decrypt_value(
-        project.github_token_encrypted, _settings.encryption_key
-    ) == "ghp_new_token_value"
+    assert (
+        decrypt_value(project.github_token_encrypted, _settings.encryption_key)
+        == "ghp_new_token_value"
+    )
     assert project.error_threshold == 25
 
 

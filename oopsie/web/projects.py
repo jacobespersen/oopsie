@@ -13,8 +13,13 @@ from starlette.templating import Jinja2Templates
 from oopsie.api.deps import get_session
 from oopsie.config import get_settings
 from oopsie.logging import logger
-from oopsie.models.error import Error
+from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.project import Project
+from oopsie.queue import enqueue_fix_job
+from oopsie.services.fix_service import (
+    get_fix_attempt_status_for_errors,
+    has_active_fix_attempt,
+)
 from oopsie.utils.encryption import encrypt_value, hash_api_key
 
 router = APIRouter()
@@ -155,10 +160,15 @@ async def project_errors_page(
     )
     errors = errors_result.scalars().all()
 
+    error_ids = [e.id for e in errors]
+    fix_statuses = (
+        await get_fix_attempt_status_for_errors(session, error_ids) if error_ids else {}
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="projects/errors.html",
-        context={"project": project, "errors": errors},
+        context={"project": project, "errors": errors, "fix_statuses": fix_statuses},
     )
 
 
@@ -225,3 +235,46 @@ async def delete_project_action(
     await session.flush()
     logger.info("project_deleted", project_id=str(project_id))
     return RedirectResponse(url="/projects", status_code=303)
+
+
+@router.post("/projects/{project_id}/errors/{error_id}/fix")
+async def trigger_fix_action(
+    request: Request,
+    project_id: uuid.UUID,
+    error_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
+):
+    """Enqueue a fix job for an error and redirect back to errors page."""
+    proj_result = await session.execute(
+        select(Project).where(Project.id == project_id)
+    )
+    project = proj_result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    err_result = await session.execute(
+        select(Error).where(Error.id == error_id, Error.project_id == project_id)
+    )
+    error = err_result.scalar_one_or_none()
+    if not error:
+        raise HTTPException(status_code=404, detail="Error not found")
+
+    if error.status != ErrorStatus.OPEN:
+        raise HTTPException(status_code=400, detail="Error is not in OPEN status")
+
+    # if await has_active_fix_attempt(session, error_id):
+    #     raise HTTPException(
+    #         status_code=409, detail="A fix attempt is already in progress"
+    #     )
+
+    await enqueue_fix_job(str(error_id), str(project_id))
+    logger.info(
+        "fix_triggered_via_ui",
+        error_id=str(error_id),
+        project_id=str(project_id),
+    )
+
+    return RedirectResponse(
+        url=f"/projects/{project_id}/errors",
+        status_code=303,
+    )

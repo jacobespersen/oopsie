@@ -21,6 +21,9 @@ dependencies = [
     "greenlet",
     "psycopg2-binary",
     "structlog",
+    "arq",
+    "redis[hiredis]",
+    "httpx",
 ]
 
 [project.optional-dependencies]
@@ -28,7 +31,6 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
-    "httpx",
     "ruff",
     "mypy",
     "bandit",

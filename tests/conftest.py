@@ -4,9 +4,7 @@ import os
 import warnings
 
 # Set a test encryption key before Settings is instantiated.
-os.environ.setdefault(
-    "ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
-)
+os.environ.setdefault("ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U=")
 
 import pytest_asyncio  # noqa: E402
 from oopsie.config import Settings  # noqa: E402

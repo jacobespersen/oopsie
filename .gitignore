@@ -12,3 +12,5 @@ htmlcov/
 dist/
 build/
 .cursor/
+.claude/
+CLAUDE.md

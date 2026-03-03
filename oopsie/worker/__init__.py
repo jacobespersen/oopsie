@@ -1,1 +1,1 @@
-"""Background worker (Phase 3)."""
+"""Background worker — arq-based fix pipeline."""

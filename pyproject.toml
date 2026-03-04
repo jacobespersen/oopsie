@@ -36,6 +36,7 @@ dev = [
     "mypy",
     "bandit",
     "pip-audit",
+    "honcho",
 ]
 
 [tool.setuptools.packages.find]

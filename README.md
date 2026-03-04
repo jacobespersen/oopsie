@@ -6,22 +6,23 @@ Oopsie is a self-hosted service that receives error reports from applications, t
 
 - Python 3.11+
 - Docker (for local Postgres)
+- [Honcho](https://github.com/nickstenning/honcho) (for `make dev`)
 
 ## Setup
 
 1. Clone the repo and go to the project directory.
 
-2. Create and activate a virtual environment (or use an existing one):
+2. Create and activate a virtual environment:
 
    ```bash
    python -m venv .venv
-   source .venv/bin/activate   # On Windows: .venv\Scripts\activate
+   source .venv/bin/activate
    ```
 
-3. Install the package in editable mode:
+3. Install the package with dev dependencies:
 
    ```bash
-   pip install -e .
+   pip install -e ".[dev]"
    ```
 
 4. Copy the example env file and edit if needed:
@@ -30,53 +31,57 @@ Oopsie is a self-hosted service that receives error reports from applications, t
    cp .env.example .env
    ```
 
-5. Start Postgres (optional for the health check; required for the API and worker):
+5. Start Postgres and apply migrations:
 
    ```bash
    docker compose up -d
-   ```
-
-   Compose starts two databases: **postgres** (dev, port 5433) and **postgres-test** (port 5434). The test DB is ephemeral and has the schema applied automatically by the **migrate-test** service on every `up`.
-
-6. Apply database migrations for the **development** DB (requires postgres and dev dependencies):
-
-   ```bash
-   pip install -e ".[dev]"
    alembic upgrade head
    ```
 
-7. Run the API:
+   Compose starts two databases: **postgres** (dev, port 5433) and **postgres-test** (port 5434). The test DB schema is applied automatically by the **migrate-test** service on every `up`.
 
-   ```bash
-   uvicorn oopsie.main:app --reload
-   ```
+## Running
 
-8. Open [http://localhost:8000](http://localhost:8000) for the health check, or [http://localhost:8000/docs](http://localhost:8000/docs) for the interactive API docs.
-
-## Development dependencies
-
-Dev dependencies (Ruff, pytest, httpx) are optional. To install them:
+The easiest way to run the full stack (web server + background worker) is:
 
 ```bash
-pip install -e ".[dev]"
+make dev
+```
+
+This starts Docker services, then uses [Honcho](https://github.com/nickstenning/honcho) to run the processes defined in the `Procfile`:
+
+| Process  | Command                              |
+|----------|--------------------------------------|
+| `web`    | `uvicorn oopsie.main:app --reload`   |
+| `worker` | `python run_worker.py`               |
+
+You can also run individual components:
+
+```bash
+make services   # start Docker services only
+make web        # API server only (http://localhost:8000)
+make worker     # background worker only
+```
+
+Open [http://localhost:8000/docs](http://localhost:8000/docs) for the interactive API docs.
+
+## Testing
+
+Tests use a **separate test database** on port 5434. Copy `.env.example` to `.env`; it sets `TEST_DATABASE_URL` to `localhost:5434/oopsie_test`. The test DB is recreated and migrated on every `docker compose up`.
+
+```bash
+docker compose --profile test up -d   # ensure test DB is running
+pytest                                # run all tests
+pytest --cov                          # with coverage (fail_under=90)
 ```
 
 ## Linting
 
-Run [Ruff](https://docs.astral.sh/ruff/) (requires dev dependencies to be installed):
-
 ```bash
-ruff check .
-```
-
-## Testing
-
-Tests use a **separate test database** (not the development one). With Docker Compose, use the **postgres-test** service (port 5434). Copy `.env.example` to `.env`; it sets `TEST_DATABASE_URL` to `localhost:5434/oopsie_test` so pytest uses the test DB. The test DB is recreated and migrated on every `docker compose up`.
-
-Run tests (requires dev dependencies to be installed):
-
-```bash
-pytest
+ruff check .          # lint
+ruff check . --fix    # lint + autofix
+ruff format .         # format
+mypy oopsie           # type check
 ```
 
 ## Design and implementation phases

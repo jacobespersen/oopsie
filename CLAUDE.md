@@ -2,6 +2,14 @@
 
 AI-powered error fix service that receives error reports and generates fix PRs using Claude Code.
 
+## Philosophy
+
+- **Production-grade, long-term project** — treat all decisions (architecture, data modeling, test structure, abstractions) as if they'll be maintained for years. No throwaway shortcuts.
+- **DRY and centralized** — avoid duplicating logic, fixtures, configuration, or setup across files. One canonical location for each concern.
+- **Think before scaffolding** — before creating new files, modules, or abstractions, check if an existing one already covers the need. Prefer extending over duplicating.
+- **Consistent patterns** — follow the patterns already established in the codebase. When in doubt, look at how similar things are already done.
+- **Ask, don't assume** — if instructions are ambiguous or incomplete, ask for clarification before proceeding. A quick question is always better than building the wrong thing.
+
 ## Setup
 
 ```bash
@@ -18,7 +26,7 @@ uvicorn oopsie.main:app --reload                    # dev server on :8000
 LOG_FORMAT=console uvicorn oopsie.main:app --reload  # pretty dev logs
 ```
 
-## Test
+## Running Tests
 
 ```bash
 docker compose --profile test up -d   # test postgres on :5434
@@ -70,7 +78,17 @@ alembic/           — DB migrations
 - **Encryption** — Fernet for GitHub tokens; key via `ENCRYPTION_KEY` env var
 - **Error fingerprinting** — deterministic hashing to deduplicate errors
 - **Small, testable functions** — keep methods focused on a single responsibility. If a function handles multiple pieces of business logic, split it into smaller functions that can be tested independently.
+- **Prefer composition over proliferation** — don't create a new module/file for every small piece of logic. Group related functionality together.
+- **Services encapsulate business logic** — keep endpoints thin, delegate to services.
+- **Reuse before creating** — always check existing utilities, helpers, and patterns before introducing new ones.
+
+## Testing
+
 - **Test-driven development** — write tests before implementation when possible. At minimum, all new features must have full test coverage including edge cases, error paths, and boundary conditions.
+- **Single root conftest** — all shared fixtures live in `tests/conftest.py`. Do not create additional conftest files in subdirectories unless there is a strong, specific reason.
+- **Factory-based test data** — use factory-boy factories in `tests/factories.py` for all test data creation. Inline factory calls per test, no fixture-based test data.
+- **No duplicated setup** — if multiple tests need similar setup, add a factory or extend an existing one rather than copy-pasting setup code.
+- **Test file organization** — mirrors source structure (`tests/api/`, `tests/models/`, `tests/services/`, etc.).
 
 ## Database
 

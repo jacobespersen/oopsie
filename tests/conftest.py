@@ -4,17 +4,23 @@ import os
 import warnings
 
 # Must be set before Settings is imported (it reads env vars at import time).
-# This is a dummy Fernet key for tests only — never use it outside of tests.
+# These are dummy keys for tests only — never use them outside of tests.
 os.environ.setdefault("ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U=")
+os.environ.setdefault(
+    "JWT_SECRET_KEY", "test-jwt-secret-key-for-tests-only-not-secure!!"
+)
 
 import httpx  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from oopsie.api.deps import get_session  # noqa: E402
+from oopsie.auth import create_access_token  # noqa: E402
 from oopsie.config import Settings  # noqa: E402
 from oopsie.main import app  # noqa: E402
-from oopsie.models import Error, FixAttempt, Project  # noqa: F401
+from oopsie.models import Error, FixAttempt, Project, RevokedToken, User  # noqa: F401
 from oopsie.models.base import Base
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+
+from tests.factories import UserFactory  # noqa: E402
 
 _settings = Settings()
 _test_url = _settings.get_test_database_url()
@@ -100,6 +106,36 @@ async def api_client(db_session: AsyncSession):
 
 
 @pytest_asyncio.fixture
+async def current_user(db_session: AsyncSession) -> User:
+    """Create and persist a test user."""
+    user = UserFactory.build()
+    db_session.add(user)
+    await db_session.flush()
+    return user
+
+
+@pytest_asyncio.fixture
+async def authenticated_client(db_session: AsyncSession, current_user: User):
+    """HTTP client with a valid JWT access token cookie for current_user."""
+
+    async def override_get_session():
+        yield db_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    token = create_access_token(current_user.id, current_user.email)
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+            cookies={"access_token": token},
+        ) as client:
+            yield client
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+
+@pytest_asyncio.fixture
 def factory(db_session: AsyncSession):
     """Persist a factory-built object and return it."""
 
@@ -143,6 +179,7 @@ async def db_session() -> AsyncSession:
         else:
             raise
     try:
+        await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
         await connection.commit()
         await connection.begin()

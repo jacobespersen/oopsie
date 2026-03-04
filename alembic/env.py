@@ -6,7 +6,14 @@ from alembic import context
 from oopsie.config import Settings
 
 # Import all models so Base.metadata is populated
-from oopsie.models import Error, ErrorOccurrence, FixAttempt, Project  # noqa: F401
+from oopsie.models import (  # noqa: F401
+    Error,
+    ErrorOccurrence,
+    FixAttempt,
+    Project,
+    RevokedToken,
+    User,
+)
 from oopsie.models.base import Base
 from sqlalchemy import engine_from_config, pool
 

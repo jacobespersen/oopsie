@@ -12,12 +12,12 @@ _ENQUEUE = "oopsie.web.projects.enqueue_fix_job"
 
 
 @pytest.mark.asyncio
-async def test_trigger_fix_happy_path(api_client, factory):
+async def test_trigger_fix_happy_path(authenticated_client, current_user, factory):
     """POST trigger enqueues job and redirects."""
-    project = await factory(ProjectFactory)
+    project = await factory(ProjectFactory, user_id=current_user.id)
     error = await factory(ErrorFactory, project_id=project.id)
     with patch(_ENQUEUE, new_callable=AsyncMock) as mock_eq:
-        resp = await api_client.post(
+        resp = await authenticated_client.post(
             f"/projects/{project.id}/errors/{error.id}/fix",
             follow_redirects=False,
         )
@@ -27,13 +27,15 @@ async def test_trigger_fix_happy_path(api_client, factory):
 
 
 @pytest.mark.asyncio
-async def test_trigger_fix_project_not_found(api_client, factory):
+async def test_trigger_fix_project_not_found(
+    authenticated_client, current_user, factory
+):
     """404 when project does not exist."""
-    project = await factory(ProjectFactory)
+    project = await factory(ProjectFactory, user_id=current_user.id)
     error = await factory(ErrorFactory, project_id=project.id)
     fake_id = uuid.uuid4()
     with patch(_ENQUEUE, new_callable=AsyncMock):
-        resp = await api_client.post(
+        resp = await authenticated_client.post(
             f"/projects/{fake_id}/errors/{error.id}/fix",
             follow_redirects=False,
         )
@@ -41,12 +43,12 @@ async def test_trigger_fix_project_not_found(api_client, factory):
 
 
 @pytest.mark.asyncio
-async def test_trigger_fix_error_not_found(api_client, factory):
+async def test_trigger_fix_error_not_found(authenticated_client, current_user, factory):
     """404 when error does not exist."""
-    project = await factory(ProjectFactory)
+    project = await factory(ProjectFactory, user_id=current_user.id)
     fake_id = uuid.uuid4()
     with patch(_ENQUEUE, new_callable=AsyncMock):
-        resp = await api_client.post(
+        resp = await authenticated_client.post(
             f"/projects/{project.id}/errors/{fake_id}/fix",
             follow_redirects=False,
         )
@@ -54,55 +56,34 @@ async def test_trigger_fix_error_not_found(api_client, factory):
 
 
 @pytest.mark.asyncio
-async def test_trigger_fix_error_not_open(api_client, factory):
+async def test_trigger_fix_error_not_open(authenticated_client, current_user, factory):
     """400 when error is not OPEN."""
-    project = await factory(ProjectFactory)
+    project = await factory(ProjectFactory, user_id=current_user.id)
     error = await factory(
         ErrorFactory, project_id=project.id, status=ErrorStatus.IGNORED
     )
 
     with patch(_ENQUEUE, new_callable=AsyncMock):
-        resp = await api_client.post(
+        resp = await authenticated_client.post(
             f"/projects/{project.id}/errors/{error.id}/fix",
             follow_redirects=False,
         )
         assert resp.status_code == 400
 
 
-# @pytest.mark.asyncio
-# async def test_trigger_fix_active_attempt_exists(
-#     api_client, project, error, db_session
-# ):
-#     """409 when a fix attempt is already in progress."""
-#     # This check is temporarily disabled in the route
-#     # (has_active_fix_attempt commented out).
-#     fa = FixAttempt(
-#         error_id=error.id,
-#         branch_name="oopsie/fix-existing",
-#         status=FixAttemptStatus.RUNNING,
-#     )
-#     db_session.add(fa)
-#     await db_session.flush()
-#
-#     with patch(_ENQUEUE, new_callable=AsyncMock):
-#         resp = await api_client.post(
-#             f"/projects/{project.id}/errors/{error.id}/fix",
-#             follow_redirects=False,
-#         )
-#         assert resp.status_code == 409
-
-
 @pytest.mark.asyncio
-async def test_trigger_fix_error_different_project(api_client, factory):
+async def test_trigger_fix_error_different_project(
+    authenticated_client, current_user, factory
+):
     """404 when error belongs to a different project."""
-    project = await factory(ProjectFactory)
-    other_project = await factory(ProjectFactory)
+    project = await factory(ProjectFactory, user_id=current_user.id)
+    other_project = await factory(ProjectFactory, user_id=current_user.id)
     other_error = await factory(
         ErrorFactory, project_id=other_project.id, fingerprint="fp-other"
     )
 
     with patch(_ENQUEUE, new_callable=AsyncMock):
-        resp = await api_client.post(
+        resp = await authenticated_client.post(
             f"/projects/{project.id}/errors/{other_error.id}/fix",
             follow_redirects=False,
         )
@@ -110,10 +91,12 @@ async def test_trigger_fix_error_different_project(api_client, factory):
 
 
 @pytest.mark.asyncio
-async def test_errors_page_includes_fix_statuses(api_client, factory):
+async def test_errors_page_includes_fix_statuses(
+    authenticated_client, current_user, factory
+):
     """GET errors page renders with fix button."""
-    project = await factory(ProjectFactory)
+    project = await factory(ProjectFactory, user_id=current_user.id)
     await factory(ErrorFactory, project_id=project.id)
-    resp = await api_client.get(f"/projects/{project.id}/errors")
+    resp = await authenticated_client.get(f"/projects/{project.id}/errors")
     assert resp.status_code == 200
     assert "Fix" in resp.text

@@ -5,7 +5,18 @@ from oopsie.config import get_settings
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
 from oopsie.models.project import Project
+from oopsie.models.user import User
 from oopsie.utils.encryption import encrypt_value, hash_api_key
+
+
+class UserFactory(factory.Factory):
+    class Meta:
+        model = User
+
+    email = factory.Sequence(lambda n: f"user-{n}@example.com")
+    name = factory.Sequence(lambda n: f"User {n}")
+    google_sub = factory.Sequence(lambda n: f"google-sub-{n}")
+    avatar_url = None
 
 
 class ProjectFactory(factory.Factory):

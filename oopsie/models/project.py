@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -34,6 +34,11 @@ class Project(Base):
         onupdate=func.now(),
     )
 
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+
     errors = relationship(
         "Error", back_populates="project", cascade="all, delete-orphan"
     )
+    user = relationship("User", back_populates="projects")

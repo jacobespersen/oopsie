@@ -24,6 +24,9 @@ dependencies = [
     "arq",
     "redis[hiredis]",
     "httpx",
+    "authlib",
+    "pyjwt",
+    "itsdangerous",
 ]
 
 [project.optional-dependencies]

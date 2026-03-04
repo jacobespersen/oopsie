@@ -8,10 +8,11 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.api.deps import get_session
+from oopsie.api.deps import get_current_user, get_session
 from oopsie.config import get_settings
 from oopsie.logging import logger
 from oopsie.models.project import Project
+from oopsie.models.user import User
 from oopsie.utils.encryption import encrypt_value, hash_api_key
 
 router = APIRouter()
@@ -41,9 +42,14 @@ class ProjectUpdateBody(BaseModel):
 @router.get("/")
 async def list_projects(
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """List all projects."""
-    result = await session.execute(select(Project).order_by(Project.created_at.desc()))
+    """List projects owned by the current user."""
+    result = await session.execute(
+        select(Project)
+        .where(Project.user_id == current_user.id)
+        .order_by(Project.created_at.desc())
+    )
     projects = result.scalars().all()
     return [
         {
@@ -62,9 +68,14 @@ async def list_projects(
 async def get_project(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """Get a project by id. Does not include api_key or github_token."""
-    result = await session.execute(select(Project).where(Project.id == project_id))
+    """Get a project by id (must be owned by current user)."""
+    result = await session.execute(
+        select(Project).where(
+            Project.id == project_id, Project.user_id == current_user.id
+        )
+    )
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -84,8 +95,9 @@ async def get_project(
 async def create_project(
     body: ProjectCreateBody,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """Create a project and return its api_key (unauthenticated)."""
+    """Create a project owned by the current user and return its api_key."""
     settings = get_settings()
     api_key = secrets.token_urlsafe(32)
     project = Project(
@@ -97,6 +109,7 @@ async def create_project(
         default_branch=body.default_branch,
         error_threshold=body.error_threshold,
         api_key_hash=hash_api_key(api_key),
+        user_id=current_user.id,
     )
     session.add(project)
     await session.flush()
@@ -113,9 +126,14 @@ async def update_project(
     project_id: uuid.UUID,
     body: ProjectUpdateBody,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """Update a project."""
-    result = await session.execute(select(Project).where(Project.id == project_id))
+    """Update a project (must be owned by current user)."""
+    result = await session.execute(
+        select(Project).where(
+            Project.id == project_id, Project.user_id == current_user.id
+        )
+    )
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -143,9 +161,14 @@ async def update_project(
 async def delete_project(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
-    """Delete a project."""
-    result = await session.execute(select(Project).where(Project.id == project_id))
+    """Delete a project (must be owned by current user)."""
+    result = await session.execute(
+        select(Project).where(
+            Project.id == project_id, Project.user_id == current_user.id
+        )
+    )
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")

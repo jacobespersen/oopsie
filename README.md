@@ -25,13 +25,30 @@ Oopsie is a self-hosted service that receives error reports from applications, t
    pip install -e ".[dev]"
    ```
 
-4. Copy the example env file and edit if needed:
+4. Copy the example env file and fill in the required values:
 
    ```bash
    cp .env.example .env
    ```
 
-5. Start Postgres and apply migrations:
+   Generate the required secrets:
+
+   ```bash
+   # Fernet key for encrypting GitHub tokens
+   python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
+
+   # JWT secret for session tokens (min 32 characters)
+   python -c 'import secrets; print(secrets.token_urlsafe(64))'
+   ```
+
+5. Set up Google OAuth (required for login):
+
+   - Go to [Google Cloud Console — Credentials](https://console.cloud.google.com/apis/credentials)
+   - Create an **OAuth 2.0 Client ID** (application type: Web application)
+   - Add `http://localhost:8000/auth/callback` as an authorized redirect URI
+   - Copy the client ID and secret into your `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+
+6. Start Postgres and apply migrations:
 
    ```bash
    docker compose up -d

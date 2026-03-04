@@ -18,6 +18,22 @@
     <div class="Header-item">
       <a href="/projects/new" class="Header-link">New Project</a>
     </div>
+    <div class="Header-item Header-item--full"></div>
+    {% if user %}
+    <div class="Header-item d-flex flex-items-center gap-2">
+      {% if user.avatar_url %}
+      <img src="{{ user.avatar_url }}" alt="{{ user.name }}" width="24" height="24" class="avatar circle">
+      {% endif %}
+      <span class="Header-link color-fg-on-emphasis f6">{{ user.name }}</span>
+    </div>
+    <div class="Header-item">
+      <form method="post" action="/auth/logout" style="margin: 0;">
+        <button type="submit" class="Header-link btn-link f6" style="background: none; border: none; cursor: pointer; color: inherit;">
+          Sign out
+        </button>
+      </form>
+    </div>
+    {% endif %}
   </header>
   <main class="container-lg p-responsive py-4">
     {% block content %}{% endblock %}

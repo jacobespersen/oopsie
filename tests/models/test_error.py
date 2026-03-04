@@ -62,9 +62,7 @@ async def test_error_project_relationship(db_session, factory):
     error = await factory(ErrorFactory, project_id=project.id)
 
     result = await db_session.execute(
-        select(Error)
-        .where(Error.id == error.id)
-        .options(selectinload(Error.project))
+        select(Error).where(Error.id == error.id).options(selectinload(Error.project))
     )
     error_loaded = result.scalar_one()
     assert error_loaded.project.id == project.id

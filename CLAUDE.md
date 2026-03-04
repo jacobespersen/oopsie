@@ -9,6 +9,7 @@ AI-powered error fix service that receives error reports and generates fix PRs u
 - **Think before scaffolding** — before creating new files, modules, or abstractions, check if an existing one already covers the need. Prefer extending over duplicating.
 - **Consistent patterns** — follow the patterns already established in the codebase. When in doubt, look at how similar things are already done.
 - **Ask, don't assume** — if instructions are ambiguous or incomplete, ask for clarification before proceeding. A quick question is always better than building the wrong thing.
+- **Consider conventions before implementing** — before writing code, think about established conventions for file organisation, directory structure, and separation of concerns. Don't default to the quickest approach if a better one is standard practice. For example: CSS belongs in `static/css/`, not inline in HTML or at the root of `static/`; JS belongs in `static/js/`; etc.
 
 ## Setup
 

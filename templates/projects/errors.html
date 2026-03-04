@@ -1,53 +1,63 @@
 {% extends "base.html" %}
 {% block title %}Errors - {{ project.name }} - Oopsie{% endblock %}
 {% block content %}
-<h1>Errors: {{ project.name }}</h1>
-<p><a href="/projects/{{ project.id }}/edit">Edit Project</a> · <a href="/projects">Back to Projects</a></p>
+<div class="d-flex flex-items-center flex-justify-between mb-3">
+  <h1 class="f2">Errors: {{ project.name }}</h1>
+  <div class="d-flex gap-2">
+    <a href="/projects/{{ project.id }}/edit" class="btn">Edit Project</a>
+    <a href="/projects" class="btn">Back to Projects</a>
+  </div>
+</div>
 
 {% if errors %}
-<table>
-  <thead>
-    <tr>
-      <th>Error Class</th>
-      <th>Message</th>
-      <th>Count</th>
-      <th>Status</th>
-      <th>Last Seen</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for e in errors %}
-    <tr>
-      <td><a href="/projects/{{ project.id }}/errors/{{ e.id }}">{{ e.error_class }}</a></td>
-      <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ e.message }}">{{ e.message[:80] }}{% if e.message|length > 80 %}…{% endif %}</td>
-      <td>{{ e.occurrence_count }}</td>
-      <td>{{ e.status }}</td>
-      <td>{{ e.last_seen_at.strftime('%Y-%m-%d %H:%M') if e.last_seen_at else '-' }}</td>
-      <td>
-        {% set fix_status = fix_statuses.get(e.id) %}
-        {% if e.status == 'open' and fix_status not in ['pending', 'running'] %}
-        <form action="/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline;">
-          <button type="submit" class="btn btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
-        </form>
-        {% elif fix_status == 'pending' %}
-        <span class="badge badge-warning">Queued</span>
-        {% elif fix_status == 'running' %}
-        <span class="badge badge-info">Fixing...</span>
-        {% elif fix_status == 'success' %}
-        <span class="badge badge-success">Fixed</span>
-        {% elif fix_status == 'failed' %}
-        <span class="badge badge-danger">Failed</span>
-        <form action="/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline; margin-left: 0.5rem;">
-          <button type="submit" class="btn btn-secondary">Retry</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="Box">
+  <table class="width-full oopsie-table">
+    <thead>
+      <tr style="border-bottom:1px solid var(--borderColor-default);">
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Error Class</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Message</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Count</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Status</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Last Seen</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in errors %}
+      <tr style="border-top:1px solid var(--borderColor-muted);">
+        <td class="px-3 py-2"><a href="/projects/{{ project.id }}/errors/{{ e.id }}">{{ e.error_class }}</a></td>
+        <td class="px-3 py-2 col-truncate" style="max-width:300px;" title="{{ e.message }}">{{ e.message[:80] }}{% if e.message|length > 80 %}…{% endif %}</td>
+        <td class="px-3 py-2">{{ e.occurrence_count }}</td>
+        <td class="px-3 py-2">{{ e.status }}</td>
+        <td class="px-3 py-2 col-nowrap">{{ e.last_seen_at.strftime('%Y-%m-%d %H:%M') if e.last_seen_at else '-' }}</td>
+        <td class="px-3 py-2 col-nowrap">
+          {% set fix_status = fix_statuses.get(e.id) %}
+          {% if e.status == 'open' and fix_status not in ['pending', 'running'] %}
+          <form action="/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
+          </form>
+          {% elif fix_status == 'pending' %}
+          <span class="Label Label--attention">Queued</span>
+          {% elif fix_status == 'running' %}
+          <span class="Label Label--accent">Fixing...</span>
+          {% elif fix_status == 'success' %}
+          <span class="Label Label--success">Fixed</span>
+          {% elif fix_status == 'failed' %}
+          <span class="Label Label--danger">Failed</span>
+          <form action="/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline;margin-left:0.5rem;">
+            <button type="submit" class="btn btn-sm">Retry</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% else %}
-<p>No errors recorded for this project yet.</p>
+<div class="blankslate blankslate-border-dashed">
+  <h2 class="blankslate-heading">No errors yet</h2>
+  <p>No errors have been recorded for this project.</p>
+</div>
 {% endif %}
 {% endblock %}

@@ -1,27 +1,48 @@
 {% extends "base.html" %}
 {% block title %}{{ error.error_class }} - {{ project.name }} - Oopsie{% endblock %}
 {% block content %}
-<h1>{{ error.error_class }}</h1>
-<p><a href="/projects/{{ project.id }}/errors">Back to Errors</a> · <a href="/projects/{{ project.id }}/edit">Edit Project</a></p>
+<div class="d-flex gap-2 mb-3">
+  <a href="/projects/{{ project.id }}/errors" class="btn">Back to Errors</a>
+  <a href="/projects/{{ project.id }}/edit" class="btn">Edit Project</a>
+</div>
 
-<section>
-  <h2>Error Details</h2>
-  <table style="table-layout: auto;">
+<h1 class="f2 mb-3">{{ error.error_class }}</h1>
+
+<div class="Box mb-4">
+  <div class="Box-header">
+    <h2 class="Box-title">Error Details</h2>
+  </div>
+  <table class="width-full oopsie-table">
     <tbody>
-      <tr><th>Status</th><td>{{ error.status }}</td></tr>
-      <tr><th>Occurrences</th><td>{{ error.occurrence_count }}</td></tr>
-      <tr><th>First Seen</th><td>{{ error.first_seen_at.strftime('%Y-%m-%d %H:%M UTC') if error.first_seen_at else '-' }}</td></tr>
-      <tr><th>Last Seen</th><td>{{ error.last_seen_at.strftime('%Y-%m-%d %H:%M UTC') if error.last_seen_at else '-' }}</td></tr>
-      <tr><th>Message</th><td>{{ error.message }}</td></tr>
+      <tr style="border-top:1px solid var(--borderColor-muted);">
+        <th class="px-3 py-2 color-bg-subtle text-left detail-col-label" style="font-weight:600;">Status</th>
+        <td class="px-3 py-2">{{ error.status }}</td>
+      </tr>
+      <tr style="border-top:1px solid var(--borderColor-muted);">
+        <th class="px-3 py-2 color-bg-subtle text-left" style="font-weight:600;">Occurrences</th>
+        <td class="px-3 py-2">{{ error.occurrence_count }}</td>
+      </tr>
+      <tr style="border-top:1px solid var(--borderColor-muted);">
+        <th class="px-3 py-2 color-bg-subtle text-left" style="font-weight:600;">First Seen</th>
+        <td class="px-3 py-2">{{ error.first_seen_at.strftime('%Y-%m-%d %H:%M UTC') if error.first_seen_at else '-' }}</td>
+      </tr>
+      <tr style="border-top:1px solid var(--borderColor-muted);">
+        <th class="px-3 py-2 color-bg-subtle text-left" style="font-weight:600;">Last Seen</th>
+        <td class="px-3 py-2">{{ error.last_seen_at.strftime('%Y-%m-%d %H:%M UTC') if error.last_seen_at else '-' }}</td>
+      </tr>
+      <tr style="border-top:1px solid var(--borderColor-muted);">
+        <th class="px-3 py-2 color-bg-subtle text-left" style="font-weight:600;">Message</th>
+        <td class="px-3 py-2">{{ error.message }}</td>
+      </tr>
     </tbody>
   </table>
-
   {% if error.stack_trace %}
-  <h3>Stack Trace</h3>
-  <pre style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:4px; padding:1rem; overflow-x:auto; white-space:pre-wrap; word-break:break-word; font-size:0.8rem;">{{ error.stack_trace }}</pre>
+  <div class="Box-body border-top">
+    <p class="f6 color-fg-muted text-uppercase mb-2" style="font-weight:600;">Stack Trace</p>
+    <pre class="p-3 rounded-2 overflow-auto f6 color-bg-subtle pre-wrap">{{ error.stack_trace }}</pre>
+  </div>
   {% endif %}
-
-  <div class="actions">
+  <div class="Box-footer d-flex gap-2">
     {% if fix_attempts %}
       {% set latest = fix_attempts[0] %}
       {% if error.status == 'open' and latest.status not in ['pending', 'running'] %}
@@ -30,12 +51,12 @@
       </form>
       {% elif latest.status == 'failed' %}
       <form action="/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
-        <button type="submit" class="btn btn-secondary">Retry</button>
+        <button type="submit" class="btn">Retry</button>
       </form>
       {% elif latest.status == 'pending' %}
-      <span class="badge badge-warning">Queued</span>
+      <span class="Label Label--attention">Queued</span>
       {% elif latest.status == 'running' %}
-      <span class="badge badge-info">Fixing...</span>
+      <span class="Label Label--accent">Fixing...</span>
       {% endif %}
     {% elif error.status == 'open' %}
     <form action="/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
@@ -43,46 +64,48 @@
     </form>
     {% endif %}
   </div>
-</section>
+</div>
 
-<section style="margin-top:2rem;">
-  <h2>Fix Attempts</h2>
+<div class="Box">
+  <div class="Box-header">
+    <h2 class="Box-title">Fix Attempts</h2>
+  </div>
   {% if fix_attempts %}
-  <table>
+  <table class="width-full oopsie-table">
     <thead>
-      <tr>
-        <th>Status</th>
-        <th>Branch</th>
-        <th>PR</th>
-        <th>Started</th>
-        <th>Duration</th>
-        <th>Claude Output</th>
+      <tr style="border-bottom:1px solid var(--borderColor-default);">
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Status</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Branch</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">PR</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Started</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Duration</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase" style="font-weight:600;">Claude Output</th>
       </tr>
     </thead>
     <tbody>
       {% for fa in fix_attempts %}
-      <tr>
-        <td>
-          {% if fa.status == 'pending' %}<span class="badge badge-warning">Pending</span>
-          {% elif fa.status == 'running' %}<span class="badge badge-info">Running</span>
-          {% elif fa.status == 'success' %}<span class="badge badge-success">Success</span>
-          {% elif fa.status == 'failed' %}<span class="badge badge-danger">Failed</span>
+      <tr style="border-top:1px solid var(--borderColor-muted);">
+        <td class="px-3 py-2">
+          {% if fa.status == 'pending' %}<span class="Label Label--attention">Pending</span>
+          {% elif fa.status == 'running' %}<span class="Label Label--accent">Running</span>
+          {% elif fa.status == 'success' %}<span class="Label Label--success">Success</span>
+          {% elif fa.status == 'failed' %}<span class="Label Label--danger">Failed</span>
           {% else %}{{ fa.status }}{% endif %}
         </td>
-        <td style="font-family:monospace; font-size:0.85rem;">{{ fa.branch_name or '-' }}</td>
-        <td>{% if fa.pr_url %}<a href="{{ fa.pr_url }}" target="_blank" rel="noopener">PR</a>{% else %}-{% endif %}</td>
-        <td>{{ fa.started_at.strftime('%Y-%m-%d %H:%M') if fa.started_at else '-' }}</td>
-        <td>
+        <td class="px-3 py-2"><span class="text-mono f6">{{ fa.branch_name or '-' }}</span></td>
+        <td class="px-3 py-2">{% if fa.pr_url %}<a href="{{ fa.pr_url }}" target="_blank" rel="noopener">PR</a>{% else %}-{% endif %}</td>
+        <td class="px-3 py-2 col-nowrap">{{ fa.started_at.strftime('%Y-%m-%d %H:%M') if fa.started_at else '-' }}</td>
+        <td class="px-3 py-2">
           {% if fa.started_at and fa.completed_at %}
             {% set duration = (fa.completed_at - fa.started_at).total_seconds()|int %}
             {{ duration }}s
           {% else %}-{% endif %}
         </td>
-        <td>
+        <td class="px-3 py-2">
           {% if fa.claude_output %}
           <details>
-            <summary style="cursor:pointer; font-size:0.875rem;">Show output</summary>
-            <pre style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:4px; padding:0.75rem; margin-top:0.5rem; overflow-x:auto; white-space:pre-wrap; word-break:break-word; font-size:0.75rem;">{{ fa.claude_output }}</pre>
+            <summary class="f6" style="cursor:pointer;">Show output</summary>
+            <pre class="color-bg-subtle p-3 rounded-2 mt-2 overflow-auto f6 pre-wrap">{{ fa.claude_output }}</pre>
           </details>
           {% else %}-{% endif %}
         </td>
@@ -91,7 +114,9 @@
     </tbody>
   </table>
   {% else %}
-  <p>No fix attempts yet.</p>
+  <div class="Box-body">
+    <p class="color-fg-muted">No fix attempts yet.</p>
+  </div>
   {% endif %}
-</section>
+</div>
 {% endblock %}

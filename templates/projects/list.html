@@ -1,38 +1,49 @@
 {% extends "base.html" %}
 {% block title %}Projects - Oopsie{% endblock %}
 {% block content %}
-<h1>Projects</h1>
+<div class="d-flex flex-items-center flex-justify-between mb-3">
+  <h1 class="f2">Projects</h1>
+  <a href="/projects/new" class="btn btn-primary">New Project</a>
+</div>
 {% if projects %}
-<table>
-  <thead>
-    <tr>
-      <th class="col-name">Name</th>
-      <th class="col-repo">GitHub Repo</th>
-      <th class="col-branch">Default Branch</th>
-      <th class="col-threshold">Error Threshold</th>
-      <th class="col-actions">Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for p in projects %}
-    <tr>
-      <td class="col-name">{{ p.name }}</td>
-      <td class="col-repo" title="{{ p.github_repo_url }}"><a href="{{ p.github_repo_url }}" target="_blank" rel="noopener">{{ p.github_repo_url }}</a></td>
-      <td class="col-branch">{{ p.default_branch }}</td>
-      <td class="col-threshold">{{ p.error_threshold }}</td>
-      <td class="col-actions">
-        <a href="/projects/{{ p.id }}/errors">Errors</a>
-        <a href="/projects/{{ p.id }}/api-key" style="margin-left: 0.5rem;">API Key</a>
-        <a href="/projects/{{ p.id }}/edit" style="margin-left: 0.5rem;">Edit</a>
-        <form action="/projects/{{ p.id }}/delete" method="post" style="display:inline; margin-left: 0.5rem;">
-          <button type="submit" class="btn btn-danger" onclick="return confirm('Delete this project?');">Delete</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="Box">
+  <table class="width-full oopsie-table-fixed">
+    <thead>
+      <tr style="border-bottom:1px solid var(--borderColor-default);">
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-name" style="font-weight:600;">Name</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-repo" style="font-weight:600;">GitHub Repo</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-branch" style="font-weight:600;">Branch</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-threshold" style="font-weight:600;">Threshold</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-actions" style="font-weight:600;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in projects %}
+      <tr style="border-top:1px solid var(--borderColor-muted);">
+        <td class="px-3 py-2 col-truncate">{{ p.name }}</td>
+        <td class="px-3 py-2 col-truncate" title="{{ p.github_repo_url }}">
+          <a href="{{ p.github_repo_url }}" target="_blank" rel="noopener" class="col-truncate" style="display:block;">{{ p.github_repo_url }}</a>
+        </td>
+        <td class="px-3 py-2">{{ p.default_branch }}</td>
+        <td class="px-3 py-2">{{ p.error_threshold }}</td>
+        <td class="px-3 py-2 col-nowrap">
+          <a href="/projects/{{ p.id }}/errors" class="btn btn-sm">Errors</a>
+          <a href="/projects/{{ p.id }}/api-key" class="btn btn-sm">API Key</a>
+          <a href="/projects/{{ p.id }}/edit" class="btn btn-sm">Edit</a>
+          <form action="/projects/{{ p.id }}/delete" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this project?');">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% else %}
-<p>No projects yet. <a href="/projects/new">Create your first project</a>.</p>
+<div class="blankslate blankslate-border-dashed">
+  <h2 class="blankslate-heading">No projects yet</h2>
+  <p>Get started by creating your first project.</p>
+  <a href="/projects/new" class="btn btn-primary">Create a project</a>
+</div>
 {% endif %}
 {% endblock %}

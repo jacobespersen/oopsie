@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from oopsie.api.errors import router as errors_router
 from oopsie.api.projects import router as projects_router
@@ -29,6 +30,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(errors_router, prefix="/api/v1/errors", tags=["errors"])

@@ -1,0 +1,36 @@
+/* Table base */
+.oopsie-table {
+  border-collapse: collapse;
+}
+
+.oopsie-table-fixed {
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* Text truncation */
+.col-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-nowrap {
+  white-space: nowrap;
+}
+
+/* Pre-formatted content */
+.pre-wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Projects table column widths */
+.projects-col-name      { width: 16%; }
+.projects-col-repo      { width: 28%; }
+.projects-col-branch    { width: 11%; }
+.projects-col-threshold { width: 10%; }
+.projects-col-actions   { width: 35%; }
+
+/* Error detail key column */
+.detail-col-label { width: 160px; }

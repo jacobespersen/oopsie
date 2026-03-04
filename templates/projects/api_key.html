@@ -1,24 +1,32 @@
 {% extends "base.html" %}
 {% block title %}API Key - {{ project.name }} - Oopsie{% endblock %}
 {% block content %}
-<h1>API Key: {{ project.name }}</h1>
+<h1 class="f2 mb-3">API Key: {{ project.name }}</h1>
 {% if api_key %}
 {% if just_regenerated %}
-<p class="help">Your new API key has been generated. <strong>Copy it now</strong> — the old key no longer works.</p>
+<div class="flash flash-warn mb-3">
+  Your new API key has been generated. <strong>Copy it now</strong> — the old key no longer works.
+</div>
 {% else %}
-<p><strong>Copy this key now — you will not be able to see it again.</strong></p>
+<div class="flash flash-warn mb-3">
+  <strong>Copy this key now — you will not be able to see it again.</strong>
+</div>
 {% endif %}
-<pre style="background: #f3f4f6; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.875rem;">{{ api_key }}</pre>
+<div class="Box mb-3">
+  <div class="Box-body">
+    <pre class="f6 overflow-auto">{{ api_key }}</pre>
+  </div>
+</div>
 {% else %}
-<p>Your API key is hidden. It was shown only once when the project was created or last regenerated.</p>
-<p>If you have lost your key, regenerate a new one below.</p>
+<p class="mb-3">Your API key is hidden. It was shown only once when the project was created or last regenerated.</p>
+<p class="mb-3">If you have lost your key, regenerate a new one below.</p>
 {% endif %}
-<form action="/projects/{{ project.id }}/regenerate-api-key" method="post" style="margin-top: 1rem;">
+<form action="/projects/{{ project.id }}/regenerate-api-key" method="post" class="mb-3">
   <button type="submit" class="btn btn-danger" onclick="return confirm('Regenerate API key? The current key will stop working immediately.');">Regenerate API Key</button>
 </form>
-<div class="actions" style="margin-top: 1.5rem;">
-  <a href="/projects/{{ project.id }}/errors">View Errors</a>
-  <a href="/projects/{{ project.id }}/edit">Edit Project</a>
-  <a href="/projects">Back to Projects</a>
+<div class="d-flex gap-2">
+  <a href="/projects/{{ project.id }}/errors" class="btn btn-invisible">View Errors</a>
+  <a href="/projects/{{ project.id }}/edit" class="btn btn-invisible">Edit Project</a>
+  <a href="/projects" class="btn btn-invisible">Back to Projects</a>
 </div>
 {% endblock %}

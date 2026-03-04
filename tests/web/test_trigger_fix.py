@@ -70,7 +70,9 @@ async def test_trigger_fix_error_not_open(api_client, factory):
 
 
 # @pytest.mark.asyncio
-# async def test_trigger_fix_active_attempt_exists(api_client, project, error, db_session):
+# async def test_trigger_fix_active_attempt_exists(
+#     api_client, project, error, db_session
+# ):
 #     """409 when a fix attempt is already in progress."""
 #     # This check is temporarily disabled in the route
 #     # (has_active_fix_attempt commented out).

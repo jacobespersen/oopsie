@@ -19,7 +19,6 @@ from oopsie.queue import enqueue_fix_job
 from oopsie.services.fix_service import (
     get_fix_attempt_status_for_errors,
     get_fix_attempts_for_error,
-    has_active_fix_attempt,
 )
 from oopsie.utils.encryption import encrypt_value, hash_api_key
 

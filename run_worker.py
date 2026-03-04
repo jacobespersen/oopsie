@@ -3,7 +3,6 @@
 import asyncio
 
 from arq.worker import run_worker
-
 from oopsie.worker.settings import WorkerSettings
 
 if __name__ == "__main__":

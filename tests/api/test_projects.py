@@ -8,10 +8,9 @@ from oopsie.models import Project
 from oopsie.utils.encryption import decrypt_value, hash_api_key
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from tests.factories import ErrorFactory, ProjectFactory
 
 _settings = Settings()
-
-# --- API endpoints (/api/v1/projects) ---
 
 
 @pytest.mark.asyncio
@@ -23,8 +22,14 @@ async def test_list_projects_empty(api_client):
 
 
 @pytest.mark.asyncio
-async def test_list_projects(api_client, project_with_api_key):
+async def test_list_projects(api_client, factory):
     """GET /api/v1/projects returns projects without sensitive fields."""
+    await factory(
+        ProjectFactory,
+        name="test-project",
+        github_repo_url="https://github.com/org/repo",
+        api_key_hash=hash_api_key("test-api-key-123"),
+    )
     response = await api_client.get("/api/v1/projects")
     assert response.status_code == 200
     data = response.json()
@@ -39,9 +44,10 @@ async def test_list_projects(api_client, project_with_api_key):
 
 
 @pytest.mark.asyncio
-async def test_get_project(api_client, project_with_api_key):
+async def test_get_project(api_client, factory):
     """GET /api/v1/projects/{id} returns project."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory, name="test-project")
+    pid = str(project.id)
     response = await api_client.get(f"/api/v1/projects/{pid}")
     assert response.status_code == 200
     data = response.json()
@@ -82,9 +88,10 @@ async def test_create_project(api_client, db_session: AsyncSession):
     assert project.name == "my-app"
     assert project.github_repo_url == "https://github.com/user/repo"
     # github_token is now encrypted in the DB
-    assert decrypt_value(
-        project.github_token_encrypted, _settings.encryption_key
-    ) == "ghp_secret"
+    assert (
+        decrypt_value(project.github_token_encrypted, _settings.encryption_key)
+        == "ghp_secret"
+    )
     # api_key is hashed — the hash of the returned key should match the DB
     assert project.api_key_hash == hash_api_key(data["api_key"])
 
@@ -119,15 +126,17 @@ async def test_create_project_with_optional_fields(
     )
     project = result.scalar_one()
     assert project.name == "optional-fields-app"
-    assert decrypt_value(
-        project.github_token_encrypted, _settings.encryption_key
-    ) == "ghp_custom_token"
+    assert (
+        decrypt_value(project.github_token_encrypted, _settings.encryption_key)
+        == "ghp_custom_token"
+    )
 
 
 @pytest.mark.asyncio
-async def test_update_project(api_client, project_with_api_key):
+async def test_update_project(api_client, factory):
     """PUT /api/v1/projects/{id} updates project."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory)
+    pid = str(project.id)
     response = await api_client.put(
         f"/api/v1/projects/{pid}",
         json={
@@ -155,16 +164,15 @@ async def test_update_project_not_found(api_client):
 
 
 @pytest.mark.asyncio
-async def test_delete_project(
-    api_client, db_session: AsyncSession, project_with_api_key
-):
+async def test_delete_project(api_client, db_session: AsyncSession, factory):
     """DELETE /api/v1/projects/{id} removes project."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory)
+    pid = str(project.id)
     response = await api_client.delete(f"/api/v1/projects/{pid}")
     assert response.status_code == 204
 
     result = await db_session.execute(
-        select(Project).where(Project.id == project_with_api_key.id)
+        select(Project).where(Project.id == project.id)
     )
     assert result.scalar_one_or_none() is None
 
@@ -190,8 +198,13 @@ async def test_web_list_projects_page(api_client):
 
 
 @pytest.mark.asyncio
-async def test_web_list_projects_shows_project(api_client, project_with_api_key):
+async def test_web_list_projects_shows_project(api_client, factory):
     """GET /projects lists existing projects."""
+    await factory(
+        ProjectFactory,
+        name="test-project",
+        github_repo_url="https://github.com/org/repo",
+    )
     response = await api_client.get("/projects")
     assert response.status_code == 200
     assert b"test-project" in response.content
@@ -256,9 +269,10 @@ async def test_web_create_project_and_verify(api_client, db_session: AsyncSessio
 
 
 @pytest.mark.asyncio
-async def test_web_edit_project_page(api_client, project_with_api_key):
+async def test_web_edit_project_page(api_client, factory):
     """GET /projects/{id}/edit returns edit form."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory, name="test-project")
+    pid = str(project.id)
     response = await api_client.get(f"/projects/{pid}/edit")
     assert response.status_code == 200
     assert b"Edit Project" in response.content
@@ -274,9 +288,10 @@ async def test_web_edit_project_not_found(api_client):
 
 
 @pytest.mark.asyncio
-async def test_web_update_project(api_client, project_with_api_key):
+async def test_web_update_project(api_client, factory):
     """POST /projects/{id} updates project and redirects to list."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory)
+    pid = str(project.id)
     response = await api_client.post(
         f"/projects/{pid}",
         data={
@@ -301,10 +316,11 @@ async def test_web_update_project(api_client, project_with_api_key):
 
 @pytest.mark.asyncio
 async def test_web_update_project_with_new_token(
-    api_client, db_session: AsyncSession, project_with_api_key
+    api_client, db_session: AsyncSession, factory
 ):
     """POST /projects/{id} with non-empty github_token updates the token."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory)
+    pid = str(project.id)
     response = await api_client.post(
         f"/projects/{pid}",
         data={
@@ -319,22 +335,22 @@ async def test_web_update_project_with_new_token(
     assert response.status_code == 303
 
     result = await db_session.execute(
-        select(Project).where(Project.id == project_with_api_key.id)
+        select(Project).where(Project.id == project.id)
     )
-    project = result.scalar_one()
-    assert project.name == "updated-with-token"
-    assert decrypt_value(
-        project.github_token_encrypted, _settings.encryption_key
-    ) == "ghp_new_token_value"
-    assert project.error_threshold == 25
+    db_project = result.scalar_one()
+    assert db_project.name == "updated-with-token"
+    assert (
+        decrypt_value(db_project.github_token_encrypted, _settings.encryption_key)
+        == "ghp_new_token_value"
+    )
+    assert db_project.error_threshold == 25
 
 
 @pytest.mark.asyncio
-async def test_web_delete_project(
-    api_client, db_session: AsyncSession, project_with_api_key
-):
+async def test_web_delete_project(api_client, db_session: AsyncSession, factory):
     """POST /projects/{id}/delete removes project."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory)
+    pid = str(project.id)
     response = await api_client.post(
         f"/projects/{pid}/delete",
         follow_redirects=False,
@@ -343,7 +359,7 @@ async def test_web_delete_project(
     assert response.headers["location"] == "/projects"
 
     result = await db_session.execute(
-        select(Project).where(Project.id == project_with_api_key.id)
+        select(Project).where(Project.id == project.id)
     )
     assert result.scalar_one_or_none() is None
 
@@ -357,9 +373,10 @@ async def test_web_delete_project_not_found(api_client):
 
 
 @pytest.mark.asyncio
-async def test_web_api_key_page(api_client, project_with_api_key):
+async def test_web_api_key_page(api_client, factory):
     """GET /projects/{id}/api-key hidden message (key is hashed, not recoverable)."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory)
+    pid = str(project.id)
     response = await api_client.get(f"/projects/{pid}/api-key")
     assert response.status_code == 200
     assert b"hidden" in response.content
@@ -367,10 +384,10 @@ async def test_web_api_key_page(api_client, project_with_api_key):
 
 
 @pytest.mark.asyncio
-async def test_web_api_key_page_with_query_param(api_client, project_with_api_key):
+async def test_web_api_key_page_with_query_param(api_client, factory):
     """GET /projects/{id}/api-key?api_key= shows the given key after regenerate."""
-    pid = str(project_with_api_key.id)
-    # Use URL with query string so the view receives api_key and uses it (line 101)
+    project = await factory(ProjectFactory)
+    pid = str(project.id)
     response = await api_client.get(
         f"/projects/{pid}/api-key?api_key=new-key-from-query",
     )
@@ -388,32 +405,30 @@ async def test_web_regenerate_api_key_not_found(api_client):
 
 
 @pytest.mark.asyncio
-async def test_web_regenerate_api_key(
-    api_client, db_session: AsyncSession, project_with_api_key
-):
+async def test_web_regenerate_api_key(api_client, db_session: AsyncSession, factory):
     """POST /projects/{id}/regenerate-api-key updates key."""
-    pid = str(project_with_api_key.id)
-    old_hash = project_with_api_key.api_key_hash
+    project = await factory(ProjectFactory)
+    pid = str(project.id)
+    old_hash = project.api_key_hash
     response = await api_client.post(
         f"/projects/{pid}/regenerate-api-key",
         follow_redirects=True,
     )
     assert response.status_code == 200
-    content = response.content.decode()
-    assert "Regenerate" in content
+    assert "Regenerate" in response.content.decode()
 
-    # Verify DB has new key hash
     result = await db_session.execute(
-        select(Project).where(Project.id == project_with_api_key.id)
+        select(Project).where(Project.id == project.id)
     )
-    project = result.scalar_one()
-    assert project.api_key_hash != old_hash
+    db_project = result.scalar_one()
+    assert db_project.api_key_hash != old_hash
 
 
 @pytest.mark.asyncio
-async def test_web_created_page(api_client, project_with_api_key):
+async def test_web_created_page(api_client, factory):
     """GET /projects/{id}/created?api_key= shows API key (after create flow)."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory)
+    pid = str(project.id)
     response = await api_client.get(
         f"/projects/{pid}/created",
         params={"api_key": "test-api-key-123"},
@@ -432,9 +447,10 @@ async def test_root_redirects_to_projects(api_client):
 
 
 @pytest.mark.asyncio
-async def test_web_project_errors_page_empty(api_client, project_with_api_key):
+async def test_web_project_errors_page_empty(api_client, factory):
     """GET /projects/{id}/errors shows empty state when no errors."""
-    pid = str(project_with_api_key.id)
+    project = await factory(ProjectFactory, name="test-project")
+    pid = str(project.id)
     response = await api_client.get(f"/projects/{pid}/errors")
     assert response.status_code == 200
     assert b"project-with-errors" not in response.content
@@ -443,9 +459,18 @@ async def test_web_project_errors_page_empty(api_client, project_with_api_key):
 
 
 @pytest.mark.asyncio
-async def test_web_project_errors_page_with_errors(api_client, project_with_errors):
+async def test_web_project_errors_page_with_errors(api_client, factory):
     """GET /projects/{id}/errors lists errors for the project."""
-    pid = str(project_with_errors.id)
+    project = await factory(ProjectFactory, name="project-with-errors")
+    await factory(
+        ErrorFactory,
+        project_id=project.id,
+        error_class="NoMethodError",
+        message="undefined method 'foo' for nil:NilClass",
+        fingerprint="abc123def456",
+        occurrence_count=3,
+    )
+    pid = str(project.id)
     response = await api_client.get(f"/projects/{pid}/errors")
     assert response.status_code == 200
     assert b"project-with-errors" in response.content

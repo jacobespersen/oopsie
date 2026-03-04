@@ -3,13 +3,15 @@
 import os
 import warnings
 
-# Set a test encryption key before Settings is instantiated.
-os.environ.setdefault(
-    "ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
-)
+# Must be set before Settings is imported (it reads env vars at import time).
+# This is a dummy Fernet key for tests only — never use it outside of tests.
+os.environ.setdefault("ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U=")
 
+import httpx  # noqa: E402
 import pytest_asyncio  # noqa: E402
+from oopsie.api.deps import get_session  # noqa: E402
 from oopsie.config import Settings  # noqa: E402
+from oopsie.main import app  # noqa: E402
 from oopsie.models import Error, FixAttempt, Project  # noqa: F401
 from oopsie.models.base import Base
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -76,6 +78,38 @@ async def _ensure_test_database_exists() -> bool:
         None, _create_test_database_sync
     )
     return result
+
+
+@pytest_asyncio.fixture
+async def api_client(db_session: AsyncSession):
+    """Async HTTP client wired to the test DB session."""
+
+    async def override_get_session():
+        yield db_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            yield client
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+
+@pytest_asyncio.fixture
+def factory(db_session: AsyncSession):
+    """Persist a factory-built object and return it."""
+
+    async def _create(factory_cls, **kwargs):
+        obj = factory_cls.build(**kwargs)
+        db_session.add(obj)
+        await db_session.flush()
+        return obj
+
+    return _create
 
 
 @pytest_asyncio.fixture

@@ -1,6 +1,7 @@
 """Database setup: async engine and session for FastAPI."""
 
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -20,8 +21,9 @@ async_session_factory = async_sessionmaker(
 )
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency that yields an async DB session."""
+@asynccontextmanager
+async def worker_session() -> AsyncGenerator[AsyncSession, None]:
+    """Async context manager for DB sessions (FastAPI DI and worker jobs)."""
     async with async_session_factory() as session:
         try:
             yield session
@@ -32,3 +34,14 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
+
+
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI dependency that yields an async DB session."""
+    async with worker_session() as session:
+        yield session
+
+
+async def close_engine() -> None:
+    """Dispose of the engine (for worker shutdown)."""
+    await engine.dispose()

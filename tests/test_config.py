@@ -22,3 +22,14 @@ def test_get_test_database_url_derives_from_database_url_when_test_not_set():
     )
     url = settings.get_test_database_url()
     assert url == "postgresql+asyncpg://u:p@host:5432/oopsie_test"
+
+
+def test_worker_settings_defaults():
+    """Worker-related settings have sensible defaults."""
+    settings = Settings(
+        database_url="postgresql+asyncpg://u:p@host:5432/db",
+    )
+    assert settings.redis_url == "redis://localhost:6379"
+    assert settings.worker_concurrency == 3
+    assert settings.job_timeout_seconds == 600
+    assert settings.clone_base_path == "/tmp/oopsie-clones"

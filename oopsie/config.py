@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     log_level: str = "INFO"
     log_format: str = "json"
+    redis_url: str = ""
+    worker_concurrency: int = 3
+    job_timeout_seconds: int = 600
+    clone_base_path: str = "/tmp/oopsie-clones"
 
     @model_validator(mode="after")
     def _validate_encryption_key(self) -> "Settings":

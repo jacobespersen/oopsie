@@ -13,16 +13,36 @@
       <th>Count</th>
       <th>Status</th>
       <th>Last Seen</th>
+      <th>Actions</th>
     </tr>
   </thead>
   <tbody>
     {% for e in errors %}
     <tr>
-      <td>{{ e.error_class }}</td>
+      <td><a href="/projects/{{ project.id }}/errors/{{ e.id }}">{{ e.error_class }}</a></td>
       <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ e.message }}">{{ e.message[:80] }}{% if e.message|length > 80 %}…{% endif %}</td>
       <td>{{ e.occurrence_count }}</td>
       <td>{{ e.status }}</td>
       <td>{{ e.last_seen_at.strftime('%Y-%m-%d %H:%M') if e.last_seen_at else '-' }}</td>
+      <td>
+        {% set fix_status = fix_statuses.get(e.id) %}
+        {% if e.status == 'open' and fix_status not in ['pending', 'running'] %}
+        <form action="/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline;">
+          <button type="submit" class="btn btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
+        </form>
+        {% elif fix_status == 'pending' %}
+        <span class="badge badge-warning">Queued</span>
+        {% elif fix_status == 'running' %}
+        <span class="badge badge-info">Fixing...</span>
+        {% elif fix_status == 'success' %}
+        <span class="badge badge-success">Fixed</span>
+        {% elif fix_status == 'failed' %}
+        <span class="badge badge-danger">Failed</span>
+        <form action="/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline; margin-left: 0.5rem;">
+          <button type="submit" class="btn btn-secondary">Retry</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% endfor %}
   </tbody>

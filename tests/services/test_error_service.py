@@ -1,33 +1,18 @@
 """Tests for oopsie.services.error_service."""
 
 import pytest
-from oopsie.config import Settings
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.error_occurrence import ErrorOccurrence
-from oopsie.models.project import Project
 from oopsie.services.error_service import upsert_error
-from oopsie.utils.encryption import encrypt_value, hash_api_key
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-_settings = Settings()
-
-
-@pytest.fixture
-async def project(db_session: AsyncSession) -> Project:
-    p = Project(
-        name="svc-test",
-        github_repo_url="https://github.com/o/r",
-        github_token_encrypted=encrypt_value("ghp_t", _settings.encryption_key),
-        api_key_hash=hash_api_key("key"),
-    )
-    db_session.add(p)
-    await db_session.flush()
-    return p
+from tests.factories import ProjectFactory
 
 
 @pytest.mark.asyncio
-async def test_upsert_error_creates_new_error(db_session: AsyncSession, project):
+async def test_upsert_error_creates_new_error(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
     error = await upsert_error(
         db_session, project.id, "ValueError", "bad value", "traceback line 1"
     )
@@ -45,8 +30,9 @@ async def test_upsert_error_creates_new_error(db_session: AsyncSession, project)
 
 @pytest.mark.asyncio
 async def test_upsert_error_deduplicates_by_fingerprint(
-    db_session: AsyncSession, project
+    db_session: AsyncSession, factory
 ):
+    project = await factory(ProjectFactory)
     e1 = await upsert_error(db_session, project.id, "KeyError", "x", "tb")
     e2 = await upsert_error(db_session, project.id, "KeyError", "x", "tb")
 
@@ -60,7 +46,8 @@ async def test_upsert_error_deduplicates_by_fingerprint(
 
 
 @pytest.mark.asyncio
-async def test_upsert_error_without_stack_trace(db_session: AsyncSession, project):
+async def test_upsert_error_without_stack_trace(db_session: AsyncSession, factory):
+    project = await factory(ProjectFactory)
     error = await upsert_error(db_session, project.id, "RuntimeError", "oops", None)
     assert error.stack_trace is None
     assert error.occurrence_count == 1
@@ -68,8 +55,9 @@ async def test_upsert_error_without_stack_trace(db_session: AsyncSession, projec
 
 @pytest.mark.asyncio
 async def test_upsert_error_different_fingerprints_create_separate_errors(
-    db_session: AsyncSession, project
+    db_session: AsyncSession, factory
 ):
+    project = await factory(ProjectFactory)
     e1 = await upsert_error(db_session, project.id, "KeyError", "a", None)
     e2 = await upsert_error(db_session, project.id, "KeyError", "b", None)
 

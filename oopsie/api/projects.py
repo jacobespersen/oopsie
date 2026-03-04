@@ -92,8 +92,7 @@ async def create_project(
         name=body.name,
         github_repo_url=body.github_repo_url,
         github_token_encrypted=encrypt_value(
-            body.github_token,
-            settings.encryption_key
+            body.github_token, settings.encryption_key
         ),
         default_branch=body.default_branch,
         error_threshold=body.error_threshold,

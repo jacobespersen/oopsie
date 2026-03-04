@@ -4,17 +4,21 @@ import pytest
 from oopsie.models import FixAttempt, FixAttemptStatus
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from tests.factories import ErrorFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
-async def test_fix_attempt_creation(db_session, saved_error):
+async def test_fix_attempt_creation(db_session, factory):
     """FixAttempt can be created linked to an error with expected defaults."""
-    fix_attempt = FixAttempt(error_id=saved_error.id)
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
+
+    fix_attempt = FixAttempt(error_id=error.id)
     db_session.add(fix_attempt)
     await db_session.flush()
 
     assert fix_attempt.id is not None
-    assert fix_attempt.error_id == saved_error.id
+    assert fix_attempt.error_id == error.id
     assert fix_attempt.status == FixAttemptStatus.PENDING
     assert fix_attempt.branch_name is None
     assert fix_attempt.pr_url is None
@@ -22,10 +26,13 @@ async def test_fix_attempt_creation(db_session, saved_error):
 
 
 @pytest.mark.asyncio
-async def test_fix_attempt_status_override(db_session, saved_error):
+async def test_fix_attempt_status_override(db_session, factory):
     """FixAttempt accepts custom status and optional fields."""
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
+
     fix_attempt = FixAttempt(
-        error_id=saved_error.id,
+        error_id=error.id,
         status=FixAttemptStatus.SUCCESS,
         branch_name="oopsie/fix-abc",
         pr_url="https://github.com/org/repo/pull/1",
@@ -39,9 +46,12 @@ async def test_fix_attempt_status_override(db_session, saved_error):
 
 
 @pytest.mark.asyncio
-async def test_fix_attempt_error_relationship(db_session, saved_error):
+async def test_fix_attempt_error_relationship(db_session, factory):
     """FixAttempt.error returns the linked Error."""
-    fix_attempt = FixAttempt(error_id=saved_error.id)
+    project = await factory(ProjectFactory)
+    error = await factory(ErrorFactory, project_id=project.id)
+
+    fix_attempt = FixAttempt(error_id=error.id)
     db_session.add(fix_attempt)
     await db_session.flush()
 
@@ -51,5 +61,5 @@ async def test_fix_attempt_error_relationship(db_session, saved_error):
         .options(selectinload(FixAttempt.error))
     )
     fix_attempt_loaded = result.scalar_one()
-    assert fix_attempt_loaded.error.id == saved_error.id
-    assert fix_attempt_loaded.error.error_class == saved_error.error_class
+    assert fix_attempt_loaded.error.id == error.id
+    assert fix_attempt_loaded.error.error_class == error.error_class

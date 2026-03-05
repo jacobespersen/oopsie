@@ -82,6 +82,9 @@ alembic/           — DB migrations
 - **Prefer composition over proliferation** — don't create a new module/file for every small piece of logic. Group related functionality together.
 - **Services encapsulate business logic** — keep endpoints thin, delegate to services.
 - **Reuse before creating** — always check existing utilities, helpers, and patterns before introducing new ones.
+- **Pydantic request/response models** — define explicit Pydantic schemas for API input and output. Don't return raw dicts or ORM objects from endpoints.
+- **Prevent N+1 queries** — use `selectinload()` / `joinedload()` for relationships accessed in loops or list endpoints. Never lazy-load inside iteration.
+- **Session-per-request, flush in services** — services call `session.flush()` to surface errors; the endpoint/middleware handles final commit via the session lifecycle. Don't call `session.commit()` in services.
 
 ## Testing
 

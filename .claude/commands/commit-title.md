@@ -1,0 +1,1 @@
+Look at the current staged and unstaged changes using `git diff` and `git diff --cached`, then suggest a concise commit title (under 72 characters) that summarizes the changes. Follow conventional commit style if applicable (e.g. feat:, fix:, refactor:, docs:, test:, chore:). Present 3 options for me to choose from.

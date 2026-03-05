@@ -1,7 +1,9 @@
 """Authentication routes: login, callback, logout, refresh."""
 
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -26,7 +28,7 @@ router = APIRouter(prefix="/auth")
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-_COOKIE_OPTS: dict = {
+_COOKIE_OPTS: dict[str, Any] = {
     "httponly": True,
     "samesite": "lax",
     "path": "/",
@@ -112,14 +114,8 @@ async def refresh_token_endpoint(
         raise HTTPException(status_code=401, detail="Invalid token type")
 
     exp = payload.get("exp")
-    expires_at = (
-        datetime.fromtimestamp(exp, tz=UTC)
-        if exp
-        else datetime.now(tz=UTC)
-    )
+    expires_at = datetime.fromtimestamp(exp, tz=UTC) if exp else datetime.now(tz=UTC)
     await revoke_token(session, payload["jti"], expires_at)
-
-    import uuid
 
     result = await session.execute(
         select(User).where(User.id == uuid.UUID(payload["sub"]))
@@ -143,31 +139,21 @@ async def logout(
 ) -> Response:
     """Revoke access + refresh tokens, clear cookies, redirect to login."""
     # Best-effort revocation — don't fail on invalid tokens
+    user_id: str | None = None
     for cookie_name in ("access_token", "refresh_token"):
         token = request.cookies.get(cookie_name)
         if token:
             try:
                 payload = await decode_jwt_token(token, session)
+                if cookie_name == "access_token":
+                    user_id = payload.get("sub")
                 exp = payload.get("exp")
                 expires_at = (
-                    datetime.fromtimestamp(exp, tz=UTC)
-                    if exp
-                    else datetime.now(tz=UTC)
+                    datetime.fromtimestamp(exp, tz=UTC) if exp else datetime.now(tz=UTC)
                 )
                 await revoke_token(session, payload["jti"], expires_at)
             except ValueError:
                 pass
-
-    user_id: str | None = None
-    access_token = request.cookies.get("access_token")
-    if access_token:
-        try:
-            from oopsie.auth import decode_jwt
-
-            p = decode_jwt(access_token)
-            user_id = p.get("sub")
-        except ValueError:
-            pass
 
     if user_id:
         logger.info("user_logged_out", user_id=user_id)

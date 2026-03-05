@@ -33,6 +33,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Fallback secret is only for non-OAuth deployments; OAuth requires
+# jwt_secret_key (enforced by the Settings validator).
 _session_secret = _settings.jwt_secret_key or secrets.token_urlsafe(32)
 app.add_middleware(SessionMiddleware, secret_key=_session_secret)
 app.mount("/static", StaticFiles(directory="static"), name="static")

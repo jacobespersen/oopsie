@@ -26,17 +26,17 @@ def run(coro):
 # ---- Rails-style helpers ----
 
 
-def all(model):
-    """Fetch all rows.  Usage: all(User)"""
+def fetch_all(model):
+    """Fetch all rows.  Usage: fetch_all(User)"""
     return run(session.execute(select(model))).scalars().all()
 
 
-def find(model, id):
+def find(model, pk):
     """Find by primary key.  Usage: find(User, "some-uuid")"""
-    if isinstance(id, str):
-        id = _uuid.UUID(id)
+    if isinstance(pk, str):
+        pk = _uuid.UUID(pk)
     return run(
-        session.execute(select(model).where(model.id == id))
+        session.execute(select(model).where(model.id == pk))
     ).scalar_one_or_none()
 
 
@@ -47,7 +47,7 @@ def first(model):
 
 def count(model):
     """Count rows.  Usage: count(Project)"""
-    return len(all(model))
+    return len(fetch_all(model))
 
 
 def where(model, **kwargs):
@@ -66,8 +66,8 @@ def reload(obj):
 
 banner = (
     f"Connected to {_settings.database_url}\n\n"
-    "  all(User)                       — fetch all rows\n"
-    "  find(User, id)                  — find by primary key\n"
+    "  fetch_all(User)                 — fetch all rows\n"
+    "  find(User, pk)                  — find by primary key\n"
     "  first(User)                     — first row\n"
     "  where(User, email='foo@b.com')  — filter by column\n"
     "  count(Project)                  — count rows\n"

@@ -1,4 +1,7 @@
-"""Revoked token deny list model."""
+"""Revoked token deny list model.
+
+# TODO: Add a periodic cleanup job to delete rows whose expires_at is in the past.
+"""
 
 import uuid
 from datetime import datetime

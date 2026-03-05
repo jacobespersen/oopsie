@@ -302,6 +302,27 @@ async def test_refresh_issues_new_tokens(api_client, db_session: AsyncSession, f
 
 
 @pytest.mark.asyncio
+async def test_refresh_revokes_old_token(api_client, db_session: AsyncSession, factory):
+    """Reusing an old refresh token after rotation returns 401."""
+    from tests.factories import UserFactory
+
+    user = await factory(UserFactory)
+    old_refresh = create_refresh_token(user.id)
+
+    # First refresh succeeds and rotates the token
+    resp = await api_client.post(
+        "/auth/refresh", cookies={"refresh_token": old_refresh}
+    )
+    assert resp.status_code == 200
+
+    # Reusing the old refresh token should fail (it was revoked)
+    resp2 = await api_client.post(
+        "/auth/refresh", cookies={"refresh_token": old_refresh}
+    )
+    assert resp2.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_refresh_without_cookie_fails(api_client):
     """POST /auth/refresh returns 401 when no refresh token cookie is present."""
     resp = await api_client.post("/auth/refresh")

@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from oopsie.models.base import Base
@@ -26,4 +26,8 @@ class Organization(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+    memberships = relationship(
+        "Membership", back_populates="organization", cascade="all, delete-orphan"
     )

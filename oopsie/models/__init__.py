@@ -4,6 +4,7 @@ from oopsie.models.base import Base
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.error_occurrence import ErrorOccurrence
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
+from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
 from oopsie.models.revoked_token import RevokedToken
@@ -16,6 +17,8 @@ __all__ = [
     "ErrorStatus",
     "FixAttempt",
     "FixAttemptStatus",
+    "MemberRole",
+    "Membership",
     "Organization",
     "Project",
     "RevokedToken",

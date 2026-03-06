@@ -1,6 +1,8 @@
 """Dependency injection (db session, auth)."""
 
 import uuid
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -10,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from oopsie.auth import decode_jwt_token
 from oopsie.database import get_session
 from oopsie.logging import logger
+from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.project import Project
 from oopsie.models.user import User
 from oopsie.utils.encryption import hash_api_key
@@ -96,3 +99,59 @@ __all__ = [
     "get_current_user",
     "get_optional_user",
 ]
+
+
+_ROLE_ORDER: list[MemberRole] = [MemberRole.MEMBER, MemberRole.ADMIN, MemberRole.OWNER]
+
+
+async def get_current_membership(
+    org_slug: str,
+    session: AsyncSession = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+) -> "Membership":
+    """Return the current user's Membership for the given org slug.
+
+    Raises 403 if the user is not a member of that organization.
+    """
+    from oopsie.models.organization import Organization
+
+    result = await session.execute(
+        select(Membership)
+        .join(Organization, Organization.id == Membership.organization_id)
+        .where(
+            Organization.slug == org_slug,
+            Membership.user_id == current_user.id,
+        )
+    )
+    membership = result.scalar_one_or_none()
+    if not membership:
+        raise HTTPException(
+            status_code=403, detail="You are not a member of this organization"
+        )
+    return membership
+
+
+def require_role(*allowed_roles: MemberRole) -> Callable[..., Any]:
+    """Return a FastAPI dependency that enforces a minimum role.
+
+    The lowest role in *allowed_roles* determines the minimum required. Any role
+    that is equal to or higher than the minimum is accepted.
+    """
+    # Determine minimum rank
+    min_rank = min(_ROLE_ORDER.index(r) for r in allowed_roles)
+
+    async def _check(
+        org_slug: str,
+        session: AsyncSession = Depends(get_session),
+        current_user: User = Depends(get_current_user),
+    ) -> Membership:
+        membership = await get_current_membership(org_slug, session, current_user)
+        user_rank = _ROLE_ORDER.index(membership.role)
+        if user_rank < min_rank:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Insufficient permissions. Required: {allowed_roles[0].value}",
+            )
+        return membership
+
+    return _check

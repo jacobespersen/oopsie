@@ -15,6 +15,7 @@ from oopsie.config import get_settings
 from oopsie.logging import RequestLoggingMiddleware, setup_logging
 from oopsie.queue import close_arq_pool
 from oopsie.services.bootstrap_service import bootstrap_if_needed
+from oopsie.web.members import router as web_members_router
 from oopsie.web.projects import router as web_projects_router
 
 _settings = get_settings()
@@ -25,6 +26,7 @@ setup_logging(_settings.log_level, _settings.log_format)
 async def lifespan(app: FastAPI):
     """Run bootstrap on startup, cleanup arq pool on shutdown."""
     from oopsie.database import async_session_factory
+
     async with async_session_factory() as session:
         async with session.begin():
             await bootstrap_if_needed(
@@ -51,14 +53,15 @@ app.add_middleware(RequestLoggingMiddleware)
 
 app.include_router(auth_router, tags=["auth"])
 app.include_router(errors_router, prefix="/api/v1/errors", tags=["errors"])
-app.include_router(projects_router, prefix="/api/v1/projects", tags=["projects"])
+app.include_router(projects_router, prefix="/api/v1/orgs", tags=["projects"])
 app.include_router(web_projects_router, tags=["web"])
+app.include_router(web_members_router, tags=["web"])
 
 
 @app.get("/")
 def root():
     """Redirect to projects UI."""
-    return RedirectResponse(url="/projects")
+    return RedirectResponse(url="/auth/login")
 
 
 @app.get("/health")

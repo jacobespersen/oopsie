@@ -2,7 +2,7 @@
 {% block title %}{{ title }} - Oopsie{% endblock %}
 {% block content %}
 <h1 class="f2 mb-3">{{ title }}</h1>
-<form method="post" action="{% if project %}/projects/{{ project.id }}{% else %}/projects{% endif %}" style="max-width:500px;">
+<form method="post" action="{% if project %}/orgs/{{ org_slug }}/projects/{{ project.id }}{% else %}/orgs/{{ org_slug }}/projects{% endif %}" style="max-width:500px;">
   <div class="form-group">
     <div class="form-group-header"><label for="name">Name</label></div>
     <div class="form-group-body">
@@ -41,9 +41,9 @@
 
   <div class="d-flex flex-wrap gap-2 mt-3">
     <button type="submit" class="btn btn-primary">{{ 'Update' if project else 'Create' }}</button>
-    {% if project %}<a href="/projects/{{ project.id }}/errors" class="btn">View Errors</a>{% endif %}
-    {% if project %}<a href="/projects/{{ project.id }}/api-key" class="btn">View API Key</a>{% endif %}
-    <a href="/projects" class="btn">Cancel</a>
+    {% if project %}<a href="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors" class="btn">View Errors</a>{% endif %}
+    {% if project %}<a href="/orgs/{{ org_slug }}/projects/{{ project.id }}/api-key" class="btn">View API Key</a>{% endif %}
+    <a href="/orgs/{{ org_slug }}/projects" class="btn">Cancel</a>
   </div>
 </form>
 {% endblock %}

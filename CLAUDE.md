@@ -56,11 +56,13 @@ oopsie/
   config.py        — pydantic-settings (reads .env)
   database.py      — async SQLAlchemy engine + session factory
   logging.py       — structlog setup, request logging middleware
-  api/             — REST endpoints (errors, projects) + deps (DI, auth)
-  models/          — SQLAlchemy ORM (Base, Project, Error, ErrorOccurrence, FixAttempt)
-  services/        — business logic (error_service)
+  auth.py          — JWT helpers, Google OAuth, invitation gating
+  auth_routes.py   — /auth/* endpoints (login, callback, logout, refresh)
+  api/             — REST endpoints (errors, projects, orgs) + deps (DI, auth, RBAC)
+  models/          — SQLAlchemy ORM (Base, Organization, Membership, Invitation, Project, Error, …)
+  services/        — business logic (error, invitation, membership, bootstrap)
   utils/           — encryption (Fernet), fingerprinting
-  web/             — Jinja2 HTML views (projects)
+  web/             — Jinja2 HTML views (projects, members)
   worker/          — background job processing (placeholder)
 templates/         — Jinja2 templates
 alembic/           — DB migrations
@@ -75,6 +77,11 @@ alembic/           — DB migrations
 - **Timezone-aware timestamps** — `DateTime(timezone=True)` with `server_default=func.now()`
 - **Structured logging** — `from oopsie.logging import logger; logger.info("event_name", key="value")`. Use snake_case event names.
 - **API auth** — Bearer token, hashed API key lookup via `get_project_from_api_key` dependency
+- **Web auth** — JWT in `access_token` cookie; `get_current_user` dep resolves user from JWT
+- **RBAC** — `require_role(MemberRole.X)` FastAPI dependency; extracts `org_slug` from path, looks up user's `Membership`, enforces minimum role hierarchy (MEMBER < ADMIN < OWNER)
+- **Org-scoped URLs** — all web routes use `/orgs/{org_slug}/...`; API routes use `/api/v1/orgs/{org_slug}/...`
+- **Invitation-gated registration** — new users can only sign up via Google OAuth if a pending `Invitation` exists for their email; existing users bypass the invitation check
+- **Bootstrap** — on deploy with `ADMIN_EMAIL` set, `bootstrap_if_needed` seeds the first organization and an OWNER invitation for that email
 - **Dependency injection** — FastAPI `Depends()` for sessions (`get_session`) and auth
 - **Encryption** — Fernet for GitHub tokens; key via `ENCRYPTION_KEY` env var
 - **Error fingerprinting** — deterministic hashing to deduplicate errors
@@ -107,6 +114,11 @@ alembic/           — DB migrations
 |---|---|---|
 | `DATABASE_URL` | yes | Async PostgreSQL URL |
 | `ENCRYPTION_KEY` | yes (for GitHub tokens) | Fernet key (`python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'`) |
+| `JWT_SECRET_KEY` | yes (for web auth) | At least 32-char secret for signing JWTs |
+| `GOOGLE_CLIENT_ID` | for OAuth login | Google OAuth 2.0 client ID |
+| `GOOGLE_CLIENT_SECRET` | for OAuth login | Google OAuth 2.0 client secret |
+| `ADMIN_EMAIL` | for bootstrap | Email to seed the first OWNER invitation on first deploy |
+| `ORG_NAME` | no | Name for the bootstrapped org (default: `"Oopsie"`) |
 | `ANTHROPIC_API_KEY` | for AI features | Claude API key |
 | `TEST_DATABASE_URL` | no | Defaults to `DATABASE_URL` with db name `oopsie_test` |
 | `LOG_LEVEL` | no | Default: `INFO` |

@@ -88,6 +88,7 @@ async def auth_callback(
         )
 
     from sqlalchemy import select
+
     from oopsie.models.user import User as _User
 
     # Check if user already exists in DB
@@ -100,7 +101,9 @@ async def auth_callback(
         # New user — require a pending invitation
         invitation = await get_pending_invitation(session, user_info["email"])
         if invitation is None:
-            return RedirectResponse(url="/auth/login?error=no_invitation", status_code=303)
+            return RedirectResponse(
+                url="/auth/login?error=no_invitation", status_code=303
+            )
 
     user = await upsert_user(session, user_info)
 
@@ -110,7 +113,24 @@ async def auth_callback(
     access_token = create_access_token(user.id, user.email)
     refresh_token = create_refresh_token(user.id)
 
-    response: Response = RedirectResponse(url="/projects", status_code=303)
+    # Resolve user's org for redirect
+    from sqlalchemy.orm import joinedload as _joinedload
+
+    from oopsie.models.membership import Membership as _Membership
+
+    mem_result = await session.execute(
+        select(_Membership)
+        .options(_joinedload(_Membership.organization))
+        .where(_Membership.user_id == user.id)
+        .limit(1)
+    )
+    mem = mem_result.scalar_one_or_none()
+    if mem and mem.organization:
+        redirect_url = f"/orgs/{mem.organization.slug}/projects"
+    else:
+        redirect_url = "/auth/login?error=no_organization"
+
+    response: Response = RedirectResponse(url=redirect_url, status_code=303)
     _set_auth_cookies(response, access_token, refresh_token)
     logger.info("user_logged_in", user_id=str(user.id), email=user.email)
     return response

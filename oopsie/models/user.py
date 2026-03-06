@@ -31,4 +31,6 @@ class User(Base):
     )
 
     projects = relationship("Project", back_populates="user")
-    memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")
+    memberships = relationship(
+        "Membership", back_populates="user", cascade="all, delete-orphan"
+    )

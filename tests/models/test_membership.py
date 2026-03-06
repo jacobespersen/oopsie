@@ -1,11 +1,10 @@
 """Membership model tests."""
 
 import pytest
-from sqlalchemy.exc import IntegrityError
-
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.organization import Organization
 from oopsie.models.user import User
+from sqlalchemy.exc import IntegrityError
 
 
 @pytest.mark.asyncio

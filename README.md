@@ -104,3 +104,22 @@ mypy oopsie           # type check
 ## Design and implementation phases
 
 See [oopsie-implementation-plan.md](oopsie-implementation-plan.md) for the full architecture, database schema, API design, and phased implementation plan.
+
+## First-time setup: bootstrapping the admin user
+
+Oopsie uses an invitation-based registration system. To create the first organization and admin user:
+
+1. Add to your `.env`:
+
+   ```
+   ADMIN_EMAIL=you@example.com
+   ORG_NAME=My Org     # optional, defaults to "Oopsie"
+   ```
+
+2. Start the server — on startup it will automatically create the organization and an **OWNER** invitation for `ADMIN_EMAIL`.
+
+3. Sign in with the matching Google account at `/auth/login`. The invitation is accepted automatically and you become the first admin.
+
+4. From the **Members** page (`/orgs/<slug>/members`) you can invite additional users.
+
+> Bootstrap only runs once. It is a no-op if an organization already exists.

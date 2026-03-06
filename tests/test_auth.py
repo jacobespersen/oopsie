@@ -222,7 +222,12 @@ async def test_login_page_returns_200(api_client):
 @pytest.mark.asyncio
 async def test_login_google_unconfigured(api_client):
     """GET /auth/login/google returns 501 when Google OAuth is not configured."""
-    resp = await api_client.get("/auth/login/google", follow_redirects=False)
+    from unittest.mock import MagicMock
+
+    mock_cfg = MagicMock()
+    mock_cfg.google_client_id = ""
+    with patch("oopsie.auth_routes.get_settings", return_value=mock_cfg):
+        resp = await api_client.get("/auth/login/google", follow_redirects=False)
     assert resp.status_code == 501
 
 
@@ -248,7 +253,7 @@ async def test_auth_callback_success(api_client, db_session: AsyncSession, facto
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/projects"
+    assert resp.headers["location"] == f"/orgs/{org.slug}/projects"
     assert "access_token" in resp.cookies
     assert "refresh_token" in resp.cookies
 
@@ -355,26 +360,29 @@ async def test_refresh_with_access_token_fails(api_client, factory):
 @pytest.mark.asyncio
 async def test_unauthenticated_request_returns_401(api_client):
     """Accessing a protected endpoint without auth returns 401."""
-    resp = await api_client.get("/api/v1/projects")
+    resp = await api_client.get("/api/v1/orgs/test-org/projects")
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_authenticated_via_cookie(authenticated_client):
+async def test_authenticated_via_cookie(authenticated_client, organization):
     """Authenticated client can reach protected endpoints."""
-    resp = await authenticated_client.get("/api/v1/projects")
+    resp = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects")
     assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_authenticated_via_bearer_header(api_client, factory):
     """Bearer token in Authorization header is accepted."""
-    from tests.factories import UserFactory
+    from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
 
+    org = await factory(OrganizationFactory)
     user = await factory(UserFactory)
+    await factory(MembershipFactory, organization_id=org.id, user_id=user.id)
     token = create_access_token(user.id, user.email)
     resp = await api_client.get(
-        "/api/v1/projects", headers={"Authorization": f"Bearer {token}"}
+        f"/api/v1/orgs/{org.slug}/projects",
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 200
 
@@ -393,7 +401,7 @@ async def test_revoked_access_token_returns_401(
     await revoke_token(db_session, payload["jti"], expires_at)
 
     resp = await api_client.get(
-        "/api/v1/projects", headers={"Authorization": f"Bearer {token}"}
+        "/api/v1/orgs/test-org/projects", headers={"Authorization": f"Bearer {token}"}
     )
     assert resp.status_code == 401
 
@@ -452,6 +460,7 @@ def test_jwt_secret_not_required_without_google():
 async def test_get_pending_invitation_found(db_session: AsyncSession, factory):
     """get_pending_invitation returns invitation when email has a pending invite."""
     from oopsie.auth import get_pending_invitation
+
     from tests.factories import InvitationFactory, OrganizationFactory
 
     org = await factory(OrganizationFactory)
@@ -478,6 +487,7 @@ async def test_accept_invitation_creates_membership(db_session: AsyncSession, fa
     from oopsie.models.invitation import InvitationStatus
     from oopsie.models.membership import Membership
     from sqlalchemy import select
+
     from tests.factories import InvitationFactory, OrganizationFactory, UserFactory
 
     org = await factory(OrganizationFactory)
@@ -511,6 +521,7 @@ async def test_auth_callback_new_user_with_invitation_succeeds(
     """New user with a pending invitation is logged in and membership created."""
     from oopsie.models.membership import Membership
     from sqlalchemy import select
+
     from tests.factories import InvitationFactory, OrganizationFactory
 
     org = await factory(OrganizationFactory)
@@ -530,7 +541,7 @@ async def test_auth_callback_new_user_with_invitation_succeeds(
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/projects"
+    assert resp.headers["location"] == f"/orgs/{org.slug}/projects"
     assert "access_token" in resp.cookies
 
     memberships = (await db_session.execute(select(Membership))).scalars().all()
@@ -562,9 +573,11 @@ async def test_auth_callback_existing_user_bypasses_invitation(
     api_client, db_session: AsyncSession, factory
 ):
     """Existing user (already in DB) can log in without an invitation."""
-    from tests.factories import UserFactory
+    from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
 
+    org = await factory(OrganizationFactory)
     user = await factory(UserFactory, google_sub="google-existing-bypass")
+    await factory(MembershipFactory, organization_id=org.id, user_id=user.id)
 
     mock_google = AsyncMock()
     mock_google.authorize_access_token = AsyncMock(
@@ -580,4 +593,4 @@ async def test_auth_callback_existing_user_bypasses_invitation(
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/projects"
+    assert resp.headers["location"] == f"/orgs/{org.slug}/projects"

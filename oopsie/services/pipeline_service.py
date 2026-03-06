@@ -38,9 +38,7 @@ async def _load_and_prepare(
     async with worker_session() as session:
         error = await session.get(Error, error_id)
         if not error or error.status != ErrorStatus.OPEN:
-            logger.info(
-                "fix_pipeline_skipped", error_id=error_id, reason="not_open"
-            )
+            logger.info("fix_pipeline_skipped", error_id=error_id, reason="not_open")
             return None
 
         project = await session.get(Project, project_id)
@@ -129,9 +127,7 @@ async def run(error_id: str, project_id: str) -> None:
     )
     try:
         async with worker_session() as session:
-            await fix_service.mark_fix_attempt_running(
-                session, job_ctx.fix_attempt_id
-            )
+            await fix_service.mark_fix_attempt_running(session, job_ctx.fix_attempt_id)
 
         pr_url = await _run_fix(clone_dir, job_ctx, settings)
 

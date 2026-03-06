@@ -4,11 +4,10 @@ import asyncio
 import code
 import uuid as _uuid
 
-from sqlalchemy import select  # noqa: F401
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-
 from oopsie.config import get_settings
 from oopsie.models import *  # noqa: F401, F403
+from sqlalchemy import select  # noqa: F401
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 _settings = get_settings()
 _engine = create_async_engine(_settings.database_url)

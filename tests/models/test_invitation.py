@@ -1,12 +1,11 @@
 """Invitation model tests."""
 
 import pytest
-from sqlalchemy.exc import IntegrityError
-
 from oopsie.models.invitation import Invitation, InvitationStatus
 from oopsie.models.membership import MemberRole
 from oopsie.models.organization import Organization
 from oopsie.models.user import User
+from sqlalchemy.exc import IntegrityError
 
 
 @pytest.mark.asyncio

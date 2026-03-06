@@ -1,9 +1,8 @@
 """Organization model tests."""
 
 import pytest
-from sqlalchemy.exc import IntegrityError
-
 from oopsie.models.organization import Organization
+from sqlalchemy.exc import IntegrityError
 
 
 @pytest.mark.asyncio

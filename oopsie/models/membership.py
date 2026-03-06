@@ -1,8 +1,8 @@
 """Membership model — joins User to Organization with a role."""
 
-import enum
 import uuid
 from datetime import datetime
+from enum import StrEnum
 
 from sqlalchemy import DateTime, Enum, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -11,7 +11,7 @@ from sqlalchemy.sql import func
 from oopsie.models.base import Base
 
 
-class MemberRole(str, enum.Enum):
+class MemberRole(StrEnum):
     OWNER = "owner"
     ADMIN = "admin"
     MEMBER = "member"

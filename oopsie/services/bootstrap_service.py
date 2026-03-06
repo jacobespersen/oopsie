@@ -45,7 +45,9 @@ async def bootstrap_if_needed(
 
     # Check if invitation already exists (idempotency guard)
     existing = await session.scalar(
-        select(func.count()).select_from(Invitation).where(
+        select(func.count())
+        .select_from(Invitation)
+        .where(
             Invitation.organization_id == org.id,
             Invitation.email == admin_email,
             Invitation.status == InvitationStatus.PENDING,

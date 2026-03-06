@@ -3,7 +3,11 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from oopsie.models.invitation import Invitation
+    from oopsie.models.membership import Membership
 
 import jwt
 from authlib.integrations.starlette_client import OAuth
@@ -84,9 +88,7 @@ def decode_jwt(token: str) -> dict[str, Any]:
         raise ValueError(f"Invalid token: {exc}")
 
 
-async def decode_jwt_token(
-    token: str, session: AsyncSession
-) -> dict[str, Any]:
+async def decode_jwt_token(token: str, session: AsyncSession) -> dict[str, Any]:
     """Decode JWT and verify it has not been revoked."""
     payload = decode_jwt(token)
     jti = payload.get("jti")
@@ -99,9 +101,7 @@ async def decode_jwt_token(
     return payload
 
 
-async def revoke_token(
-    session: AsyncSession, jti: str, expires_at: datetime
-) -> None:
+async def revoke_token(session: AsyncSession, jti: str, expires_at: datetime) -> None:
     """Add a token JTI to the deny list."""
     revoked = RevokedToken(jti=jti, expires_at=expires_at)
     session.add(revoked)

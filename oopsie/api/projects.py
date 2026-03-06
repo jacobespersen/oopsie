@@ -8,9 +8,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.api.deps import get_current_user, get_session
+from oopsie.api.deps import get_current_user, get_session, require_role
 from oopsie.config import get_settings
 from oopsie.logging import logger
+from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.project import Project
 from oopsie.models.user import User
 from oopsie.utils.encryption import encrypt_value, hash_api_key
@@ -19,7 +20,7 @@ router = APIRouter()
 
 
 class ProjectCreateBody(BaseModel):
-    """Request body for POST /api/v1/projects."""
+    """Request body for POST /api/v1/orgs/{org_slug}/projects."""
 
     name: str
     github_repo_url: str
@@ -29,7 +30,7 @@ class ProjectCreateBody(BaseModel):
 
 
 class ProjectUpdateBody(BaseModel):
-    """Request body for PUT /api/v1/projects/{id}."""
+    """Request body for PUT /api/v1/orgs/{org_slug}/projects/{id}."""
 
     name: str | None = None
     github_repo_url: str | None = None
@@ -38,16 +39,18 @@ class ProjectUpdateBody(BaseModel):
     error_threshold: int | None = None
 
 
-@router.get("")
-@router.get("/")
+@router.get("/{org_slug}/projects")
+@router.get("/{org_slug}/projects/")
 async def list_projects(
+    org_slug: str,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
 ):
-    """List projects owned by the current user."""
+    """List projects in the current org."""
     result = await session.execute(
         select(Project)
-        .where(Project.user_id == current_user.id)
+        .where(Project.organization_id == membership.organization_id)
         .order_by(Project.created_at.desc())
     )
     projects = result.scalars().all()
@@ -64,16 +67,19 @@ async def list_projects(
     ]
 
 
-@router.get("/{project_id}")
+@router.get("/{org_slug}/projects/{project_id}")
 async def get_project(
+    org_slug: str,
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
 ):
-    """Get a project by id (must be owned by current user)."""
+    """Get a project by id (must belong to current org)."""
     result = await session.execute(
         select(Project).where(
-            Project.id == project_id, Project.user_id == current_user.id
+            Project.id == project_id,
+            Project.organization_id == membership.organization_id,
         )
     )
     project = result.scalar_one_or_none()
@@ -90,14 +96,16 @@ async def get_project(
     }
 
 
-@router.post("", status_code=201)
-@router.post("/", status_code=201)
+@router.post("/{org_slug}/projects", status_code=201)
+@router.post("/{org_slug}/projects/", status_code=201)
 async def create_project(
+    org_slug: str,
     body: ProjectCreateBody,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
 ):
-    """Create a project owned by the current user and return its api_key."""
+    """Create a project in the current org and return its api_key."""
     settings = get_settings()
     api_key = secrets.token_urlsafe(32)
     project = Project(
@@ -110,6 +118,7 @@ async def create_project(
         error_threshold=body.error_threshold,
         api_key_hash=hash_api_key(api_key),
         user_id=current_user.id,
+        organization_id=membership.organization_id,
     )
     session.add(project)
     await session.flush()
@@ -121,17 +130,20 @@ async def create_project(
     }
 
 
-@router.put("/{project_id}")
+@router.put("/{org_slug}/projects/{project_id}")
 async def update_project(
+    org_slug: str,
     project_id: uuid.UUID,
     body: ProjectUpdateBody,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
 ):
-    """Update a project (must be owned by current user)."""
+    """Update a project (must belong to current org)."""
     result = await session.execute(
         select(Project).where(
-            Project.id == project_id, Project.user_id == current_user.id
+            Project.id == project_id,
+            Project.organization_id == membership.organization_id,
         )
     )
     project = result.scalar_one_or_none()
@@ -157,16 +169,19 @@ async def update_project(
     }
 
 
-@router.delete("/{project_id}", status_code=204)
+@router.delete("/{org_slug}/projects/{project_id}", status_code=204)
 async def delete_project(
+    org_slug: str,
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
+    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
 ):
-    """Delete a project (must be owned by current user)."""
+    """Delete a project (must belong to current org)."""
     result = await session.execute(
         select(Project).where(
-            Project.id == project_id, Project.user_id == current_user.id
+            Project.id == project_id,
+            Project.organization_id == membership.organization_id,
         )
     )
     project = result.scalar_one_or_none()

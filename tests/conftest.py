@@ -18,9 +18,14 @@ from oopsie.config import Settings  # noqa: E402
 from oopsie.main import app  # noqa: E402
 from oopsie.models import Error, FixAttempt, Project, RevokedToken, User  # noqa: F401
 from oopsie.models.base import Base
+from oopsie.models.membership import MemberRole
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from tests.factories import UserFactory  # noqa: E402
+from tests.factories import (  # noqa: E402
+    MembershipFactory,
+    OrganizationFactory,
+    UserFactory,
+)
 
 _settings = Settings()
 _test_url = _settings.get_test_database_url()
@@ -106,10 +111,26 @@ async def api_client(db_session: AsyncSession):
 
 
 @pytest_asyncio.fixture
-async def current_user(db_session: AsyncSession) -> User:
-    """Create and persist a test user."""
+async def organization(db_session: AsyncSession):
+    """Create and persist a test organization."""
+    org = OrganizationFactory.build()
+    db_session.add(org)
+    await db_session.flush()
+    return org
+
+
+@pytest_asyncio.fixture
+async def current_user(db_session: AsyncSession, organization) -> User:
+    """Create and persist a test user with admin membership in the test org."""
     user = UserFactory.build()
     db_session.add(user)
+    await db_session.flush()
+    membership = MembershipFactory.build(
+        user_id=user.id,
+        organization_id=organization.id,
+        role=MemberRole.ADMIN,
+    )
+    db_session.add(membership)
     await db_session.flush()
     return user
 

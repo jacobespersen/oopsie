@@ -1,13 +1,12 @@
 """Bootstrap service tests."""
 
 import pytest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from oopsie.models.invitation import Invitation, InvitationStatus
 from oopsie.models.membership import MemberRole
 from oopsie.models.organization import Organization
 from oopsie.services.bootstrap_service import bootstrap_if_needed
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.mark.asyncio

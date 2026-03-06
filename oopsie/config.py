@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     clone_base_path: str = "/tmp/oopsie-clones"
     google_client_id: str = ""
     google_client_secret: str = ""
+    admin_email: str = ""
+    org_name: str = "Default"
     jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_expiry_minutes: int = 60

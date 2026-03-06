@@ -14,6 +14,7 @@ from oopsie.auth_routes import router as auth_router
 from oopsie.config import get_settings
 from oopsie.logging import RequestLoggingMiddleware, setup_logging
 from oopsie.queue import close_arq_pool
+from oopsie.services.bootstrap_service import bootstrap_if_needed
 from oopsie.web.projects import router as web_projects_router
 
 _settings = get_settings()
@@ -22,7 +23,15 @@ setup_logging(_settings.log_level, _settings.log_format)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage app lifecycle — cleanup arq pool on shutdown."""
+    """Run bootstrap on startup, cleanup arq pool on shutdown."""
+    from oopsie.database import async_session_factory
+    async with async_session_factory() as session:
+        async with session.begin():
+            await bootstrap_if_needed(
+                session,
+                admin_email=_settings.admin_email,
+                org_name=_settings.org_name,
+            )
     yield
     await close_arq_pool()
 

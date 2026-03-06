@@ -6,7 +6,7 @@ import pytest
 from oopsie.models import Error, Project
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from tests.factories import ErrorFactory, ProjectFactory
+from tests.factories import ErrorFactory, OrganizationFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
@@ -63,3 +63,18 @@ async def test_cascade_delete_project_deletes_errors(db_session, factory):
 
     result = await db_session.execute(select(Error).where(Error.id == error_id))
     assert result.scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_project_organization_relationship(db_session, factory):
+    """Project can be linked to an organization."""
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
+
+    assert project.organization_id == org.id
+
+    result = await db_session.execute(
+        select(Project).where(Project.id == project.id)
+    )
+    loaded = result.scalar_one()
+    assert loaded.organization_id == org.id

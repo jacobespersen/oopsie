@@ -13,10 +13,12 @@ from starlette.templating import Jinja2Templates
 
 from oopsie.api.deps import get_session
 from oopsie.auth import (
+    accept_invitation,
     create_access_token,
     create_refresh_token,
     decode_jwt_token,
     get_google_oauth_client,
+    get_pending_invitation,
     revoke_token,
     upsert_user,
 )
@@ -85,7 +87,26 @@ async def auth_callback(
             status_code=400, detail="Could not retrieve user info from Google"
         )
 
+    from sqlalchemy import select
+    from oopsie.models.user import User as _User
+
+    # Check if user already exists in DB
+    google_sub = user_info["sub"]
+    result = await session.execute(select(_User).where(_User.google_sub == google_sub))
+    existing = result.scalar_one_or_none()
+
+    invitation = None
+    if existing is None:
+        # New user — require a pending invitation
+        invitation = await get_pending_invitation(session, user_info["email"])
+        if invitation is None:
+            return RedirectResponse(url="/auth/login?error=no_invitation", status_code=303)
+
     user = await upsert_user(session, user_info)
+
+    if invitation is not None:
+        await accept_invitation(session, invitation, user)
+
     access_token = create_access_token(user.id, user.email)
     refresh_token = create_refresh_token(user.id)
 

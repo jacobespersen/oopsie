@@ -133,3 +133,42 @@ async def upsert_user(session: AsyncSession, google_user_info: dict[str, Any]) -
         logger.info("user_updated", user_id=str(user.id), email=user.email)
 
     return user
+
+
+async def get_pending_invitation(
+    session: AsyncSession, email: str
+) -> "Invitation | None":
+    """Return a pending invitation for the given email, or None."""
+    from oopsie.models.invitation import Invitation, InvitationStatus
+
+    result = await session.execute(
+        select(Invitation).where(
+            Invitation.email == email,
+            Invitation.status == InvitationStatus.PENDING,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def accept_invitation(
+    session: AsyncSession, invitation: "Invitation", user: User
+) -> "Membership":
+    """Mark an invitation accepted and create the corresponding Membership."""
+    from oopsie.models.invitation import InvitationStatus
+    from oopsie.models.membership import Membership
+
+    invitation.status = InvitationStatus.ACCEPTED
+    membership = Membership(
+        organization_id=invitation.organization_id,
+        user_id=user.id,
+        role=invitation.role,
+    )
+    session.add(membership)
+    await session.flush()
+    logger.info(
+        "invitation_accepted",
+        invitation_id=str(invitation.id),
+        user_id=str(user.id),
+        role=invitation.role.value,
+    )
+    return membership

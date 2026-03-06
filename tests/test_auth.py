@@ -227,8 +227,13 @@ async def test_login_google_unconfigured(api_client):
 
 
 @pytest.mark.asyncio
-async def test_auth_callback_success(api_client, db_session: AsyncSession):
-    """POST /auth/callback creates user and sets cookies on success."""
+async def test_auth_callback_success(api_client, db_session: AsyncSession, factory):
+    """POST /auth/callback creates user and sets cookies on success (requires invitation)."""
+    from tests.factories import InvitationFactory, OrganizationFactory
+
+    org = await factory(OrganizationFactory)
+    await factory(InvitationFactory, organization_id=org.id, email="callback@example.com")
+
     mock_google = AsyncMock()
     mock_google.authorize_access_token = AsyncMock(
         return_value={
@@ -436,3 +441,143 @@ def test_jwt_secret_not_required_without_google():
         jwt_secret_key="",
     )
     assert s.google_client_id == ""
+
+
+# ---------------------------------------------------------------------------
+# Invitation-gated registration helpers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_pending_invitation_found(db_session: AsyncSession, factory):
+    """get_pending_invitation returns invitation when email has a pending invite."""
+    from oopsie.auth import get_pending_invitation
+    from tests.factories import InvitationFactory, OrganizationFactory
+
+    org = await factory(OrganizationFactory)
+    inv = await factory(InvitationFactory, organization_id=org.id, email="invited@example.com")
+
+    result = await get_pending_invitation(db_session, "invited@example.com")
+    assert result is not None
+    assert result.id == inv.id
+
+
+@pytest.mark.asyncio
+async def test_get_pending_invitation_not_found(db_session: AsyncSession):
+    """get_pending_invitation returns None when no pending invitation exists."""
+    from oopsie.auth import get_pending_invitation
+
+    result = await get_pending_invitation(db_session, "unknown@example.com")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_accept_invitation_creates_membership(db_session: AsyncSession, factory):
+    """accept_invitation creates a Membership and marks the invitation accepted."""
+    from oopsie.auth import accept_invitation
+    from oopsie.models.invitation import InvitationStatus
+    from oopsie.models.membership import Membership
+    from sqlalchemy import select
+    from tests.factories import InvitationFactory, OrganizationFactory, UserFactory
+
+    org = await factory(OrganizationFactory)
+    user = await factory(UserFactory)
+    inv = await factory(InvitationFactory, organization_id=org.id, email=user.email)
+
+    await accept_invitation(db_session, inv, user)
+    await db_session.flush()
+
+    # Invitation should be marked accepted
+    assert inv.status == InvitationStatus.ACCEPTED
+
+    # Membership should be created
+    result = await db_session.execute(select(Membership))
+    memberships = result.scalars().all()
+    assert len(memberships) == 1
+    assert memberships[0].user_id == user.id
+    assert memberships[0].organization_id == org.id
+    assert memberships[0].role == inv.role
+
+
+# ---------------------------------------------------------------------------
+# Invitation-gated auth callback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_auth_callback_new_user_with_invitation_succeeds(
+    api_client, db_session: AsyncSession, factory
+):
+    """New user with a pending invitation is logged in and membership created."""
+    from oopsie.models.membership import Membership
+    from sqlalchemy import select
+    from tests.factories import InvitationFactory, OrganizationFactory
+
+    org = await factory(OrganizationFactory)
+    await factory(InvitationFactory, organization_id=org.id, email="new-invited@example.com")
+
+    mock_google = AsyncMock()
+    mock_google.authorize_access_token = AsyncMock(
+        return_value={
+            "userinfo": {
+                "sub": "google-new-invited-sub",
+                "email": "new-invited@example.com",
+                "name": "New Invited User",
+            }
+        }
+    )
+    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+        resp = await api_client.get("/auth/callback", follow_redirects=False)
+
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/projects"
+    assert "access_token" in resp.cookies
+
+    memberships = (await db_session.execute(select(Membership))).scalars().all()
+    assert len(memberships) == 1
+
+
+@pytest.mark.asyncio
+async def test_auth_callback_new_user_without_invitation_redirects(api_client):
+    """New user with no invitation is redirected to login with error."""
+    mock_google = AsyncMock()
+    mock_google.authorize_access_token = AsyncMock(
+        return_value={
+            "userinfo": {
+                "sub": "google-no-invite-sub",
+                "email": "no-invite@example.com",
+                "name": "No Invite User",
+            }
+        }
+    )
+    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+        resp = await api_client.get("/auth/callback", follow_redirects=False)
+
+    assert resp.status_code == 303
+    assert "no_invitation" in resp.headers["location"]
+
+
+@pytest.mark.asyncio
+async def test_auth_callback_existing_user_bypasses_invitation(
+    api_client, db_session: AsyncSession, factory
+):
+    """Existing user (already in DB) can log in without an invitation."""
+    from tests.factories import UserFactory
+
+    user = await factory(UserFactory, google_sub="google-existing-bypass")
+
+    mock_google = AsyncMock()
+    mock_google.authorize_access_token = AsyncMock(
+        return_value={
+            "userinfo": {
+                "sub": "google-existing-bypass",
+                "email": user.email,
+                "name": user.name,
+            }
+        }
+    )
+    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+        resp = await api_client.get("/auth/callback", follow_redirects=False)
+
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/projects"

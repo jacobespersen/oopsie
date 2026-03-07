@@ -16,7 +16,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str
+    database_url: str = ""
     test_database_url: str | None = None
     encryption_key: str = ""
     anthropic_api_key: str = ""
@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     jwt_access_expiry_minutes: int = 60
     jwt_refresh_expiry_minutes: int = 60 * 24 * 7
     cookie_secure: bool = False
+
+    @model_validator(mode="after")
+    def _validate_database_url(self) -> "Settings":
+        if not self.database_url:
+            raise ValueError(
+                "DATABASE_URL is required. "
+                "Example: postgresql+asyncpg://postgres:postgres@localhost:5433/oopsie"
+            )
+        return self
 
     @model_validator(mode="after")
     def _validate_encryption_key(self) -> "Settings":

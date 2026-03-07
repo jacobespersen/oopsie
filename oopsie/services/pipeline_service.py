@@ -4,6 +4,7 @@ import os
 import shutil
 import tempfile
 from dataclasses import dataclass
+from uuid import UUID
 
 from oopsie.config import Settings, get_settings
 from oopsie.database import worker_session
@@ -18,7 +19,7 @@ from oopsie.utils.encryption import decrypt_value
 class _JobContext:
     """Data extracted from the DB before the clone directory is created."""
 
-    fix_attempt_id: object
+    fix_attempt_id: UUID
     github_token: str
     branch_name: str
     error_class: str

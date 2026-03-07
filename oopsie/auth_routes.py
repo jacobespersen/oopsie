@@ -69,7 +69,8 @@ async def login_google(request: Request) -> Response:
         raise HTTPException(status_code=501, detail="Google OAuth is not configured")
     google = get_google_oauth_client()
     redirect_uri = str(request.url_for("auth_callback"))
-    return await google.authorize_redirect(request, redirect_uri)
+    response: Response = await google.authorize_redirect(request, redirect_uri)
+    return response
 
 
 @router.get("/callback", name="auth_callback")

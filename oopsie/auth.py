@@ -182,12 +182,12 @@ async def resolve_or_register_user(
     result = await session.execute(select(User).where(User.google_sub == google_sub))
     existing = result.scalar_one_or_none()
 
-    invitation = None
-    if existing is None:
-        # New user — require an invitation to register
-        invitation = await get_invitation(session, google_user_info["email"])
-        if invitation is None:
-            raise ValueError("no_invitation")
+    # Check for a pending invitation (both new and existing users)
+    invitation = await get_invitation(session, google_user_info["email"])
+
+    if existing is None and invitation is None:
+        # New user with no invitation — reject registration
+        raise ValueError("no_invitation")
 
     user = await upsert_user(session, google_user_info)
 

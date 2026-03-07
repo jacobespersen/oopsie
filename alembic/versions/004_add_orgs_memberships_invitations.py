@@ -17,7 +17,7 @@ depends_on = None
 
 def upgrade() -> None:
     # Create enum types so sa.Enum(create_type=False) can reference them below
-    op.execute("CREATE TYPE memberrole AS ENUM ('owner', 'admin', 'member')")
+    op.execute("CREATE TYPE memberrole AS ENUM ('OWNER', 'ADMIN', 'MEMBER')")
     op.execute("CREATE TYPE invitationstatus AS ENUM ('pending', 'accepted')")
 
     # organizations
@@ -51,7 +51,7 @@ def upgrade() -> None:
         sa.Column(
             "role",
             postgresql.ENUM(
-                "owner", "admin", "member", name="memberrole", create_type=False
+                "OWNER", "ADMIN", "MEMBER", name="memberrole", create_type=False
             ),
             nullable=False,
         ),
@@ -84,7 +84,7 @@ def upgrade() -> None:
         sa.Column(
             "role",
             postgresql.ENUM(
-                "owner", "admin", "member", name="memberrole", create_type=False
+                "OWNER", "ADMIN", "MEMBER", name="memberrole", create_type=False
             ),
             nullable=False,
         ),

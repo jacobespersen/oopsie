@@ -4,7 +4,7 @@ import factory
 from oopsie.config import get_settings
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
-from oopsie.models.invitation import Invitation, InvitationStatus
+from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
@@ -34,7 +34,6 @@ class InvitationFactory(factory.Factory):
 
     email = factory.Sequence(lambda n: f"invite-{n}@example.com")
     role = MemberRole.MEMBER
-    status = InvitationStatus.PENDING
     invited_by_id = None
     # organization_id must be supplied by the caller
 

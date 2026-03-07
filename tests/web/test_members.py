@@ -1,7 +1,6 @@
 """Tests for /orgs/{org_slug}/members web routes."""
 
 import pytest
-from oopsie.models.invitation import InvitationStatus
 from oopsie.models.membership import MemberRole
 
 
@@ -64,7 +63,6 @@ async def test_members_list_shows_members_and_invitations(
         InvitationFactory,
         organization_id=org.id,
         email="invited@example.com",
-        status=InvitationStatus.PENDING,
     )
 
     resp = await authenticated_client.get("/orgs/show-co/members")
@@ -138,7 +136,6 @@ async def test_revoke_invitation_redirects(authenticated_client, current_user, f
         InvitationFactory,
         organization_id=org.id,
         email="torem@example.com",
-        status=InvitationStatus.PENDING,
     )
 
     resp = await authenticated_client.post(

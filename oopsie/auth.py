@@ -137,17 +137,14 @@ async def upsert_user(session: AsyncSession, google_user_info: dict[str, Any]) -
     return user
 
 
-async def get_pending_invitation(
+async def get_invitation(
     session: AsyncSession, email: str
 ) -> "Invitation | None":
-    """Return a pending invitation for the given email, or None."""
-    from oopsie.models.invitation import Invitation, InvitationStatus
+    """Return an invitation for the given email, or None."""
+    from oopsie.models.invitation import Invitation
 
     result = await session.execute(
-        select(Invitation).where(
-            Invitation.email == email,
-            Invitation.status == InvitationStatus.PENDING,
-        )
+        select(Invitation).where(Invitation.email == email)
     )
     return result.scalar_one_or_none()
 
@@ -155,23 +152,24 @@ async def get_pending_invitation(
 async def accept_invitation(
     session: AsyncSession, invitation: "Invitation", user: User
 ) -> "Membership":
-    """Mark an invitation accepted and create the corresponding Membership."""
-    from oopsie.models.invitation import InvitationStatus
+    """Accept an invitation: create Membership and delete the invitation row."""
     from oopsie.models.membership import Membership
 
-    invitation.status = InvitationStatus.ACCEPTED
+    invitation_id = invitation.id
     membership = Membership(
         organization_id=invitation.organization_id,
         user_id=user.id,
         role=invitation.role,
     )
     session.add(membership)
+    # Invitation is transient — delete now that it's fulfilled
+    await session.delete(invitation)
     await session.flush()
     logger.info(
         "invitation_accepted",
-        invitation_id=str(invitation.id),
+        invitation_id=str(invitation_id),
         user_id=str(user.id),
-        role=invitation.role.value,
+        role=membership.role.value,
     )
     return membership
 
@@ -190,8 +188,8 @@ async def resolve_or_register_user(
 
     invitation = None
     if existing is None:
-        # New user — require a pending invitation to register
-        invitation = await get_pending_invitation(session, google_user_info["email"])
+        # New user — require an invitation to register
+        invitation = await get_invitation(session, google_user_info["email"])
         if invitation is None:
             raise ValueError("no_invitation")
 

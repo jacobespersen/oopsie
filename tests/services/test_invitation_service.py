@@ -1,14 +1,13 @@
 """Tests for the invitation service (create, list, revoke)."""
 
 import pytest
-from oopsie.models.invitation import InvitationStatus
 from oopsie.models.membership import MemberRole
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 @pytest.mark.asyncio
 async def test_create_invitation_creates_pending(db_session: AsyncSession, factory):
-    """create_invitation persists a pending invitation for the given org and email."""
+    """create_invitation persists an invitation for the given org and email."""
     from oopsie.services.invitation_service import create_invitation
 
     from tests.factories import OrganizationFactory, UserFactory
@@ -28,15 +27,14 @@ async def test_create_invitation_creates_pending(db_session: AsyncSession, facto
     assert invitation.organization_id == org.id
     assert invitation.email == "newuser@example.com"
     assert invitation.role == MemberRole.MEMBER
-    assert invitation.status == InvitationStatus.PENDING
     assert invitation.invited_by_id == inviter.id
 
 
 @pytest.mark.asyncio
-async def test_create_invitation_updates_existing_pending(
+async def test_create_invitation_updates_existing(
     db_session: AsyncSession, factory
 ):
-    """create_invitation updates role on an existing PENDING invite."""
+    """create_invitation updates role on an existing invite."""
     from oopsie.services.invitation_service import create_invitation
 
     from tests.factories import InvitationFactory, OrganizationFactory
@@ -47,7 +45,6 @@ async def test_create_invitation_updates_existing_pending(
         organization_id=org.id,
         email="dup@example.com",
         role=MemberRole.MEMBER,
-        status=InvitationStatus.PENDING,
     )
 
     updated = await create_invitation(
@@ -60,64 +57,60 @@ async def test_create_invitation_updates_existing_pending(
 
     assert updated.id == original.id
     assert updated.role == MemberRole.ADMIN
-    assert updated.status == InvitationStatus.PENDING
 
 
 @pytest.mark.asyncio
-async def test_create_invitation_raises_on_accepted(
+async def test_create_invitation_raises_for_existing_member(
     db_session: AsyncSession, factory
 ):
-    """create_invitation raises ValueError when email already accepted."""
+    """create_invitation raises ValueError when email is already an org member."""
     from oopsie.services.invitation_service import create_invitation
 
-    from tests.factories import InvitationFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory)
-    await factory(
-        InvitationFactory,
-        organization_id=org.id,
-        email="prev@example.com",
-        status=InvitationStatus.ACCEPTED,
+    from tests.factories import (
+        MembershipFactory,
+        OrganizationFactory,
+        UserFactory,
     )
 
-    with pytest.raises(ValueError, match="already accepted"):
+    org = await factory(OrganizationFactory)
+    user = await factory(UserFactory, email="member@example.com")
+    await factory(
+        MembershipFactory,
+        organization_id=org.id,
+        user_id=user.id,
+        role=MemberRole.MEMBER,
+    )
+
+    with pytest.raises(ValueError, match="already a member"):
         await create_invitation(
             db_session,
             organization_id=org.id,
-            email="prev@example.com",
-            role=MemberRole.MEMBER,
+            email="member@example.com",
+            role=MemberRole.ADMIN,
             invited_by_id=None,
         )
 
 
 @pytest.mark.asyncio
-async def test_list_invitations_returns_pending_only(
+async def test_list_invitations_returns_org_invitations(
     db_session: AsyncSession, factory
 ):
-    """list_invitations returns only PENDING invitations for the org."""
+    """list_invitations returns invitations for the org."""
     from oopsie.services.invitation_service import list_invitations
 
     from tests.factories import InvitationFactory, OrganizationFactory
 
     org = await factory(OrganizationFactory)
-    pending = await factory(
+    inv = await factory(
         InvitationFactory,
         organization_id=org.id,
         email="pending@example.com",
-        status=InvitationStatus.PENDING,
-    )
-    # Different email — unique constraint is on (org, email)
-    await factory(
-        InvitationFactory,
-        organization_id=org.id,
-        email="already-accepted@example.com",
-        status=InvitationStatus.ACCEPTED,
     )
 
     results = await list_invitations(db_session, organization_id=org.id)
 
     assert len(results) == 1
-    assert results[0].id == pending.id
+    assert results[0].id == inv.id
 
 
 @pytest.mark.asyncio
@@ -141,8 +134,8 @@ async def test_list_invitations_excludes_other_orgs(
 
 
 @pytest.mark.asyncio
-async def test_revoke_invitation_deletes_pending(db_session: AsyncSession, factory):
-    """revoke_invitation removes a pending invitation."""
+async def test_revoke_invitation_deletes(db_session: AsyncSession, factory):
+    """revoke_invitation removes an invitation."""
     from oopsie.models.invitation import Invitation
     from oopsie.services.invitation_service import revoke_invitation
     from sqlalchemy import select
@@ -154,7 +147,6 @@ async def test_revoke_invitation_deletes_pending(db_session: AsyncSession, facto
         InvitationFactory,
         organization_id=org.id,
         email="todelete@example.com",
-        status=InvitationStatus.PENDING,
     )
 
     await revoke_invitation(db_session, invitation_id=inv.id, organization_id=org.id)
@@ -181,27 +173,4 @@ async def test_revoke_invitation_raises_when_not_found(
     with pytest.raises(LookupError):
         await revoke_invitation(
             db_session, invitation_id=uuid.uuid4(), organization_id=org.id
-        )
-
-
-@pytest.mark.asyncio
-async def test_revoke_invitation_raises_for_accepted(
-    db_session: AsyncSession, factory
-):
-    """revoke_invitation raises LookupError for an already-accepted invitation."""
-    from oopsie.services.invitation_service import revoke_invitation
-
-    from tests.factories import InvitationFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory)
-    inv = await factory(
-        InvitationFactory,
-        organization_id=org.id,
-        email="done@example.com",
-        status=InvitationStatus.ACCEPTED,
-    )
-
-    with pytest.raises(LookupError):
-        await revoke_invitation(
-            db_session, invitation_id=inv.id, organization_id=org.id
         )

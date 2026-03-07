@@ -1,4 +1,4 @@
-"""Drop project user_id column and tighten invitation unique constraint.
+"""Drop project user_id, tighten invitation UQ, drop invitation status column.
 
 Revision ID: 005
 Revises: 004
@@ -7,6 +7,7 @@ Create Date: 2026-03-07
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "005"
 down_revision: str | None = "004"
@@ -30,8 +31,28 @@ def upgrade() -> None:
         "uq_invitation_org_email", "invitations", ["organization_id", "email"]
     )
 
+    # --- Invitations: drop status column (invitations are deleted on accept) ---
+    op.drop_column("invitations", "status")
+    op.execute("DROP TYPE invitationstatus")
+
 
 def downgrade() -> None:
+    # --- Invitations: restore status column and enum ---
+    op.execute("CREATE TYPE invitationstatus AS ENUM ('pending', 'accepted')")
+    op.add_column(
+        "invitations",
+        sa.Column(
+            "status",
+            postgresql.ENUM(
+                "pending", "accepted",
+                name="invitationstatus",
+                create_type=False,
+            ),
+            nullable=False,
+            server_default="pending",
+        ),
+    )
+
     # --- Invitations: restore original (org, email, status) constraint ---
     op.drop_constraint(
         "uq_invitation_org_email", "invitations", type_="unique"

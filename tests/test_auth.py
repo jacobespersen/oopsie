@@ -457,34 +457,34 @@ def test_jwt_secret_not_required_without_google():
 
 
 @pytest.mark.asyncio
-async def test_get_pending_invitation_found(db_session: AsyncSession, factory):
-    """get_pending_invitation returns invitation when email has a pending invite."""
-    from oopsie.auth import get_pending_invitation
+async def test_get_invitation_found(db_session: AsyncSession, factory):
+    """get_invitation returns invitation when one exists for the email."""
+    from oopsie.auth import get_invitation
 
     from tests.factories import InvitationFactory, OrganizationFactory
 
     org = await factory(OrganizationFactory)
     inv = await factory(InvitationFactory, organization_id=org.id, email="invited@example.com")
 
-    result = await get_pending_invitation(db_session, "invited@example.com")
+    result = await get_invitation(db_session, "invited@example.com")
     assert result is not None
     assert result.id == inv.id
 
 
 @pytest.mark.asyncio
-async def test_get_pending_invitation_not_found(db_session: AsyncSession):
-    """get_pending_invitation returns None when no pending invitation exists."""
-    from oopsie.auth import get_pending_invitation
+async def test_get_invitation_not_found(db_session: AsyncSession):
+    """get_invitation returns None when no invitation exists."""
+    from oopsie.auth import get_invitation
 
-    result = await get_pending_invitation(db_session, "unknown@example.com")
+    result = await get_invitation(db_session, "unknown@example.com")
     assert result is None
 
 
 @pytest.mark.asyncio
 async def test_accept_invitation_creates_membership(db_session: AsyncSession, factory):
-    """accept_invitation creates a Membership and marks the invitation accepted."""
+    """accept_invitation deletes the invitation and creates a Membership."""
     from oopsie.auth import accept_invitation
-    from oopsie.models.invitation import InvitationStatus
+    from oopsie.models.invitation import Invitation
     from oopsie.models.membership import Membership
     from sqlalchemy import select
 
@@ -493,12 +493,17 @@ async def test_accept_invitation_creates_membership(db_session: AsyncSession, fa
     org = await factory(OrganizationFactory)
     user = await factory(UserFactory)
     inv = await factory(InvitationFactory, organization_id=org.id, email=user.email)
+    inv_id = inv.id
+    inv_role = inv.role
 
     await accept_invitation(db_session, inv, user)
     await db_session.flush()
 
-    # Invitation should be marked accepted
-    assert inv.status == InvitationStatus.ACCEPTED
+    # Invitation should be deleted
+    remaining = await db_session.scalar(
+        select(Invitation).where(Invitation.id == inv_id)
+    )
+    assert remaining is None
 
     # Membership should be created
     result = await db_session.execute(select(Membership))
@@ -506,7 +511,7 @@ async def test_accept_invitation_creates_membership(db_session: AsyncSession, fa
     assert len(memberships) == 1
     assert memberships[0].user_id == user.id
     assert memberships[0].organization_id == org.id
-    assert memberships[0].role == inv.role
+    assert memberships[0].role == inv_role
 
 
 # ---------------------------------------------------------------------------

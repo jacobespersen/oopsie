@@ -1,6 +1,9 @@
-"""Invitation model — pending membership for an email address."""
+"""Invitation model — pending membership for an email address.
 
-import enum
+An invitation exists only while it is pending.  Once accepted, the row is
+deleted and the corresponding Membership becomes the source of truth.
+"""
+
 import uuid
 from datetime import datetime
 
@@ -10,11 +13,6 @@ from sqlalchemy.sql import func
 
 from oopsie.models.base import Base
 from oopsie.models.membership import MemberRole
-
-
-class InvitationStatus(str, enum.Enum):
-    PENDING = "pending"
-    ACCEPTED = "accepted"
 
 
 class Invitation(Base):
@@ -37,11 +35,6 @@ class Invitation(Base):
     role: Mapped[MemberRole] = mapped_column(
         Enum(MemberRole, name="memberrole"),
         nullable=False,
-    )
-    status: Mapped[InvitationStatus] = mapped_column(
-        Enum(InvitationStatus, name="invitationstatus"),
-        nullable=False,
-        default=InvitationStatus.PENDING,
     )
     # Nullable: bootstrap invitations have no inviter
     invited_by_id: Mapped[uuid.UUID | None] = mapped_column(

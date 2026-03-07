@@ -11,7 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.logging import logger
-from oopsie.models.invitation import Invitation, InvitationStatus
+from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole
 from oopsie.models.organization import Organization
 
@@ -67,7 +67,6 @@ async def bootstrap_if_needed(
         organization_id=org.id,
         email=admin_email,
         role=MemberRole.OWNER,
-        status=InvitationStatus.PENDING,
         invited_by_id=None,  # No inviter — system-generated bootstrap
     )
     session.add(invitation)

@@ -1,7 +1,7 @@
 """Invitation model tests."""
 
 import pytest
-from oopsie.models.invitation import Invitation, InvitationStatus
+from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole
 from oopsie.models.organization import Organization
 from oopsie.models.user import User
@@ -26,7 +26,6 @@ async def test_invitation_creation(db_session):
     assert inv.id is not None
     assert inv.email == "bob@example.com"
     assert inv.role == MemberRole.MEMBER
-    assert inv.status == InvitationStatus.PENDING
     assert inv.invited_by_id is None
     assert inv.created_at is not None
 
@@ -53,8 +52,8 @@ async def test_invitation_with_inviter(db_session):
 
 
 @pytest.mark.asyncio
-async def test_invitation_unique_pending_per_org_email(db_session):
-    """Cannot have two PENDING invitations for the same email in the same org."""
+async def test_invitation_unique_per_org_email(db_session):
+    """Cannot have two invitations for the same email in the same org."""
     org = Organization(name="Acme", slug="acme")
     db_session.add(org)
     await db_session.flush()
@@ -69,10 +68,3 @@ async def test_invitation_unique_pending_per_org_email(db_session):
     )
     with pytest.raises(IntegrityError):
         await db_session.flush()
-
-
-@pytest.mark.asyncio
-async def test_invitation_status_values(db_session):
-    """InvitationStatus enum has expected values."""
-    assert InvitationStatus.PENDING.value == "pending"
-    assert InvitationStatus.ACCEPTED.value == "accepted"

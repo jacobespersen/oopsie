@@ -1,7 +1,7 @@
 """Bootstrap service tests."""
 
 import pytest
-from oopsie.models.invitation import Invitation, InvitationStatus
+from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole
 from oopsie.models.organization import Organization
 from oopsie.services.bootstrap_service import bootstrap_if_needed
@@ -23,7 +23,6 @@ async def test_bootstrap_creates_org_and_invitation(db_session: AsyncSession):
     assert len(invitations) == 1
     assert invitations[0].email == "admin@example.com"
     assert invitations[0].role == MemberRole.OWNER
-    assert invitations[0].status == InvitationStatus.PENDING
     assert invitations[0].invited_by_id is None
 
 

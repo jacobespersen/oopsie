@@ -123,7 +123,21 @@ alembic/           — DB migrations
 | `ANTHROPIC_API_KEY` | for AI features | Claude API key |
 | `TEST_DATABASE_URL` | no | Defaults to `DATABASE_URL` with db name `oopsie_test` |
 | `LOG_LEVEL` | no | Default: `INFO` |
+| `REDIS_URL` | yes | Redis connection URL (e.g. `redis://localhost:6379`) |
 | `LOG_FORMAT` | no | `json` (default) or `console` |
+
+## Pre-completion CI Check
+
+Before considering any task complete, run the full CI pipeline locally to catch issues before they reach GitHub:
+
+```bash
+ruff check . && ruff format --check .   # lint & format
+mypy oopsie                              # type check
+bandit -r oopsie -ll                     # security scan
+pytest -v --cov=oopsie --cov-report=term-missing --cov-fail-under=90  # tests + coverage
+```
+
+These match the steps in `.github/workflows/ci.yml`. All must pass before finishing.
 
 ## Implementation Plans
 

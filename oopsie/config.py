@@ -1,7 +1,9 @@
 """Application settings via pydantic-settings."""
 
+import tempfile
 import warnings
 from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 from cryptography.fernet import Fernet
@@ -25,7 +27,7 @@ class Settings(BaseSettings):
     redis_url: str = ""
     worker_concurrency: int = 3
     job_timeout_seconds: int = 600
-    clone_base_path: str = "/tmp/oopsie-clones"
+    clone_base_path: str = str(Path(tempfile.gettempdir()) / "oopsie-clones")
     google_client_id: str = ""
     google_client_secret: str = ""
     admin_email: str = ""

@@ -18,13 +18,13 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    database_url: str = ""
+    database_url: str
     test_database_url: str | None = None
     encryption_key: str = ""
     anthropic_api_key: str = ""
     log_level: str = "INFO"
     log_format: str = "json"
-    redis_url: str = ""
+    redis_url: str
     worker_concurrency: int = 3
     job_timeout_seconds: int = 600
     clone_base_path: str = str(Path(tempfile.gettempdir()) / "oopsie-clones")
@@ -37,15 +37,6 @@ class Settings(BaseSettings):
     jwt_access_expiry_minutes: int = 60
     jwt_refresh_expiry_minutes: int = 60 * 24 * 7
     cookie_secure: bool = False
-
-    @model_validator(mode="after")
-    def _validate_database_url(self) -> "Settings":
-        if not self.database_url:
-            raise ValueError(
-                "DATABASE_URL is required. "
-                "Example: postgresql+asyncpg://postgres:postgres@localhost:5433/oopsie"
-            )
-        return self
 
     @model_validator(mode="after")
     def _validate_encryption_key(self) -> "Settings":
@@ -106,4 +97,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Return a cached Settings instance (created once per process)."""
-    return Settings()
+    return Settings()  # type: ignore[call-arg]  # pydantic-settings populates from env

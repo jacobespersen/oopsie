@@ -26,6 +26,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/oopsie
       TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/oopsie
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v4
 

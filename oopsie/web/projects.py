@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.templating import Jinja2Templates
 
-from oopsie.api.deps import get_current_user, get_session, require_role
+from oopsie.api.deps import RequireRole, get_current_user, get_session
 from oopsie.config import get_settings
 from oopsie.logging import logger
 from oopsie.models.error import Error, ErrorStatus
@@ -50,7 +50,7 @@ async def list_projects_page(
     org_slug: str,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
 ):
     """List projects in the current org."""
     result = await session.execute(
@@ -71,7 +71,7 @@ async def new_project_page(
     request: Request,
     org_slug: str,
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
 ):
     """Show create project form."""
     return templates.TemplateResponse(
@@ -92,7 +92,7 @@ async def create_project_action(
     org_slug: str,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
     name: str = Form(...),
     github_repo_url: str = Form(...),
     github_token: str = Form(...),
@@ -109,7 +109,6 @@ async def create_project_action(
         default_branch=default_branch,
         error_threshold=error_threshold,
         api_key_hash=hash_api_key(api_key),
-        user_id=current_user.id,
         organization_id=membership.organization_id,
     )
     session.add(project)
@@ -130,7 +129,7 @@ async def project_created_page(
     project_id: uuid.UUID,
     api_key: str,
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
 ):
     """Show API key after create (only time it's visible)."""
     return templates.TemplateResponse(
@@ -154,7 +153,7 @@ async def project_api_key_page(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
     api_key: str | None = None,
 ):
     """Show API key page for a project."""
@@ -179,7 +178,7 @@ async def regenerate_api_key_action(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
 ):
     """Regenerate API key and redirect to show the new key."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -202,7 +201,7 @@ async def project_errors_page(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
 ):
     """Show errors for a project."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -243,7 +242,7 @@ async def error_show_page(
     error_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
 ):
     """Show details for a single error."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -277,7 +276,7 @@ async def edit_project_page(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
 ):
     """Show edit project form."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -300,7 +299,7 @@ async def update_project_action(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
     name: str = Form(...),
     github_repo_url: str = Form(...),
     github_token: str = Form(""),
@@ -330,7 +329,7 @@ async def delete_project_action(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
 ):
     """Delete a project and redirect to list."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -348,7 +347,7 @@ async def trigger_fix_action(
     error_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
 ):
     """Enqueue a fix job for an error and redirect back to errors page."""
     project = await _get_org_project(session, project_id, membership.organization_id)

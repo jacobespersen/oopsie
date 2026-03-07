@@ -8,7 +8,7 @@ from oopsie.models import Project
 from oopsie.utils.encryption import decrypt_value, hash_api_key
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tests.factories import ErrorFactory, ProjectFactory, UserFactory
+from tests.factories import ErrorFactory, ProjectFactory
 
 _settings = Settings()
 
@@ -41,14 +41,12 @@ async def test_list_projects(authenticated_client, current_user, organization, f
         name="test-project",
         github_repo_url="https://github.com/org/repo",
         api_key_hash=hash_api_key("test-api-key-123"),
-        user_id=current_user.id,
         organization_id=organization.id,
     )
     # Project in another org — should not appear
     from tests.factories import OrganizationFactory
     other_org = await factory(OrganizationFactory, slug="other-org-list")
-    other_user = await factory(UserFactory)
-    await factory(ProjectFactory, name="other-project", user_id=other_user.id, organization_id=other_org.id)
+    await factory(ProjectFactory, name="other-project", organization_id=other_org.id)
 
     response = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects")
     assert response.status_code == 200
@@ -64,7 +62,7 @@ async def test_list_projects(authenticated_client, current_user, organization, f
 async def test_get_project(authenticated_client, current_user, organization, factory):
     """GET /api/v1/orgs/{slug}/projects/{id} returns org project."""
     project = await factory(
-        ProjectFactory, name="test-project", user_id=current_user.id, organization_id=organization.id
+        ProjectFactory, name="test-project", organization_id=organization.id
     )
     pid = str(project.id)
     response = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects/{pid}")
@@ -89,8 +87,7 @@ async def test_get_project_other_org_returns_404(authenticated_client, organizat
     """GET /api/v1/orgs/{slug}/projects/{id} returns 404 for a project in another org."""
     from tests.factories import OrganizationFactory
     other_org = await factory(OrganizationFactory, slug="other-org-get")
-    other_user = await factory(UserFactory)
-    project = await factory(ProjectFactory, user_id=other_user.id, organization_id=other_org.id)
+    project = await factory(ProjectFactory, organization_id=other_org.id)
     response = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects/{project.id}")
     assert response.status_code == 404
 
@@ -122,7 +119,6 @@ async def test_create_project(authenticated_client, organization, db_session: As
         == "ghp_secret"
     )
     assert project.api_key_hash == hash_api_key(data["api_key"])
-    assert project.user_id is not None
     assert project.organization_id == organization.id
 
 
@@ -164,7 +160,7 @@ async def test_create_project_with_optional_fields(
 @pytest.mark.asyncio
 async def test_update_project(authenticated_client, current_user, organization, factory):
     """PUT /api/v1/orgs/{slug}/projects/{id} updates org project."""
-    project = await factory(ProjectFactory, user_id=current_user.id, organization_id=organization.id)
+    project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
     response = await authenticated_client.put(
         f"/api/v1/orgs/{organization.slug}/projects/{pid}",
@@ -197,7 +193,7 @@ async def test_delete_project(
     authenticated_client, current_user, organization, db_session: AsyncSession, factory
 ):
     """DELETE /api/v1/orgs/{slug}/projects/{id} removes org project."""
-    project = await factory(ProjectFactory, user_id=current_user.id, organization_id=organization.id)
+    project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
     response = await authenticated_client.delete(f"/api/v1/orgs/{organization.slug}/projects/{pid}")
     assert response.status_code == 204
@@ -244,7 +240,6 @@ async def test_web_list_projects_shows_project(
         ProjectFactory,
         name="test-project",
         github_repo_url="https://github.com/org/repo",
-        user_id=current_user.id,
         organization_id=organization.id,
     )
     response = await authenticated_client.get(f"/orgs/{organization.slug}/projects")
@@ -310,7 +305,6 @@ async def test_web_create_project_and_verify(
     assert project is not None
     assert project.github_repo_url == "https://github.com/a/b"
     assert project.error_threshold == 5
-    assert project.user_id is not None
     assert project.organization_id == organization.id
 
 
@@ -318,7 +312,7 @@ async def test_web_create_project_and_verify(
 async def test_web_edit_project_page(authenticated_client, current_user, organization, factory):
     """GET /orgs/{slug}/projects/{id}/edit returns edit form."""
     project = await factory(
-        ProjectFactory, name="test-project", user_id=current_user.id, organization_id=organization.id
+        ProjectFactory, name="test-project", organization_id=organization.id
     )
     pid = str(project.id)
     response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/{pid}/edit")
@@ -338,7 +332,7 @@ async def test_web_edit_project_not_found(authenticated_client, organization):
 @pytest.mark.asyncio
 async def test_web_update_project(authenticated_client, current_user, organization, factory):
     """POST /orgs/{slug}/projects/{id} updates project and redirects to list."""
-    project = await factory(ProjectFactory, user_id=current_user.id, organization_id=organization.id)
+    project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
     response = await authenticated_client.post(
         f"/orgs/{organization.slug}/projects/{pid}",
@@ -367,7 +361,7 @@ async def test_web_update_project_with_new_token(
     authenticated_client, current_user, organization, db_session: AsyncSession, factory
 ):
     """POST /orgs/{slug}/projects/{id} with non-empty github_token updates the token."""
-    project = await factory(ProjectFactory, user_id=current_user.id, organization_id=organization.id)
+    project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
     response = await authenticated_client.post(
         f"/orgs/{organization.slug}/projects/{pid}",
@@ -397,7 +391,7 @@ async def test_web_delete_project(
     authenticated_client, current_user, organization, db_session: AsyncSession, factory
 ):
     """POST /orgs/{slug}/projects/{id}/delete removes project."""
-    project = await factory(ProjectFactory, user_id=current_user.id, organization_id=organization.id)
+    project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
     response = await authenticated_client.post(
         f"/orgs/{organization.slug}/projects/{pid}/delete",
@@ -421,7 +415,7 @@ async def test_web_delete_project_not_found(authenticated_client, organization):
 @pytest.mark.asyncio
 async def test_web_api_key_page(authenticated_client, current_user, organization, factory):
     """GET /orgs/{slug}/projects/{id}/api-key shows hidden key message."""
-    project = await factory(ProjectFactory, user_id=current_user.id, organization_id=organization.id)
+    project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
     response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/{pid}/api-key")
     assert response.status_code == 200
@@ -434,7 +428,7 @@ async def test_web_api_key_page_with_query_param(
     authenticated_client, current_user, organization, factory
 ):
     """GET /orgs/{slug}/projects/{id}/api-key?api_key= shows the given key."""
-    project = await factory(ProjectFactory, user_id=current_user.id, organization_id=organization.id)
+    project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
     response = await authenticated_client.get(
         f"/orgs/{organization.slug}/projects/{pid}/api-key?api_key=new-key-from-query",
@@ -459,7 +453,7 @@ async def test_web_regenerate_api_key(
     authenticated_client, current_user, organization, db_session: AsyncSession, factory
 ):
     """POST /orgs/{slug}/projects/{id}/regenerate-api-key updates key."""
-    project = await factory(ProjectFactory, user_id=current_user.id, organization_id=organization.id)
+    project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
     old_hash = project.api_key_hash
     response = await authenticated_client.post(
@@ -477,7 +471,7 @@ async def test_web_regenerate_api_key(
 @pytest.mark.asyncio
 async def test_web_created_page(authenticated_client, current_user, organization, factory):
     """GET /orgs/{slug}/projects/{id}/created?api_key= shows API key."""
-    project = await factory(ProjectFactory, user_id=current_user.id, organization_id=organization.id)
+    project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
     response = await authenticated_client.get(
         f"/orgs/{organization.slug}/projects/{pid}/created",
@@ -502,7 +496,7 @@ async def test_web_project_errors_page_empty(
 ):
     """GET /orgs/{slug}/projects/{id}/errors shows empty state when no errors."""
     project = await factory(
-        ProjectFactory, name="test-project", user_id=current_user.id, organization_id=organization.id
+        ProjectFactory, name="test-project", organization_id=organization.id
     )
     pid = str(project.id)
     response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/{pid}/errors")
@@ -518,7 +512,7 @@ async def test_web_project_errors_page_with_errors(
 ):
     """GET /orgs/{slug}/projects/{id}/errors lists errors for the project."""
     project = await factory(
-        ProjectFactory, name="project-with-errors", user_id=current_user.id, organization_id=organization.id
+        ProjectFactory, name="project-with-errors", organization_id=organization.id
     )
     await factory(
         ErrorFactory,

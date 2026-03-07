@@ -5,6 +5,8 @@ from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy.orm import joinedload
+
 if TYPE_CHECKING:
     from oopsie.models.invitation import Invitation
     from oopsie.models.membership import Membership
@@ -172,3 +174,50 @@ async def accept_invitation(
         role=invitation.role.value,
     )
     return membership
+
+
+async def resolve_or_register_user(
+    session: AsyncSession, google_user_info: dict[str, Any]
+) -> tuple[User, "Membership | None"]:
+    """Authenticate a Google OAuth user, handling invitation-gated registration.
+
+    Returns the user and a new Membership if an invitation was just accepted.
+    Raises ValueError with a redirect hint if the user is new and has no invitation.
+    """
+    google_sub = google_user_info["sub"]
+    result = await session.execute(select(User).where(User.google_sub == google_sub))
+    existing = result.scalar_one_or_none()
+
+    invitation = None
+    if existing is None:
+        # New user — require a pending invitation to register
+        invitation = await get_pending_invitation(session, google_user_info["email"])
+        if invitation is None:
+            raise ValueError("no_invitation")
+
+    user = await upsert_user(session, google_user_info)
+
+    membership = None
+    if invitation is not None:
+        membership = await accept_invitation(session, invitation, user)
+
+    return user, membership
+
+
+async def get_user_default_redirect(session: AsyncSession, user_id: uuid.UUID) -> str:
+    """Look up the user's first org membership and return a redirect URL.
+
+    Falls back to the login page with an error if the user has no organization.
+    """
+    from oopsie.models.membership import Membership
+
+    mem_result = await session.execute(
+        select(Membership)
+        .options(joinedload(Membership.organization))
+        .where(Membership.user_id == user_id)
+        .limit(1)
+    )
+    mem = mem_result.scalar_one_or_none()
+    if mem and mem.organization:
+        return f"/orgs/{mem.organization.slug}/projects"
+    return "/auth/login?error=no_organization"

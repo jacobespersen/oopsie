@@ -78,14 +78,15 @@ alembic/           — DB migrations
 - **Structured logging** — `from oopsie.logging import logger; logger.info("event_name", key="value")`. Use snake_case event names.
 - **API auth** — Bearer token, hashed API key lookup via `get_project_from_api_key` dependency
 - **Web auth** — JWT in `access_token` cookie; `get_current_user` dep resolves user from JWT
-- **RBAC** — `require_role(MemberRole.X)` FastAPI dependency; extracts `org_slug` from path, looks up user's `Membership`, enforces minimum role hierarchy (MEMBER < ADMIN < OWNER)
+- **RBAC** — `RequireRole(MemberRole.X)` FastAPI callable-class dependency; extracts `org_slug` from path, looks up user's `Membership`, enforces minimum role hierarchy (MEMBER < ADMIN < OWNER)
 - **Org-scoped URLs** — all web routes use `/orgs/{org_slug}/...`; API routes use `/api/v1/orgs/{org_slug}/...`
 - **Invitation-gated registration** — new users can only sign up via Google OAuth if a pending `Invitation` exists for their email; existing users bypass the invitation check
 - **Bootstrap** — on deploy with `ADMIN_EMAIL` set, `bootstrap_if_needed` seeds the first organization and an OWNER invitation for that email
 - **Dependency injection** — FastAPI `Depends()` for sessions (`get_session`) and auth
 - **Encryption** — Fernet for GitHub tokens; key via `ENCRYPTION_KEY` env var
 - **Error fingerprinting** — deterministic hashing to deduplicate errors
-- **Small, testable functions** — keep methods focused on a single responsibility. If a function handles multiple pieces of business logic, split it into smaller functions that can be tested independently.
+- **Small, testable functions** — keep methods focused on a single responsibility. If a function handles multiple pieces of business logic, split it into smaller functions that can be tested independently. Endpoint handlers should be thin orchestrators (ideally under ~15 lines); extract multi-step logic into service functions or helpers rather than letting route handlers balloon.
+- **Comment non-obvious code** — add inline comments when logic isn't immediately self-evident, especially for complex business rules, multi-step flows, workarounds, and constraint rationale. Don't comment the obvious, but err on the side of clarity for anything a new reader would need to pause and reason about.
 - **Prefer composition over proliferation** — don't create a new module/file for every small piece of logic. Group related functionality together.
 - **Services encapsulate business logic** — keep endpoints thin, delegate to services.
 - **Reuse before creating** — always check existing utilities, helpers, and patterns before introducing new ones.

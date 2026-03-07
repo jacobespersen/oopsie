@@ -25,7 +25,7 @@ class MembershipFactory(factory.Factory):
         model = Membership
 
     role = MemberRole.MEMBER
-    # organization_id and user_id must be supplied by the caller
+    # organization_id and user_id must be supplied by the caller (for Membership)
 
 
 class InvitationFactory(factory.Factory):

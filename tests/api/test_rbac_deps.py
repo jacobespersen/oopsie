@@ -1,4 +1,4 @@
-"""Tests for RBAC dependency injection (get_current_membership, require_role)."""
+"""Tests for RBAC dependency injection (get_current_membership, RequireRole)."""
 
 import pytest
 from fastapi import Depends, FastAPI
@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 def _make_app(required_role: MemberRole, db_session: AsyncSession) -> FastAPI:
     """Helper: create a minimal FastAPI app with a role-protected endpoint."""
-    from oopsie.api.deps import require_role
+    from oopsie.api.deps import RequireRole
 
     test_app = FastAPI()
 
@@ -22,7 +22,7 @@ def _make_app(required_role: MemberRole, db_session: AsyncSession) -> FastAPI:
 
     @test_app.get("/protected/{org_slug}")
     async def protected(
-        membership=Depends(require_role(required_role)),
+        membership=Depends(RequireRole(required_role)),
     ):
         return {"role": membership.role.value}
 
@@ -65,10 +65,10 @@ async def test_get_current_membership_raises_403_when_not_member(
 
 
 @pytest.mark.asyncio
-async def test_require_role_allows_sufficient_role(
+async def test_RequireRole_allows_sufficient_role(
     db_session: AsyncSession, factory, api_client
 ):
-    """require_role allows access when user has the required role or higher."""
+    """RequireRole allows access when user has the required role or higher."""
     from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
 
     org = await factory(OrganizationFactory, slug="my-org")
@@ -89,10 +89,10 @@ async def test_require_role_allows_sufficient_role(
 
 
 @pytest.mark.asyncio
-async def test_require_role_denies_insufficient_role(
+async def test_RequireRole_denies_insufficient_role(
     db_session: AsyncSession, factory, api_client
 ):
-    """require_role returns 403 when user has insufficient role."""
+    """RequireRole returns 403 when user has insufficient role."""
     from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
 
     org = await factory(OrganizationFactory, slug="my-org2")

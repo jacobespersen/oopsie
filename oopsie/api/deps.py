@@ -1,8 +1,6 @@
 """Dependency injection (db session, auth)."""
 
 import uuid
-from collections.abc import Callable
-from typing import Any
 
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -98,6 +96,7 @@ __all__ = [
     "get_project_from_api_key",
     "get_current_user",
     "get_optional_user",
+    "RequireRole",
 ]
 
 
@@ -131,27 +130,36 @@ async def get_current_membership(
     return membership
 
 
-def require_role(*allowed_roles: MemberRole) -> Callable[..., Any]:
-    """Return a FastAPI dependency that enforces a minimum role.
+class RequireRole:
+    """FastAPI dependency that enforces a minimum organization role.
 
-    The lowest role in *allowed_roles* determines the minimum required. Any role
-    that is equal to or higher than the minimum is accepted.
+    The lowest role passed to the constructor sets the minimum required rank.
+    Any role equal to or higher than that minimum is accepted.
+
+    Usage::
+
+        @router.get("/admin-only")
+        async def admin_view(
+            membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
+        ):
+            ...
     """
-    # Determine minimum rank
-    min_rank = min(_ROLE_ORDER.index(r) for r in allowed_roles)
 
-    async def _check(
+    def __init__(self, *allowed_roles: MemberRole) -> None:
+        self._min_rank = min(_ROLE_ORDER.index(r) for r in allowed_roles)
+        self._label = allowed_roles[0].value
+
+    async def __call__(
+        self,
         org_slug: str,
         session: AsyncSession = Depends(get_session),
         current_user: User = Depends(get_current_user),
     ) -> Membership:
         membership = await get_current_membership(org_slug, session, current_user)
         user_rank = _ROLE_ORDER.index(membership.role)
-        if user_rank < min_rank:
+        if user_rank < self._min_rank:
             raise HTTPException(
                 status_code=403,
-                detail=f"Insufficient permissions. Required: {allowed_roles[0].value}",
+                detail=f"Insufficient permissions. Required: {self._label}",
             )
         return membership
-
-    return _check

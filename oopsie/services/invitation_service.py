@@ -17,21 +17,35 @@ async def create_invitation(
     role: MemberRole,
     invited_by_id: uuid.UUID | None,
 ) -> Invitation:
-    """Create a pending invitation for an email address.
+    """Create or re-activate an invitation for an email address.
 
-    Raises ValueError if a pending invitation already exists for this org+email.
+    If a PENDING invitation already exists, updates its role.
+    Raises ValueError if the email has already accepted.
     """
+    # Check for an existing invitation for this org+email.
+    # If found, update it rather than creating a duplicate.
     existing = await session.scalar(
         select(Invitation).where(
             Invitation.organization_id == organization_id,
             Invitation.email == email,
-            Invitation.status == InvitationStatus.PENDING,
         )
     )
     if existing is not None:
-        raise ValueError(
-            f"A pending invitation already exists for {email} in this organization."
+        if existing.status == InvitationStatus.ACCEPTED:
+            raise ValueError(
+                f"{email} already accepted an invitation"
+            )
+        # Re-invite: update role and inviter on the existing PENDING row
+        existing.role = role
+        existing.invited_by_id = invited_by_id
+        await session.flush()
+        logger.info(
+            "invitation_updated",
+            org_id=str(organization_id),
+            email=email,
+            role=role.value,
         )
+        return existing
 
     invitation = Invitation(
         organization_id=organization_id,

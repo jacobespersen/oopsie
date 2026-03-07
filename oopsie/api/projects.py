@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.api.deps import get_current_user, get_session, require_role
+from oopsie.api.deps import RequireRole, get_current_user, get_session
 from oopsie.config import get_settings
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership
@@ -45,7 +45,7 @@ async def list_projects(
     org_slug: str,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
 ):
     """List projects in the current org."""
     result = await session.execute(
@@ -73,7 +73,7 @@ async def get_project(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
 ):
     """Get a project by id (must belong to current org)."""
     result = await session.execute(
@@ -103,7 +103,7 @@ async def create_project(
     body: ProjectCreateBody,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
 ):
     """Create a project in the current org and return its api_key."""
     settings = get_settings()
@@ -117,7 +117,6 @@ async def create_project(
         default_branch=body.default_branch,
         error_threshold=body.error_threshold,
         api_key_hash=hash_api_key(api_key),
-        user_id=current_user.id,
         organization_id=membership.organization_id,
     )
     session.add(project)
@@ -137,7 +136,7 @@ async def update_project(
     body: ProjectUpdateBody,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
 ):
     """Update a project (must belong to current org)."""
     result = await session.execute(
@@ -175,7 +174,7 @@ async def delete_project(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
 ):
     """Delete a project (must belong to current org)."""
     result = await session.execute(

@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.templating import Jinja2Templates
 
-from oopsie.api.deps import get_current_user, get_session, require_role
+from oopsie.api.deps import RequireRole, get_current_user, get_session
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.user import User
 from oopsie.services.invitation_service import (
@@ -33,7 +33,7 @@ async def members_list_page(
     org_slug: str,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
 ):
     """Show members and pending invitations for the org."""
     members = await list_members(session, organization_id=membership.organization_id)
@@ -60,7 +60,7 @@ async def invite_member_action(
     org_slug: str,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
     email: str = Form(...),
     role: str = Form(...),
 ):
@@ -91,7 +91,7 @@ async def revoke_invitation_action(
     invitation_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
 ):
     """Revoke a pending invitation and redirect back to members page."""
     try:
@@ -113,7 +113,7 @@ async def update_member_role_action(
     membership_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
     role: str = Form(...),
 ):
     """Update a member's role and redirect back to members page."""
@@ -142,7 +142,7 @@ async def remove_member_action(
     membership_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(require_role(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
 ):
     """Remove a member from the org and redirect back to members page."""
     try:

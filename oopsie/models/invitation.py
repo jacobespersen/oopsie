@@ -23,8 +23,7 @@ class Invitation(Base):
         UniqueConstraint(
             "organization_id",
             "email",
-            "status",
-            name="uq_invitation_org_email_status",
+            name="uq_invitation_org_email",
         ),
     )
 

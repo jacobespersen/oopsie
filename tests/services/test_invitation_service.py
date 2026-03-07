@@ -33,37 +33,41 @@ async def test_create_invitation_creates_pending(db_session: AsyncSession, facto
 
 
 @pytest.mark.asyncio
-async def test_create_invitation_raises_on_duplicate_pending(
+async def test_create_invitation_updates_existing_pending(
     db_session: AsyncSession, factory
 ):
-    """create_invitation raises ValueError when a pending invite already exists for the email."""
+    """create_invitation updates role on an existing PENDING invite."""
     from oopsie.services.invitation_service import create_invitation
 
     from tests.factories import InvitationFactory, OrganizationFactory
 
     org = await factory(OrganizationFactory)
-    await factory(
+    original = await factory(
         InvitationFactory,
         organization_id=org.id,
         email="dup@example.com",
+        role=MemberRole.MEMBER,
         status=InvitationStatus.PENDING,
     )
 
-    with pytest.raises(ValueError, match="pending invitation"):
-        await create_invitation(
-            db_session,
-            organization_id=org.id,
-            email="dup@example.com",
-            role=MemberRole.MEMBER,
-            invited_by_id=None,
-        )
+    updated = await create_invitation(
+        db_session,
+        organization_id=org.id,
+        email="dup@example.com",
+        role=MemberRole.ADMIN,
+        invited_by_id=None,
+    )
+
+    assert updated.id == original.id
+    assert updated.role == MemberRole.ADMIN
+    assert updated.status == InvitationStatus.PENDING
 
 
 @pytest.mark.asyncio
-async def test_create_invitation_allows_after_accepted(
+async def test_create_invitation_raises_on_accepted(
     db_session: AsyncSession, factory
 ):
-    """create_invitation succeeds when a previous invitation was already accepted."""
+    """create_invitation raises ValueError when email already accepted."""
     from oopsie.services.invitation_service import create_invitation
 
     from tests.factories import InvitationFactory, OrganizationFactory
@@ -76,14 +80,14 @@ async def test_create_invitation_allows_after_accepted(
         status=InvitationStatus.ACCEPTED,
     )
 
-    invitation = await create_invitation(
-        db_session,
-        organization_id=org.id,
-        email="prev@example.com",
-        role=MemberRole.MEMBER,
-        invited_by_id=None,
-    )
-    assert invitation.status == InvitationStatus.PENDING
+    with pytest.raises(ValueError, match="already accepted"):
+        await create_invitation(
+            db_session,
+            organization_id=org.id,
+            email="prev@example.com",
+            role=MemberRole.MEMBER,
+            invited_by_id=None,
+        )
 
 
 @pytest.mark.asyncio
@@ -102,10 +106,11 @@ async def test_list_invitations_returns_pending_only(
         email="pending@example.com",
         status=InvitationStatus.PENDING,
     )
+    # Different email — unique constraint is on (org, email)
     await factory(
         InvitationFactory,
         organization_id=org.id,
-        email="accepted@example.com",
+        email="already-accepted@example.com",
         status=InvitationStatus.ACCEPTED,
     )
 

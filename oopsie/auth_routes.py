@@ -13,14 +13,13 @@ from starlette.templating import Jinja2Templates
 
 from oopsie.api.deps import get_session
 from oopsie.auth import (
-    accept_invitation,
     create_access_token,
     create_refresh_token,
     decode_jwt_token,
     get_google_oauth_client,
-    get_pending_invitation,
+    get_user_default_redirect,
+    resolve_or_register_user,
     revoke_token,
-    upsert_user,
 )
 from oopsie.config import get_settings
 from oopsie.logging import logger
@@ -79,6 +78,7 @@ async def auth_callback(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Handle Google OAuth callback: exchange code, upsert user, set cookies."""
+    # Exchange the authorization code for user info
     google = get_google_oauth_client()
     token = await google.authorize_access_token(request)
     user_info = token.get("userinfo")
@@ -87,49 +87,18 @@ async def auth_callback(
             status_code=400, detail="Could not retrieve user info from Google"
         )
 
-    from sqlalchemy import select
+    # Register or authenticate the user (invitation-gated for new users)
+    try:
+        user, _membership = await resolve_or_register_user(session, user_info)
+    except ValueError:
+        return RedirectResponse(url="/auth/login?error=no_invitation", status_code=303)
 
-    from oopsie.models.user import User as _User
-
-    # Check if user already exists in DB
-    google_sub = user_info["sub"]
-    result = await session.execute(select(_User).where(_User.google_sub == google_sub))
-    existing = result.scalar_one_or_none()
-
-    invitation = None
-    if existing is None:
-        # New user — require a pending invitation
-        invitation = await get_pending_invitation(session, user_info["email"])
-        if invitation is None:
-            return RedirectResponse(
-                url="/auth/login?error=no_invitation", status_code=303
-            )
-
-    user = await upsert_user(session, user_info)
-
-    if invitation is not None:
-        await accept_invitation(session, invitation, user)
-
+    # Issue JWT tokens
     access_token = create_access_token(user.id, user.email)
     refresh_token = create_refresh_token(user.id)
 
-    # Resolve user's org for redirect
-    from sqlalchemy.orm import joinedload as _joinedload
-
-    from oopsie.models.membership import Membership as _Membership
-
-    mem_result = await session.execute(
-        select(_Membership)
-        .options(_joinedload(_Membership.organization))
-        .where(_Membership.user_id == user.id)
-        .limit(1)
-    )
-    mem = mem_result.scalar_one_or_none()
-    if mem and mem.organization:
-        redirect_url = f"/orgs/{mem.organization.slug}/projects"
-    else:
-        redirect_url = "/auth/login?error=no_organization"
-
+    # Redirect to the user's default org
+    redirect_url = await get_user_default_redirect(session, user.id)
     response: Response = RedirectResponse(url=redirect_url, status_code=303)
     _set_auth_cookies(response, access_token, refresh_token)
     logger.info("user_logged_in", user_id=str(user.id), email=user.email)

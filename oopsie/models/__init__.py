@@ -19,7 +19,6 @@ __all__ = [
     "FixAttempt",
     "FixAttemptStatus",
     "Invitation",
-
     "MemberRole",
     "Membership",
     "Organization",

@@ -18,15 +18,11 @@ depends_on = None
 def upgrade() -> None:
     # --- Projects: remove vestigial user_id (projects now connect through org) ---
     op.drop_index("ix_projects_user_id", table_name="projects")
-    op.drop_constraint(
-        "projects_user_id_fkey", "projects", type_="foreignkey"
-    )
+    op.drop_constraint("projects_user_id_fkey", "projects", type_="foreignkey")
     op.drop_column("projects", "user_id")
 
     # --- Invitations: tighten unique constraint to (org, email) ---
-    op.drop_constraint(
-        "uq_invitation_org_email_status", "invitations", type_="unique"
-    )
+    op.drop_constraint("uq_invitation_org_email_status", "invitations", type_="unique")
     op.create_unique_constraint(
         "uq_invitation_org_email", "invitations", ["organization_id", "email"]
     )
@@ -44,7 +40,8 @@ def downgrade() -> None:
         sa.Column(
             "status",
             postgresql.ENUM(
-                "pending", "accepted",
+                "pending",
+                "accepted",
                 name="invitationstatus",
                 create_type=False,
             ),
@@ -54,9 +51,7 @@ def downgrade() -> None:
     )
 
     # --- Invitations: restore original (org, email, status) constraint ---
-    op.drop_constraint(
-        "uq_invitation_org_email", "invitations", type_="unique"
-    )
+    op.drop_constraint("uq_invitation_org_email", "invitations", type_="unique")
     op.create_unique_constraint(
         "uq_invitation_org_email_status",
         "invitations",

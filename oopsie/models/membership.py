@@ -11,7 +11,7 @@ from sqlalchemy.sql import func
 from oopsie.models.base import Base
 
 
-class MemberRole(str, enum.Enum):
+class MemberRole(enum.StrEnum):
     OWNER = "owner"
     ADMIN = "admin"
     MEMBER = "member"

@@ -64,9 +64,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
-    op.create_index(
-        "ix_revoked_tokens_jti", "revoked_tokens", ["jti"], unique=True
-    )
+    op.create_index("ix_revoked_tokens_jti", "revoked_tokens", ["jti"], unique=True)
 
 
 def downgrade() -> None:

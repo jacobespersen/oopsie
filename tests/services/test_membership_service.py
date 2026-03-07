@@ -106,9 +106,7 @@ async def test_remove_member_deletes_membership(db_session: AsyncSession, factor
         MembershipFactory, organization_id=org.id, user_id=user.id
     )
 
-    await remove_member(
-        db_session, membership_id=membership.id, organization_id=org.id
-    )
+    await remove_member(db_session, membership_id=membership.id, organization_id=org.id)
 
     remaining = await db_session.scalar(
         select(Membership).where(Membership.id == membership.id)

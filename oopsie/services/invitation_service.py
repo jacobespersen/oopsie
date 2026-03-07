@@ -33,9 +33,7 @@ async def create_invitation(
         )
     )
     if existing_member:
-        raise ValueError(
-            f"{email} is already a member of this organization"
-        )
+        raise ValueError(f"{email} is already a member of this organization")
 
     # Check for an existing invitation — update rather than duplicate
     existing = await session.scalar(
@@ -103,9 +101,7 @@ async def revoke_invitation(
         )
     )
     if invitation is None:
-        raise LookupError(
-            f"Invitation {invitation_id} not found in this organization."
-        )
+        raise LookupError(f"Invitation {invitation_id} not found in this organization.")
 
     await session.delete(invitation)
     await session.flush()

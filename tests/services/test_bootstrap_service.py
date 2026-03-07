@@ -12,7 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 @pytest.mark.asyncio
 async def test_bootstrap_creates_org_and_invitation(db_session: AsyncSession):
     """When no orgs exist and admin_email is set, creates org and owner invitation."""
-    await bootstrap_if_needed(db_session, admin_email="admin@example.com", org_name="Acme")
+    await bootstrap_if_needed(
+        db_session, admin_email="admin@example.com", org_name="Acme"
+    )
 
     orgs = (await db_session.execute(select(Organization))).scalars().all()
     assert len(orgs) == 1
@@ -32,7 +34,9 @@ async def test_bootstrap_skipped_when_org_exists(db_session: AsyncSession, facto
     from tests.factories import OrganizationFactory
 
     await factory(OrganizationFactory)
-    await bootstrap_if_needed(db_session, admin_email="admin@example.com", org_name="Acme")
+    await bootstrap_if_needed(
+        db_session, admin_email="admin@example.com", org_name="Acme"
+    )
 
     orgs = (await db_session.execute(select(Organization))).scalars().all()
     assert len(orgs) == 1  # still just the one we created
@@ -50,8 +54,12 @@ async def test_bootstrap_skipped_when_no_admin_email(db_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_bootstrap_idempotent(db_session: AsyncSession):
     """Calling bootstrap_if_needed twice does not create duplicate data."""
-    await bootstrap_if_needed(db_session, admin_email="admin@example.com", org_name="Acme")
-    await bootstrap_if_needed(db_session, admin_email="admin@example.com", org_name="Acme")
+    await bootstrap_if_needed(
+        db_session, admin_email="admin@example.com", org_name="Acme"
+    )
+    await bootstrap_if_needed(
+        db_session, admin_email="admin@example.com", org_name="Acme"
+    )
 
     orgs = (await db_session.execute(select(Organization))).scalars().all()
     assert len(orgs) == 1

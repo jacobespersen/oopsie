@@ -59,12 +59,16 @@ async def test_invitation_unique_per_org_email(db_session):
     await db_session.flush()
 
     db_session.add(
-        Invitation(organization_id=org.id, email="bob@example.com", role=MemberRole.MEMBER)
+        Invitation(
+            organization_id=org.id, email="bob@example.com", role=MemberRole.MEMBER
+        )
     )
     await db_session.flush()
 
     db_session.add(
-        Invitation(organization_id=org.id, email="bob@example.com", role=MemberRole.ADMIN)
+        Invitation(
+            organization_id=org.id, email="bob@example.com", role=MemberRole.ADMIN
+        )
     )
     with pytest.raises(IntegrityError):
         await db_session.flush()

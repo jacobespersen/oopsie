@@ -12,7 +12,9 @@ _ENQUEUE = "oopsie.web.projects.enqueue_fix_job"
 
 
 @pytest.mark.asyncio
-async def test_trigger_fix_happy_path(authenticated_client, current_user, organization, factory):
+async def test_trigger_fix_happy_path(
+    authenticated_client, current_user, organization, factory
+):
     """POST trigger enqueues job and redirects."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     error = await factory(ErrorFactory, project_id=project.id)
@@ -43,7 +45,9 @@ async def test_trigger_fix_project_not_found(
 
 
 @pytest.mark.asyncio
-async def test_trigger_fix_error_not_found(authenticated_client, current_user, organization, factory):
+async def test_trigger_fix_error_not_found(
+    authenticated_client, current_user, organization, factory
+):
     """404 when error does not exist."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     fake_id = uuid.uuid4()
@@ -56,7 +60,9 @@ async def test_trigger_fix_error_not_found(authenticated_client, current_user, o
 
 
 @pytest.mark.asyncio
-async def test_trigger_fix_error_not_open(authenticated_client, current_user, organization, factory):
+async def test_trigger_fix_error_not_open(
+    authenticated_client, current_user, organization, factory
+):
     """400 when error is not OPEN."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     error = await factory(

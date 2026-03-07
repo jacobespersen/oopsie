@@ -31,9 +31,7 @@ async def test_create_invitation_creates_pending(db_session: AsyncSession, facto
 
 
 @pytest.mark.asyncio
-async def test_create_invitation_updates_existing(
-    db_session: AsyncSession, factory
-):
+async def test_create_invitation_updates_existing(db_session: AsyncSession, factory):
     """create_invitation updates role on an existing invite."""
     from oopsie.services.invitation_service import create_invitation
 
@@ -114,9 +112,7 @@ async def test_list_invitations_returns_org_invitations(
 
 
 @pytest.mark.asyncio
-async def test_list_invitations_excludes_other_orgs(
-    db_session: AsyncSession, factory
-):
+async def test_list_invitations_excludes_other_orgs(db_session: AsyncSession, factory):
     """list_invitations does not return invitations from other organizations."""
     from oopsie.services.invitation_service import list_invitations
 

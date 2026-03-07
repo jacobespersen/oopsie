@@ -137,15 +137,11 @@ async def upsert_user(session: AsyncSession, google_user_info: dict[str, Any]) -
     return user
 
 
-async def get_invitation(
-    session: AsyncSession, email: str
-) -> "Invitation | None":
+async def get_invitation(session: AsyncSession, email: str) -> "Invitation | None":
     """Return an invitation for the given email, or None."""
     from oopsie.models.invitation import Invitation
 
-    result = await session.execute(
-        select(Invitation).where(Invitation.email == email)
-    )
+    result = await session.execute(select(Invitation).where(Invitation.email == email))
     return result.scalar_one_or_none()
 
 

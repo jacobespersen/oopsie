@@ -5,7 +5,6 @@ Revises: 003
 Create Date: 2026-03-06
 """
 
-
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
@@ -17,7 +16,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create enum types explicitly so sa.Enum(create_type=False) can reference them below
+    # Create enum types so sa.Enum(create_type=False) can reference them below
     op.execute("CREATE TYPE memberrole AS ENUM ('owner', 'admin', 'member')")
     op.execute("CREATE TYPE invitationstatus AS ENUM ('pending', 'accepted')")
 
@@ -49,7 +48,13 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("organization_id", sa.UUID(), nullable=False),
         sa.Column("user_id", sa.UUID(), nullable=False),
-        sa.Column("role", postgresql.ENUM("owner", "admin", "member", name="memberrole", create_type=False), nullable=False),
+        sa.Column(
+            "role",
+            postgresql.ENUM(
+                "owner", "admin", "member", name="memberrole", create_type=False
+            ),
+            nullable=False,
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -61,9 +66,13 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
+        sa.UniqueConstraint(
+            "organization_id", "user_id", name="uq_membership_org_user"
+        ),
     )
-    op.create_index("ix_memberships_organization_id", "memberships", ["organization_id"])
+    op.create_index(
+        "ix_memberships_organization_id", "memberships", ["organization_id"]
+    )
     op.create_index("ix_memberships_user_id", "memberships", ["user_id"])
 
     # invitations
@@ -72,10 +81,18 @@ def upgrade() -> None:
         sa.Column("id", sa.UUID(), nullable=False),
         sa.Column("organization_id", sa.UUID(), nullable=False),
         sa.Column("email", sa.String(255), nullable=False),
-        sa.Column("role", postgresql.ENUM("owner", "admin", "member", name="memberrole", create_type=False), nullable=False),
+        sa.Column(
+            "role",
+            postgresql.ENUM(
+                "owner", "admin", "member", name="memberrole", create_type=False
+            ),
+            nullable=False,
+        ),
         sa.Column(
             "status",
-            postgresql.ENUM("pending", "accepted", name="invitationstatus", create_type=False),
+            postgresql.ENUM(
+                "pending", "accepted", name="invitationstatus", create_type=False
+            ),
             nullable=False,
         ),
         sa.Column("invited_by_id", sa.UUID(), nullable=True),
@@ -88,15 +105,15 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["organization_id"], ["organizations.id"], ondelete="CASCADE"
         ),
-        sa.ForeignKeyConstraint(
-            ["invited_by_id"], ["users.id"], ondelete="SET NULL"
-        ),
+        sa.ForeignKeyConstraint(["invited_by_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint(
             "organization_id", "email", "status", name="uq_invitation_org_email_status"
         ),
     )
-    op.create_index("ix_invitations_organization_id", "invitations", ["organization_id"])
+    op.create_index(
+        "ix_invitations_organization_id", "invitations", ["organization_id"]
+    )
     op.create_index("ix_invitations_email", "invitations", ["email"])
 
     # Add organization_id FK to projects

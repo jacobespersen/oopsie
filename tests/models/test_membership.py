@@ -16,7 +16,9 @@ async def test_membership_creation(db_session):
     db_session.add(user)
     await db_session.flush()
 
-    membership = Membership(organization_id=org.id, user_id=user.id, role=MemberRole.MEMBER)
+    membership = Membership(
+        organization_id=org.id, user_id=user.id, role=MemberRole.MEMBER
+    )
     db_session.add(membership)
     await db_session.flush()
 
@@ -36,10 +38,14 @@ async def test_membership_unique_per_org(db_session):
     db_session.add(user)
     await db_session.flush()
 
-    db_session.add(Membership(organization_id=org.id, user_id=user.id, role=MemberRole.MEMBER))
+    db_session.add(
+        Membership(organization_id=org.id, user_id=user.id, role=MemberRole.MEMBER)
+    )
     await db_session.flush()
 
-    db_session.add(Membership(organization_id=org.id, user_id=user.id, role=MemberRole.ADMIN))
+    db_session.add(
+        Membership(organization_id=org.id, user_id=user.id, role=MemberRole.ADMIN)
+    )
     with pytest.raises(IntegrityError):
         await db_session.flush()
 

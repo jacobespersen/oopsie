@@ -9,7 +9,9 @@ from tests.factories import ErrorFactory, FixAttemptFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
-async def test_error_show_200(authenticated_client, current_user, organization, factory):
+async def test_error_show_200(
+    authenticated_client, current_user, organization, factory
+):
     """GET error show page returns 200 with error details."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     error = await factory(

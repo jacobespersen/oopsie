@@ -39,7 +39,12 @@ async def test_get_current_membership_returns_membership(
 
     org = await factory(OrganizationFactory, slug="test-org")
     user = await factory(UserFactory)
-    await factory(MembershipFactory, organization_id=org.id, user_id=user.id, role=MemberRole.ADMIN)
+    await factory(
+        MembershipFactory,
+        organization_id=org.id,
+        user_id=user.id,
+        role=MemberRole.ADMIN,
+    )
 
     membership = await get_current_membership("test-org", db_session, user)
     assert membership is not None
@@ -65,7 +70,7 @@ async def test_get_current_membership_raises_403_when_not_member(
 
 
 @pytest.mark.asyncio
-async def test_RequireRole_allows_sufficient_role(
+async def test_require_role_allows_sufficient_role(
     db_session: AsyncSession, factory, api_client
 ):
     """RequireRole allows access when user has the required role or higher."""
@@ -73,7 +78,12 @@ async def test_RequireRole_allows_sufficient_role(
 
     org = await factory(OrganizationFactory, slug="my-org")
     user = await factory(UserFactory)
-    await factory(MembershipFactory, organization_id=org.id, user_id=user.id, role=MemberRole.ADMIN)
+    await factory(
+        MembershipFactory,
+        organization_id=org.id,
+        user_id=user.id,
+        role=MemberRole.ADMIN,
+    )
 
     access_token = create_access_token(user.id, user.email)
     app = _make_app(MemberRole.MEMBER, db_session)
@@ -89,7 +99,7 @@ async def test_RequireRole_allows_sufficient_role(
 
 
 @pytest.mark.asyncio
-async def test_RequireRole_denies_insufficient_role(
+async def test_require_role_denies_insufficient_role(
     db_session: AsyncSession, factory, api_client
 ):
     """RequireRole returns 403 when user has insufficient role."""
@@ -97,7 +107,12 @@ async def test_RequireRole_denies_insufficient_role(
 
     org = await factory(OrganizationFactory, slug="my-org2")
     user = await factory(UserFactory)
-    await factory(MembershipFactory, organization_id=org.id, user_id=user.id, role=MemberRole.MEMBER)
+    await factory(
+        MembershipFactory,
+        organization_id=org.id,
+        user_id=user.id,
+        role=MemberRole.MEMBER,
+    )
 
     access_token = create_access_token(user.id, user.email)
     app = _make_app(MemberRole.OWNER, db_session)

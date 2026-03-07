@@ -233,11 +233,13 @@ async def test_login_google_unconfigured(api_client):
 
 @pytest.mark.asyncio
 async def test_auth_callback_success(api_client, db_session: AsyncSession, factory):
-    """POST /auth/callback creates user and sets cookies on success (requires invitation)."""
+    """Creates user and sets cookies on success (requires invitation)."""
     from tests.factories import InvitationFactory, OrganizationFactory
 
     org = await factory(OrganizationFactory)
-    await factory(InvitationFactory, organization_id=org.id, email="callback@example.com")
+    await factory(
+        InvitationFactory, organization_id=org.id, email="callback@example.com"
+    )
 
     mock_google = AsyncMock()
     mock_google.authorize_access_token = AsyncMock(
@@ -464,7 +466,9 @@ async def test_get_invitation_found(db_session: AsyncSession, factory):
     from tests.factories import InvitationFactory, OrganizationFactory
 
     org = await factory(OrganizationFactory)
-    inv = await factory(InvitationFactory, organization_id=org.id, email="invited@example.com")
+    inv = await factory(
+        InvitationFactory, organization_id=org.id, email="invited@example.com"
+    )
 
     result = await get_invitation(db_session, "invited@example.com")
     assert result is not None
@@ -530,7 +534,9 @@ async def test_auth_callback_new_user_with_invitation_succeeds(
     from tests.factories import InvitationFactory, OrganizationFactory
 
     org = await factory(OrganizationFactory)
-    await factory(InvitationFactory, organization_id=org.id, email="new-invited@example.com")
+    await factory(
+        InvitationFactory, organization_id=org.id, email="new-invited@example.com"
+    )
 
     mock_google = AsyncMock()
     mock_google.authorize_access_token = AsyncMock(

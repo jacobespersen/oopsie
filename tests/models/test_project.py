@@ -73,8 +73,6 @@ async def test_project_organization_relationship(db_session, factory):
 
     assert project.organization_id == org.id
 
-    result = await db_session.execute(
-        select(Project).where(Project.id == project.id)
-    )
+    result = await db_session.execute(select(Project).where(Project.id == project.id))
     loaded = result.scalar_one()
     assert loaded.organization_id == org.id

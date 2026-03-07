@@ -28,7 +28,9 @@ async def test_list_projects_requires_auth(api_client):
 @pytest.mark.asyncio
 async def test_list_projects_empty(authenticated_client, organization):
     """GET /api/v1/orgs/{slug}/projects returns empty list when no projects in org."""
-    response = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects")
+    response = await authenticated_client.get(
+        f"/api/v1/orgs/{organization.slug}/projects"
+    )
     assert response.status_code == 200
     assert response.json() == []
 
@@ -45,10 +47,13 @@ async def test_list_projects(authenticated_client, current_user, organization, f
     )
     # Project in another org — should not appear
     from tests.factories import OrganizationFactory
+
     other_org = await factory(OrganizationFactory, slug="other-org-list")
     await factory(ProjectFactory, name="other-project", organization_id=other_org.id)
 
-    response = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects")
+    response = await authenticated_client.get(
+        f"/api/v1/orgs/{organization.slug}/projects"
+    )
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
@@ -65,7 +70,9 @@ async def test_get_project(authenticated_client, current_user, organization, fac
         ProjectFactory, name="test-project", organization_id=organization.id
     )
     pid = str(project.id)
-    response = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects/{pid}")
+    response = await authenticated_client.get(
+        f"/api/v1/orgs/{organization.slug}/projects/{pid}"
+    )
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == pid
@@ -78,22 +85,31 @@ async def test_get_project(authenticated_client, current_user, organization, fac
 async def test_get_project_not_found(authenticated_client, organization):
     """GET /api/v1/orgs/{slug}/projects/{id} returns 404 for unknown id."""
     fake_id = str(uuid.uuid4())
-    response = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects/{fake_id}")
+    response = await authenticated_client.get(
+        f"/api/v1/orgs/{organization.slug}/projects/{fake_id}"
+    )
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_get_project_other_org_returns_404(authenticated_client, organization, factory):
-    """GET /api/v1/orgs/{slug}/projects/{id} returns 404 for a project in another org."""
+async def test_get_project_other_org_returns_404(
+    authenticated_client, organization, factory
+):
+    """Returns 404 for a project in another org."""
     from tests.factories import OrganizationFactory
+
     other_org = await factory(OrganizationFactory, slug="other-org-get")
     project = await factory(ProjectFactory, organization_id=other_org.id)
-    response = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects/{project.id}")
+    response = await authenticated_client.get(
+        f"/api/v1/orgs/{organization.slug}/projects/{project.id}"
+    )
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_create_project(authenticated_client, organization, db_session: AsyncSession):
+async def test_create_project(
+    authenticated_client, organization, db_session: AsyncSession
+):
     """POST /api/v1/orgs/{slug}/projects creates project in org."""
     response = await authenticated_client.post(
         f"/api/v1/orgs/{organization.slug}/projects",
@@ -141,7 +157,9 @@ async def test_create_project_with_optional_fields(
     data = response.json()
     assert data["name"] == "optional-fields-app"
 
-    resp2 = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects/{data['id']}")
+    resp2 = await authenticated_client.get(
+        f"/api/v1/orgs/{organization.slug}/projects/{data['id']}"
+    )
     assert resp2.status_code == 200
     api_data = resp2.json()
     assert api_data["default_branch"] == "develop"
@@ -158,7 +176,9 @@ async def test_create_project_with_optional_fields(
 
 
 @pytest.mark.asyncio
-async def test_update_project(authenticated_client, current_user, organization, factory):
+async def test_update_project(
+    authenticated_client, current_user, organization, factory
+):
     """PUT /api/v1/orgs/{slug}/projects/{id} updates org project."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
@@ -195,7 +215,9 @@ async def test_delete_project(
     """DELETE /api/v1/orgs/{slug}/projects/{id} removes org project."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
-    response = await authenticated_client.delete(f"/api/v1/orgs/{organization.slug}/projects/{pid}")
+    response = await authenticated_client.delete(
+        f"/api/v1/orgs/{organization.slug}/projects/{pid}"
+    )
     assert response.status_code == 204
 
     result = await db_session.execute(select(Project).where(Project.id == project.id))
@@ -206,7 +228,9 @@ async def test_delete_project(
 async def test_delete_project_not_found(authenticated_client, organization):
     """DELETE /api/v1/orgs/{slug}/projects/{id} returns 404 for unknown id."""
     fake_id = str(uuid.uuid4())
-    response = await authenticated_client.delete(f"/api/v1/orgs/{organization.slug}/projects/{fake_id}")
+    response = await authenticated_client.delete(
+        f"/api/v1/orgs/{organization.slug}/projects/{fake_id}"
+    )
     assert response.status_code == 404
 
 
@@ -309,13 +333,17 @@ async def test_web_create_project_and_verify(
 
 
 @pytest.mark.asyncio
-async def test_web_edit_project_page(authenticated_client, current_user, organization, factory):
+async def test_web_edit_project_page(
+    authenticated_client, current_user, organization, factory
+):
     """GET /orgs/{slug}/projects/{id}/edit returns edit form."""
     project = await factory(
         ProjectFactory, name="test-project", organization_id=organization.id
     )
     pid = str(project.id)
-    response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/{pid}/edit")
+    response = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{pid}/edit"
+    )
     assert response.status_code == 200
     assert b"Edit Project" in response.content
     assert b"test-project" in response.content
@@ -325,12 +353,16 @@ async def test_web_edit_project_page(authenticated_client, current_user, organiz
 async def test_web_edit_project_not_found(authenticated_client, organization):
     """GET /orgs/{slug}/projects/{id}/edit returns 404 for unknown id."""
     fake_id = str(uuid.uuid4())
-    response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/{fake_id}/edit")
+    response = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{fake_id}/edit"
+    )
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_web_update_project(authenticated_client, current_user, organization, factory):
+async def test_web_update_project(
+    authenticated_client, current_user, organization, factory
+):
     """POST /orgs/{slug}/projects/{id} updates project and redirects to list."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
@@ -348,7 +380,9 @@ async def test_web_update_project(authenticated_client, current_user, organizati
     assert response.status_code == 303
     assert response.headers["location"] == f"/orgs/{organization.slug}/projects"
 
-    resp2 = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects/{pid}")
+    resp2 = await authenticated_client.get(
+        f"/api/v1/orgs/{organization.slug}/projects/{pid}"
+    )
     assert resp2.status_code == 200
     data = resp2.json()
     assert data["name"] == "updated-via-web"
@@ -408,16 +442,22 @@ async def test_web_delete_project(
 async def test_web_delete_project_not_found(authenticated_client, organization):
     """POST /orgs/{slug}/projects/{id}/delete returns 404 for unknown project."""
     fake_id = str(uuid.uuid4())
-    response = await authenticated_client.post(f"/orgs/{organization.slug}/projects/{fake_id}/delete")
+    response = await authenticated_client.post(
+        f"/orgs/{organization.slug}/projects/{fake_id}/delete"
+    )
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_web_api_key_page(authenticated_client, current_user, organization, factory):
+async def test_web_api_key_page(
+    authenticated_client, current_user, organization, factory
+):
     """GET /orgs/{slug}/projects/{id}/api-key shows hidden key message."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
-    response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/{pid}/api-key")
+    response = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{pid}/api-key"
+    )
     assert response.status_code == 200
     assert b"hidden" in response.content
     assert b"Regenerate" in response.content
@@ -440,7 +480,7 @@ async def test_web_api_key_page_with_query_param(
 
 @pytest.mark.asyncio
 async def test_web_regenerate_api_key_not_found(authenticated_client, organization):
-    """POST /orgs/{slug}/projects/{id}/regenerate-api-key returns 404 for unknown project."""
+    """Returns 404 for unknown project on regenerate-api-key."""
     fake_id = str(uuid.uuid4())
     response = await authenticated_client.post(
         f"/orgs/{organization.slug}/projects/{fake_id}/regenerate-api-key"
@@ -469,7 +509,9 @@ async def test_web_regenerate_api_key(
 
 
 @pytest.mark.asyncio
-async def test_web_created_page(authenticated_client, current_user, organization, factory):
+async def test_web_created_page(
+    authenticated_client, current_user, organization, factory
+):
     """GET /orgs/{slug}/projects/{id}/created?api_key= shows API key."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
@@ -499,7 +541,9 @@ async def test_web_project_errors_page_empty(
         ProjectFactory, name="test-project", organization_id=organization.id
     )
     pid = str(project.id)
-    response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/{pid}/errors")
+    response = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{pid}/errors"
+    )
     assert response.status_code == 200
     assert b"project-with-errors" not in response.content
     assert b"test-project" in response.content
@@ -523,7 +567,9 @@ async def test_web_project_errors_page_with_errors(
         occurrence_count=3,
     )
     pid = str(project.id)
-    response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/{pid}/errors")
+    response = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{pid}/errors"
+    )
     assert response.status_code == 200
     assert b"project-with-errors" in response.content
     assert b"NoMethodError" in response.content
@@ -535,5 +581,7 @@ async def test_web_project_errors_page_with_errors(
 async def test_web_project_errors_page_not_found(authenticated_client, organization):
     """GET /orgs/{slug}/projects/{id}/errors returns 404 for unknown project."""
     fake_id = str(uuid.uuid4())
-    response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/{fake_id}/errors")
+    response = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{fake_id}/errors"
+    )
     assert response.status_code == 404

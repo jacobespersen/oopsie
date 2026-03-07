@@ -1,8 +1,8 @@
 """Invitation model — pending membership for an email address."""
 
+import enum
 import uuid
 from datetime import datetime
-from enum import StrEnum
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -12,7 +12,7 @@ from oopsie.models.base import Base
 from oopsie.models.membership import MemberRole
 
 
-class InvitationStatus(StrEnum):
+class InvitationStatus(str, enum.Enum):
     PENDING = "pending"
     ACCEPTED = "accepted"
 
@@ -36,7 +36,8 @@ class Invitation(Base):
     )
     email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     role: Mapped[MemberRole] = mapped_column(
-        Enum(MemberRole, name="memberrole"), nullable=False
+        Enum(MemberRole, name="memberrole"),
+        nullable=False,
     )
     status: Mapped[InvitationStatus] = mapped_column(
         Enum(InvitationStatus, name="invitationstatus"),

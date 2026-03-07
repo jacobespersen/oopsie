@@ -1,5 +1,7 @@
 .PHONY: dev services web worker console
 
+export COMPOSE_PROJECT_NAME = oopsie
+
 services:
 	docker compose up -d
 

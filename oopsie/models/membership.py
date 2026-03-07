@@ -1,8 +1,8 @@
 """Membership model — joins User to Organization with a role."""
 
+import enum
 import uuid
 from datetime import datetime
-from enum import StrEnum
 
 from sqlalchemy import DateTime, Enum, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -11,7 +11,7 @@ from sqlalchemy.sql import func
 from oopsie.models.base import Base
 
 
-class MemberRole(StrEnum):
+class MemberRole(str, enum.Enum):
     OWNER = "owner"
     ADMIN = "admin"
     MEMBER = "member"
@@ -33,7 +33,8 @@ class Membership(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     role: Mapped[MemberRole] = mapped_column(
-        Enum(MemberRole, name="memberrole"), nullable=False
+        Enum(MemberRole, name="memberrole"),
+        nullable=False,
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

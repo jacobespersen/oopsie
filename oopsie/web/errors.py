@@ -31,7 +31,7 @@ async def project_errors_page(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.member)),
-):
+) -> HTMLResponse:
     """Show errors for a project."""
     project = await _get_org_project(session, project_id, membership.organization_id)
 
@@ -71,7 +71,7 @@ async def error_show_page(
     error_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.member)),
-):
+) -> HTMLResponse:
     """Show details for a single error."""
     project = await _get_org_project(session, project_id, membership.organization_id)
 
@@ -104,7 +104,7 @@ async def trigger_fix_action(
     error_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.member)),
-):
+) -> RedirectResponse:
     """Enqueue a fix job for an error and redirect back to errors page."""
     project = await _get_org_project(session, project_id, membership.organization_id)
 

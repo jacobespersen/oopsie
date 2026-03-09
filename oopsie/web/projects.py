@@ -40,7 +40,7 @@ async def list_projects_page(
     org_slug: str,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.member)),
-):
+) -> HTMLResponse:
     """List projects in the current org."""
     result = await session.execute(
         select(Project)
@@ -60,7 +60,7 @@ async def new_project_page(
     request: Request,
     org_slug: str,
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
-):
+) -> HTMLResponse:
     """Show create project form."""
     return templates.TemplateResponse(
         request=request,
@@ -84,48 +84,29 @@ async def create_project_action(
     github_token: str = Form(...),
     default_branch: str = Form("main"),
     error_threshold: int = Form(10),
-):
-    """Create a project and redirect to the created page."""
+) -> RedirectResponse:
+    """Create a project and redirect to the projects list.
+
+    A placeholder API key hash is generated so the project is valid,
+    but the key is never exposed. Users generate a visible key via
+    the "Generate API Key" action on the project's API key page.
+    """
     settings = get_settings()
-    api_key = secrets.token_urlsafe(32)
     project = Project(
         name=name,
         github_repo_url=github_repo_url,
         github_token_encrypted=encrypt_value(github_token, settings.encryption_key),
         default_branch=default_branch,
         error_threshold=error_threshold,
-        api_key_hash=hash_api_key(api_key),
+        api_key_hash=hash_api_key(secrets.token_urlsafe(32)),
         organization_id=membership.organization_id,
     )
     session.add(project)
     await session.flush()
     logger.info("project_created", project_id=str(project.id), name=name)
     return RedirectResponse(
-        url=f"/orgs/{org_slug}/projects/{project.id}/created?api_key={api_key}",
+        url=f"/orgs/{org_slug}/projects",
         status_code=303,
-    )
-
-
-@router.get(
-    "/orgs/{org_slug}/projects/{project_id}/created", response_class=HTMLResponse
-)
-async def project_created_page(
-    request: Request,
-    org_slug: str,
-    project_id: uuid.UUID,
-    api_key: str,
-    membership: Membership = Depends(RequireRole(MemberRole.member)),
-):
-    """Show API key after create (only time it's visible)."""
-    return templates.TemplateResponse(
-        request=request,
-        name="projects/created.html",
-        context={
-            "project_id": project_id,
-            "api_key": api_key,
-            "user": membership.user,
-            "org_slug": org_slug,
-        },
     )
 
 
@@ -138,10 +119,11 @@ async def project_api_key_page(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
-    api_key: str | None = None,
-):
+) -> HTMLResponse:
     """Show API key page for a project."""
     project = await _get_org_project(session, project_id, membership.organization_id)
+    # Consume the API key from session — it's only shown once after regeneration
+    api_key = request.session.pop("flash_api_key", None)
     return templates.TemplateResponse(
         request=request,
         name="projects/api_key.html",
@@ -157,19 +139,22 @@ async def project_api_key_page(
 
 @router.post("/orgs/{org_slug}/projects/{project_id}/regenerate-api-key")
 async def regenerate_api_key_action(
+    request: Request,
     org_slug: str,
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
-):
+) -> RedirectResponse:
     """Regenerate API key and redirect to show the new key."""
     project = await _get_org_project(session, project_id, membership.organization_id)
     new_api_key = secrets.token_urlsafe(32)
     project.api_key_hash = hash_api_key(new_api_key)
     await session.flush()
     logger.info("api_key_regenerated", project_id=str(project_id))
+    # Store API key in session so it never appears in the URL or browser history
+    request.session["flash_api_key"] = new_api_key
     return RedirectResponse(
-        url=f"/orgs/{org_slug}/projects/{project_id}/api-key?api_key={new_api_key}",
+        url=f"/orgs/{org_slug}/projects/{project_id}/api-key",
         status_code=303,
     )
 
@@ -181,7 +166,7 @@ async def edit_project_page(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
-):
+) -> HTMLResponse:
     """Show edit project form."""
     project = await _get_org_project(session, project_id, membership.organization_id)
     return templates.TemplateResponse(
@@ -207,7 +192,7 @@ async def update_project_action(
     github_token: str = Form(""),
     default_branch: str = Form("main"),
     error_threshold: int = Form(10),
-):
+) -> RedirectResponse:
     """Update a project and redirect to list."""
     project = await _get_org_project(session, project_id, membership.organization_id)
 
@@ -230,7 +215,7 @@ async def delete_project_action(
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
-):
+) -> RedirectResponse:
     """Delete a project and redirect to list."""
     project = await _get_org_project(session, project_id, membership.organization_id)
     await session.delete(project)

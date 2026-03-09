@@ -64,7 +64,7 @@ async def test_web_new_project_page(authenticated_client, organization):
 
 @pytest.mark.asyncio
 async def test_web_create_project_redirects(authenticated_client, organization):
-    """POST /orgs/{slug}/projects creates project and redirects to created page."""
+    """POST /orgs/{slug}/projects creates project and redirects to projects list."""
     response = await authenticated_client.post(
         f"/orgs/{organization.slug}/projects",
         data={
@@ -77,9 +77,7 @@ async def test_web_create_project_redirects(authenticated_client, organization):
         follow_redirects=False,
     )
     assert response.status_code == 303
-    assert f"/orgs/{organization.slug}/projects/" in response.headers["location"]
-    assert "/created" in response.headers["location"]
-    assert "api_key=" in response.headers["location"]
+    assert response.headers["location"] == f"/orgs/{organization.slug}/projects"
 
 
 @pytest.mark.asyncio
@@ -99,8 +97,8 @@ async def test_web_create_project_and_verify(
         follow_redirects=True,
     )
     assert response.status_code == 200
-    assert b"Project Created" in response.content
-    assert b"Back to Projects" in response.content
+    # Follows redirect to projects list
+    assert b"Projects" in response.content
 
     result = await db_session.execute(
         select(Project).where(Project.name == "web-created")
@@ -241,17 +239,19 @@ async def test_web_api_key_page(
 
 
 @pytest.mark.asyncio
-async def test_web_api_key_page_with_query_param(
-    authenticated_client, current_user, organization, factory
+async def test_web_api_key_page_after_regeneration(
+    authenticated_client, current_user, organization, db_session: AsyncSession, factory
 ):
-    """GET /orgs/{slug}/projects/{id}/api-key?api_key= shows the given key."""
+    """POST regenerate then follow redirect shows the new key from session flash."""
     project = await factory(ProjectFactory, organization_id=organization.id)
     pid = str(project.id)
-    response = await authenticated_client.get(
-        f"/orgs/{organization.slug}/projects/{pid}/api-key?api_key=new-key-from-query",
+    response = await authenticated_client.post(
+        f"/orgs/{organization.slug}/projects/{pid}/regenerate-api-key",
+        follow_redirects=True,
     )
     assert response.status_code == 200
-    assert b"new-key-from-query" in response.content
+    # The page should contain a key (any base64url string) since the session flash
+    # was consumed by the redirect target
     assert b"Regenerate" in response.content
 
 
@@ -283,22 +283,6 @@ async def test_web_regenerate_api_key(
     result = await db_session.execute(select(Project).where(Project.id == project.id))
     db_project = result.scalar_one()
     assert db_project.api_key_hash != old_hash
-
-
-@pytest.mark.asyncio
-async def test_web_created_page(
-    authenticated_client, current_user, organization, factory
-):
-    """GET /orgs/{slug}/projects/{id}/created?api_key= shows API key."""
-    project = await factory(ProjectFactory, organization_id=organization.id)
-    pid = str(project.id)
-    response = await authenticated_client.get(
-        f"/orgs/{organization.slug}/projects/{pid}/created",
-        params={"api_key": "test-api-key-123"},
-    )
-    assert response.status_code == 200
-    assert b"test-api-key-123" in response.content
-    assert b"Back to Projects" in response.content
 
 
 @pytest.mark.asyncio

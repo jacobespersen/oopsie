@@ -1,5 +1,6 @@
 """FixAttempt model."""
 
+import enum
 import uuid
 from datetime import datetime
 
@@ -10,7 +11,7 @@ from sqlalchemy.sql import func
 from oopsie.models.base import Base
 
 
-class FixAttemptStatus:
+class FixAttemptStatus(enum.StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"

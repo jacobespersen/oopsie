@@ -1,6 +1,8 @@
 """Revoked token deny list model.
 
-# TODO: Add a periodic cleanup job to delete rows whose expires_at is in the past.
+Expired rows accumulate over time. A periodic cleanup job
+(e.g. ``DELETE FROM revoked_tokens WHERE expires_at < now()``)
+is recommended for long-running deployments but not yet implemented.
 """
 
 import uuid

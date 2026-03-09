@@ -29,7 +29,7 @@ async def members_list_page(
     org_slug: str,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.member)),
-):
+) -> HTMLResponse:
     """Show members and pending invitations for the org."""
     members = await list_members(session, organization_id=membership.organization_id)
     invitations = await list_invitations(
@@ -56,7 +56,7 @@ async def invite_member_action(
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
     email: str = Form(...),
     role: str = Form(...),
-):
+) -> RedirectResponse:
     """Create an invitation and redirect back to members page."""
     try:
         member_role = MemberRole(role)
@@ -86,7 +86,7 @@ async def revoke_invitation_action(
     invitation_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
-):
+) -> RedirectResponse:
     """Revoke a pending invitation and redirect back to members page."""
     try:
         await revoke_invitation(
@@ -107,7 +107,7 @@ async def update_member_role_action(
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
     role: str = Form(...),
-):
+) -> RedirectResponse:
     """Update a member's role and redirect back to members page."""
     try:
         new_role = MemberRole(role)
@@ -138,7 +138,7 @@ async def remove_member_action(
     membership_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
-):
+) -> RedirectResponse:
     """Remove a member from the org and redirect back to members page."""
     try:
         await remove_member(

@@ -8,6 +8,7 @@ from oopsie.services.exceptions import (
     GitOperationError,
 )
 from oopsie.services.github_service import (
+    _git_env,
     clone_repo,
     commit_and_push,
     create_branch,
@@ -31,6 +32,23 @@ def _make_process(
     return proc
 
 
+def test_git_env_disables_credential_caching():
+    env = _git_env()
+    assert env["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert env["GIT_TERMINAL_PROMPT"] == "0"
+
+
+@pytest.mark.asyncio
+async def test_credential_helper_arg_passed():
+    """Verify _run_git passes -c credential.helper= to disable caching."""
+    proc = _make_process()
+    with patch(_EXEC, return_value=proc) as mock_exec:
+        await clone_repo("https://github.com/o/r", "tok", "main", "/tmp/d")
+        args = mock_exec.call_args[0]
+        assert args[1] == "-c"
+        assert args[2] == "credential.helper="
+
+
 @pytest.mark.asyncio
 class TestRunGit:
     async def test_clone_repo_calls_git_clone(self):
@@ -45,7 +63,7 @@ class TestRunGit:
             mock_exec.assert_called_once()
             args = mock_exec.call_args[0]
             assert args[0] == "git"
-            assert args[1] == "clone"
+            assert "clone" in args
             assert "--depth" in args
             assert "." == args[-1]
 
@@ -110,9 +128,9 @@ class TestRunGit:
                 "https://github.com/o/r",
             )
             assert len(calls) == 3
-            assert calls[0][1] == "add"
-            assert calls[1][1] == "commit"
-            assert calls[2][1] == "push"
+            assert "add" in calls[0]
+            assert "commit" in calls[1]
+            assert "push" in calls[2]
 
     async def test_commit_and_push_raises_on_push_failure(self):
         success_proc = _make_process()

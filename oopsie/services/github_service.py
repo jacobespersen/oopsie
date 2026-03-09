@@ -1,6 +1,7 @@
 """Git CLI and GitHub REST API operations."""
 
 import asyncio
+import os
 from urllib.parse import urlparse
 
 import httpx
@@ -9,12 +10,24 @@ from oopsie.logging import logger
 from oopsie.services.exceptions import GitHubApiError, GitOperationError
 
 
+def _git_env() -> dict[str, str]:
+    """Build env for git subprocesses with credential caching disabled."""
+    env = os.environ.copy()
+    # Prevent the credential helper from caching tokens in the system keychain
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_TERMINAL_PROMPT"] = "0"
+    return env
+
+
 async def _run_git(*args: str, cwd: str) -> str:
     """Run a git command and return stdout. Raises GitOperationError on failure."""
     proc = await asyncio.create_subprocess_exec(
         "git",
+        "-c",
+        "credential.helper=",
         *args,
         cwd=cwd,
+        env=_git_env(),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )

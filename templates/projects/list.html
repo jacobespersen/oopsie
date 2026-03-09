@@ -3,7 +3,7 @@
 {% block content %}
 <div class="d-flex flex-items-center flex-justify-between mb-3">
   <h1 class="f2">Projects</h1>
-  <a href="/projects/new" class="btn btn-primary">New Project</a>
+  <a href="/orgs/{{ org_slug }}/projects/new" class="btn btn-primary">New Project</a>
 </div>
 {% if projects %}
 <div class="Box">
@@ -27,10 +27,10 @@
         <td class="px-3 py-2">{{ p.default_branch }}</td>
         <td class="px-3 py-2">{{ p.error_threshold }}</td>
         <td class="px-3 py-2 col-nowrap">
-          <a href="/projects/{{ p.id }}/errors" class="btn btn-sm">Errors</a>
-          <a href="/projects/{{ p.id }}/api-key" class="btn btn-sm">API Key</a>
-          <a href="/projects/{{ p.id }}/edit" class="btn btn-sm">Edit</a>
-          <form action="/projects/{{ p.id }}/delete" method="post" style="display:inline;">
+          <a href="/orgs/{{ org_slug }}/projects/{{ p.id }}/errors" class="btn btn-sm">Errors</a>
+          <a href="/orgs/{{ org_slug }}/projects/{{ p.id }}/api-key" class="btn btn-sm">API Key</a>
+          <a href="/orgs/{{ org_slug }}/projects/{{ p.id }}/edit" class="btn btn-sm">Edit</a>
+          <form action="/orgs/{{ org_slug }}/projects/{{ p.id }}/delete" method="post" style="display:inline;">
             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this project?');">Delete</button>
           </form>
         </td>
@@ -43,7 +43,7 @@
 <div class="blankslate blankslate-border-dashed">
   <h2 class="blankslate-heading">No projects yet</h2>
   <p>Get started by creating your first project.</p>
-  <a href="/projects/new" class="btn btn-primary">Create a project</a>
+  <a href="/orgs/{{ org_slug }}/projects/new" class="btn btn-primary">Create a project</a>
 </div>
 {% endif %}
 {% endblock %}

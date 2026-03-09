@@ -3,7 +3,12 @@
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from arq.connections import RedisSettings
+from oopsie.config import Settings
 from oopsie.queue import close_arq_pool, enqueue_fix_job, get_arq_pool
+
+FAKE_DB_URL = "postgresql+asyncpg://u:p@localhost:5432/db"
+FAKE_REDIS_URL = "redis://localhost:6379"
 
 
 @pytest.fixture(autouse=True)
@@ -16,13 +21,23 @@ def _reset_pool():
     mod._arq_pool = None
 
 
+@pytest.fixture(autouse=True)
+def _mock_settings():
+    """Isolate queue tests from env/settings layer."""
+    settings = Settings(database_url=FAKE_DB_URL, redis_url=FAKE_REDIS_URL)
+    with patch("oopsie.queue.get_settings", return_value=settings):
+        yield
+
+
 @pytest.mark.asyncio
 async def test_get_arq_pool_creates_pool():
     mock_pool = AsyncMock()
     with patch("oopsie.queue.create_pool", return_value=mock_pool) as mock_create:
         pool = await get_arq_pool()
         assert pool is mock_pool
-        mock_create.assert_called_once()
+        mock_create.assert_called_once_with(
+            RedisSettings.from_dsn("redis://localhost:6379")
+        )
 
 
 @pytest.mark.asyncio

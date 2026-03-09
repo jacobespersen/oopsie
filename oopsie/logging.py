@@ -13,6 +13,7 @@ import logging
 import sys
 import time
 import uuid
+from typing import cast
 
 import structlog
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -85,7 +86,7 @@ def setup_logging(log_level: str = "INFO", log_format: str = "json") -> None:
 
 def get_logger(name: str = "oopsie") -> structlog.stdlib.BoundLogger:
     """Return a structlog logger. Prefer importing ``logger`` directly."""
-    return structlog.get_logger(name)
+    return cast(structlog.stdlib.BoundLogger, structlog.get_logger(name))
 
 
 # Global logger instance — import this in other modules.

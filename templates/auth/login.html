@@ -9,6 +9,11 @@
       <h1 class="Box-title f3">Sign in to Oopsie</h1>
     </div>
     <div class="Box-body d-flex flex-column flex-items-center gap-3 p-4">
+      {% if request.query_params.get("error") == "no_invitation" %}
+      <div class="flash flash-error width-full" role="alert">
+        You don't have an invitation to this application. Please contact an admin.
+      </div>
+      {% endif %}
       <p class="text-center color-fg-muted f5">
         Sign in with your Google account to manage your projects.
       </p>

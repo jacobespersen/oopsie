@@ -1,7 +1,9 @@
 """Application settings via pydantic-settings."""
 
+import tempfile
 import warnings
 from functools import lru_cache
+from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 from cryptography.fernet import Fernet
@@ -22,12 +24,14 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     log_level: str = "INFO"
     log_format: str = "json"
-    redis_url: str = ""
+    redis_url: str
     worker_concurrency: int = 3
     job_timeout_seconds: int = 600
-    clone_base_path: str = "/tmp/oopsie-clones"
+    clone_base_path: str = str(Path(tempfile.gettempdir()) / "oopsie-clones")
     google_client_id: str = ""
     google_client_secret: str = ""
+    admin_email: str = ""
+    org_name: str = "Default"
     jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_expiry_minutes: int = 60
@@ -93,4 +97,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Return a cached Settings instance (created once per process)."""
-    return Settings()
+    return Settings()  # type: ignore[call-arg]  # pydantic-settings populates from env

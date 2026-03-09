@@ -2,14 +2,12 @@
 
 import uuid
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.templating import Jinja2Templates
 
 from oopsie.api.deps import get_session
 from oopsie.auth import (
@@ -17,16 +15,16 @@ from oopsie.auth import (
     create_refresh_token,
     decode_jwt_token,
     get_google_oauth_client,
+    get_user_default_redirect,
+    resolve_or_register_user,
     revoke_token,
-    upsert_user,
 )
 from oopsie.config import get_settings
 from oopsie.logging import logger
 from oopsie.models.user import User
+from oopsie.web import templates
 
 router = APIRouter(prefix="/auth")
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 _COOKIE_OPTS: dict[str, Any] = {
     "httponly": True,
@@ -68,7 +66,8 @@ async def login_google(request: Request) -> Response:
         raise HTTPException(status_code=501, detail="Google OAuth is not configured")
     google = get_google_oauth_client()
     redirect_uri = str(request.url_for("auth_callback"))
-    return await google.authorize_redirect(request, redirect_uri)
+    response: Response = await google.authorize_redirect(request, redirect_uri)
+    return response
 
 
 @router.get("/callback", name="auth_callback")
@@ -77,6 +76,7 @@ async def auth_callback(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Handle Google OAuth callback: exchange code, upsert user, set cookies."""
+    # Exchange the authorization code for user info
     google = get_google_oauth_client()
     token = await google.authorize_access_token(request)
     user_info = token.get("userinfo")
@@ -85,11 +85,19 @@ async def auth_callback(
             status_code=400, detail="Could not retrieve user info from Google"
         )
 
-    user = await upsert_user(session, user_info)
+    # Register or authenticate the user (invitation-gated for new users)
+    try:
+        user, _memberships = await resolve_or_register_user(session, user_info)
+    except ValueError:
+        return RedirectResponse(url="/auth/login?error=no_invitation", status_code=303)
+
+    # Issue JWT tokens
     access_token = create_access_token(user.id, user.email)
     refresh_token = create_refresh_token(user.id)
 
-    response: Response = RedirectResponse(url="/projects", status_code=303)
+    # Redirect to the user's default org
+    redirect_url = await get_user_default_redirect(session, user.id)
+    response: Response = RedirectResponse(url=redirect_url, status_code=303)
     _set_auth_cookies(response, access_token, refresh_token)
     logger.info("user_logged_in", user_id=str(user.id), email=user.email)
     return response

@@ -4,9 +4,38 @@ import factory
 from oopsie.config import get_settings
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
+from oopsie.models.invitation import Invitation
+from oopsie.models.membership import MemberRole, Membership
+from oopsie.models.organization import Organization
 from oopsie.models.project import Project
 from oopsie.models.user import User
 from oopsie.utils.encryption import encrypt_value, hash_api_key
+
+
+class OrganizationFactory(factory.Factory):
+    class Meta:
+        model = Organization
+
+    name = factory.Sequence(lambda n: f"Org {n}")
+    slug = factory.Sequence(lambda n: f"org-{n}")
+
+
+class MembershipFactory(factory.Factory):
+    class Meta:
+        model = Membership
+
+    role = MemberRole.member
+    # organization_id and user_id must be supplied by the caller (for Membership)
+
+
+class InvitationFactory(factory.Factory):
+    class Meta:
+        model = Invitation
+
+    email = factory.Sequence(lambda n: f"invite-{n}@example.com")
+    role = MemberRole.member
+    invited_by_id = None
+    # organization_id must be supplied by the caller
 
 
 class UserFactory(factory.Factory):

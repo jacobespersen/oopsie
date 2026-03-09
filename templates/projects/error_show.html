@@ -2,8 +2,8 @@
 {% block title %}{{ error.error_class }} - {{ project.name }} - Oopsie{% endblock %}
 {% block content %}
 <div class="d-flex gap-2 mb-3">
-  <a href="/projects/{{ project.id }}/errors" class="btn">Back to Errors</a>
-  <a href="/projects/{{ project.id }}/edit" class="btn">Edit Project</a>
+  <a href="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors" class="btn">Back to Errors</a>
+  <a href="/orgs/{{ org_slug }}/projects/{{ project.id }}/edit" class="btn">Edit Project</a>
 </div>
 
 <h1 class="f2 mb-3">{{ error.error_class }}</h1>
@@ -46,11 +46,11 @@
     {% if fix_attempts %}
       {% set latest = fix_attempts[0] %}
       {% if error.status == 'open' and latest.status not in ['pending', 'running'] %}
-      <form action="/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
+      <form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
         <button type="submit" class="btn btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
       </form>
       {% elif latest.status == 'failed' %}
-      <form action="/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
+      <form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
         <button type="submit" class="btn">Retry</button>
       </form>
       {% elif latest.status == 'pending' %}
@@ -59,7 +59,7 @@
       <span class="Label Label--accent">Fixing...</span>
       {% endif %}
     {% elif error.status == 'open' %}
-    <form action="/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
+    <form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
       <button type="submit" class="btn btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
     </form>
     {% endif %}

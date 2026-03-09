@@ -5,13 +5,14 @@ from oopsie.models import Error, ErrorStatus, FixAttempt
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
-from tests.factories import ErrorFactory, ProjectFactory
+from tests.factories import ErrorFactory, OrganizationFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
 async def test_error_creation(factory):
     """Error can be created linked to a project with expected defaults."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(
         ErrorFactory,
         project_id=project.id,
@@ -33,7 +34,8 @@ async def test_error_creation(factory):
 @pytest.mark.asyncio
 async def test_error_unique_fingerprint_per_project(db_session, factory):
     """Duplicate (project_id, fingerprint) raises IntegrityError."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     await factory(ErrorFactory, project_id=project.id, fingerprint="abc123def456")
 
     error2 = ErrorFactory.build(project_id=project.id, fingerprint="abc123def456")
@@ -45,7 +47,8 @@ async def test_error_unique_fingerprint_per_project(db_session, factory):
 @pytest.mark.asyncio
 async def test_error_different_fingerprint_same_project(db_session, factory):
     """Same project can have multiple errors with different fingerprints."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error1 = await factory(
         ErrorFactory, project_id=project.id, fingerprint="abc123def456"
     )
@@ -58,7 +61,8 @@ async def test_error_different_fingerprint_same_project(db_session, factory):
 @pytest.mark.asyncio
 async def test_error_project_relationship(db_session, factory):
     """Error.project returns the linked Project."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
 
     result = await db_session.execute(
@@ -72,7 +76,8 @@ async def test_error_project_relationship(db_session, factory):
 @pytest.mark.asyncio
 async def test_error_fix_attempts_relationship(db_session, factory):
     """Error.fix_attempts returns linked FixAttempt records."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
 
     fix_attempt = FixAttempt(error_id=error.id)
@@ -92,7 +97,8 @@ async def test_error_fix_attempts_relationship(db_session, factory):
 @pytest.mark.asyncio
 async def test_cascade_delete_error_deletes_fix_attempts(db_session, factory):
     """Deleting an error deletes its fix_attempts (cascade)."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
 
     fix_attempt = FixAttempt(error_id=error.id)

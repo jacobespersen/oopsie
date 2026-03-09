@@ -34,12 +34,11 @@ class Project(Base):
         onupdate=func.now(),
     )
 
-    # TODO: Make NOT NULL after existing projects are backfilled with a user_id.
-    user_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
     errors = relationship(
         "Error", back_populates="project", cascade="all, delete-orphan"
     )
-    user = relationship("User", back_populates="projects")
+    organization = relationship("Organization", back_populates="projects")

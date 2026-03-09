@@ -4,13 +4,14 @@ import pytest
 from oopsie.models import FixAttempt, FixAttemptStatus
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from tests.factories import ErrorFactory, ProjectFactory
+from tests.factories import ErrorFactory, OrganizationFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
 async def test_fix_attempt_creation(db_session, factory):
     """FixAttempt can be created linked to an error with expected defaults."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
 
     fix_attempt = FixAttempt(error_id=error.id)
@@ -28,7 +29,8 @@ async def test_fix_attempt_creation(db_session, factory):
 @pytest.mark.asyncio
 async def test_fix_attempt_status_override(db_session, factory):
     """FixAttempt accepts custom status and optional fields."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
 
     fix_attempt = FixAttempt(
@@ -48,7 +50,8 @@ async def test_fix_attempt_status_override(db_session, factory):
 @pytest.mark.asyncio
 async def test_fix_attempt_error_relationship(db_session, factory):
     """FixAttempt.error returns the linked Error."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
 
     fix_attempt = FixAttempt(error_id=error.id)

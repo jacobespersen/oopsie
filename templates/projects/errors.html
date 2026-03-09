@@ -4,8 +4,8 @@
 <div class="d-flex flex-items-center flex-justify-between mb-3">
   <h1 class="f2">Errors: {{ project.name }}</h1>
   <div class="d-flex gap-2">
-    <a href="/projects/{{ project.id }}/edit" class="btn">Edit Project</a>
-    <a href="/projects" class="btn">Back to Projects</a>
+    <a href="/orgs/{{ org_slug }}/projects/{{ project.id }}/edit" class="btn">Edit Project</a>
+    <a href="/orgs/{{ org_slug }}/projects" class="btn">Back to Projects</a>
   </div>
 </div>
 
@@ -25,7 +25,7 @@
     <tbody>
       {% for e in errors %}
       <tr style="border-top:1px solid var(--borderColor-muted);">
-        <td class="px-3 py-2"><a href="/projects/{{ project.id }}/errors/{{ e.id }}">{{ e.error_class }}</a></td>
+        <td class="px-3 py-2"><a href="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors/{{ e.id }}">{{ e.error_class }}</a></td>
         <td class="px-3 py-2 col-truncate" style="max-width:300px;" title="{{ e.message }}">{{ e.message[:80] }}{% if e.message|length > 80 %}…{% endif %}</td>
         <td class="px-3 py-2">{{ e.occurrence_count }}</td>
         <td class="px-3 py-2">{{ e.status }}</td>
@@ -33,7 +33,7 @@
         <td class="px-3 py-2 col-nowrap">
           {% set fix_status = fix_statuses.get(e.id) %}
           {% if e.status == 'open' and fix_status not in ['pending', 'running'] %}
-          <form action="/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline;">
+          <form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline;">
             <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
           </form>
           {% elif fix_status == 'pending' %}
@@ -44,7 +44,7 @@
           <span class="Label Label--success">Fixed</span>
           {% elif fix_status == 'failed' %}
           <span class="Label Label--danger">Failed</span>
-          <form action="/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline;margin-left:0.5rem;">
+          <form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline;margin-left:0.5rem;">
             <button type="submit" class="btn btn-sm">Retry</button>
           </form>
           {% endif %}

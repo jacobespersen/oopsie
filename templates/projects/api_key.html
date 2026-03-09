@@ -21,12 +21,12 @@
 <p class="mb-3">Your API key is hidden. It was shown only once when the project was created or last regenerated.</p>
 <p class="mb-3">If you have lost your key, regenerate a new one below.</p>
 {% endif %}
-<form action="/projects/{{ project.id }}/regenerate-api-key" method="post" class="mb-3">
+<form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/regenerate-api-key" method="post" class="mb-3">
   <button type="submit" class="btn btn-danger" onclick="return confirm('Regenerate API key? The current key will stop working immediately.');">Regenerate API Key</button>
 </form>
 <div class="d-flex gap-2">
-  <a href="/projects/{{ project.id }}/errors" class="btn btn-invisible">View Errors</a>
-  <a href="/projects/{{ project.id }}/edit" class="btn btn-invisible">Edit Project</a>
-  <a href="/projects" class="btn btn-invisible">Back to Projects</a>
+  <a href="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors" class="btn btn-invisible">View Errors</a>
+  <a href="/orgs/{{ org_slug }}/projects/{{ project.id }}/edit" class="btn btn-invisible">Edit Project</a>
+  <a href="/orgs/{{ org_slug }}/projects" class="btn btn-invisible">Back to Projects</a>
 </div>
 {% endblock %}

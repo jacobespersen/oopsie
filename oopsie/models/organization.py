@@ -1,4 +1,4 @@
-"""User model."""
+"""Organization model."""
 
 import uuid
 from datetime import datetime
@@ -10,16 +10,16 @@ from sqlalchemy.sql import func
 from oopsie.models.base import Base
 
 
-class User(Base):
-    __tablename__ = "users"
+class Organization(Base):
+    __tablename__ = "organizations"
 
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, default=uuid.uuid4, server_default=None
     )
-    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    google_sub: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    avatar_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    slug: Mapped[str] = mapped_column(
+        String(255), nullable=False, unique=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -31,5 +31,11 @@ class User(Base):
     )
 
     memberships = relationship(
-        "Membership", back_populates="user", cascade="all, delete-orphan"
+        "Membership", back_populates="organization", cascade="all, delete-orphan"
+    )
+    invitations = relationship(
+        "Invitation", back_populates="organization", cascade="all, delete-orphan"
+    )
+    projects = relationship(
+        "Project", back_populates="organization", cascade="all, delete-orphan"
     )

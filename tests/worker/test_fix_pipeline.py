@@ -15,7 +15,7 @@ from oopsie.worker.fix_pipeline import run_fix_pipeline
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.factories import ErrorFactory, ProjectFactory
+from tests.factories import ErrorFactory, OrganizationFactory, ProjectFactory
 
 _WS = "oopsie.services.pipeline_service.worker_session"
 _GH = "oopsie.services.pipeline_service.github_service"
@@ -37,7 +37,8 @@ def _mock_worker_session(db_session):
 @pytest.mark.asyncio
 async def test_happy_path(db_session: AsyncSession, factory):
     """Full pipeline: clone, fix, push, PR, success."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     with (
         patch(_WS, _mock_worker_session(db_session)),
@@ -80,7 +81,8 @@ async def test_happy_path(db_session: AsyncSession, factory):
 @pytest.mark.asyncio
 async def test_skips_non_open_error(db_session: AsyncSession, factory):
     """Pipeline exits early if error is not OPEN."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(
         ErrorFactory, project_id=project.id, status=ErrorStatus.IGNORED
     )
@@ -96,7 +98,8 @@ async def test_skips_non_open_error(db_session: AsyncSession, factory):
 @pytest.mark.asyncio
 async def test_skips_missing_project(db_session: AsyncSession, factory):
     """Pipeline exits early if project not found."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     fake_project_id = str(uuid.uuid4())
 
@@ -111,7 +114,8 @@ async def test_skips_missing_project(db_session: AsyncSession, factory):
 @pytest.mark.asyncio
 async def test_no_changes_marks_failed(db_session: AsyncSession, factory):
     """When Claude produces no changes, mark FAILED."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     with (
         patch(_WS, _mock_worker_session(db_session)),
@@ -145,7 +149,8 @@ async def test_no_changes_marks_failed(db_session: AsyncSession, factory):
 @pytest.mark.asyncio
 async def test_clone_failure_marks_failed(db_session: AsyncSession, factory):
     """When git clone fails, mark FAILED."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     with (
         patch(_WS, _mock_worker_session(db_session)),
@@ -174,7 +179,8 @@ async def test_clone_failure_marks_failed(db_session: AsyncSession, factory):
 @pytest.mark.asyncio
 async def test_claude_failure_marks_failed(db_session: AsyncSession, factory):
     """When Claude Code fails, mark FAILED."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     with (
         patch(_WS, _mock_worker_session(db_session)),

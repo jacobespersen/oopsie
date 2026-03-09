@@ -9,7 +9,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.api.deps import get_session
 from oopsie.auth import (
     create_access_token,
     create_refresh_token,
@@ -20,6 +19,7 @@ from oopsie.auth import (
     revoke_token,
 )
 from oopsie.config import get_settings
+from oopsie.deps import get_session
 from oopsie.logging import logger
 from oopsie.models.user import User
 from oopsie.web import templates

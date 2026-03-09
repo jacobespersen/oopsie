@@ -3,15 +3,15 @@
 import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
-from oopsie.api.deps import get_session
 from oopsie.auth import create_access_token
+from oopsie.deps import get_session
 from oopsie.models.membership import MemberRole
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _make_app(required_role: MemberRole, db_session: AsyncSession) -> FastAPI:
     """Helper: create a minimal FastAPI app with a role-protected endpoint."""
-    from oopsie.api.deps import RequireRole
+    from oopsie.deps import RequireRole
 
     test_app = FastAPI()
 
@@ -34,7 +34,7 @@ async def test_get_current_membership_returns_membership(
     db_session: AsyncSession, factory
 ):
     """get_current_membership returns the user's membership for the given org."""
-    from oopsie.api.deps import get_current_membership
+    from oopsie.deps import get_current_membership
     from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
 
     org = await factory(OrganizationFactory, slug="test-org")
@@ -58,7 +58,7 @@ async def test_get_current_membership_raises_403_when_not_member(
 ):
     """get_current_membership raises 403 when user has no membership in the org."""
     from fastapi import HTTPException
-    from oopsie.api.deps import get_current_membership
+    from oopsie.deps import get_current_membership
     from tests.factories import OrganizationFactory, UserFactory
 
     await factory(OrganizationFactory, slug="other-org")

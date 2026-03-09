@@ -362,14 +362,14 @@ async def test_refresh_with_access_token_fails(api_client, factory):
 @pytest.mark.asyncio
 async def test_unauthenticated_request_returns_401(api_client):
     """Accessing a protected endpoint without auth returns 401."""
-    resp = await api_client.get("/api/v1/orgs/test-org/projects")
+    resp = await api_client.get("/orgs/test-org/projects")
     assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
 async def test_authenticated_via_cookie(authenticated_client, organization):
     """Authenticated client can reach protected endpoints."""
-    resp = await authenticated_client.get(f"/api/v1/orgs/{organization.slug}/projects")
+    resp = await authenticated_client.get(f"/orgs/{organization.slug}/projects")
     assert resp.status_code == 200
 
 
@@ -383,8 +383,8 @@ async def test_authenticated_via_bearer_header(api_client, factory):
     await factory(MembershipFactory, organization_id=org.id, user_id=user.id)
     token = create_access_token(user.id, user.email)
     resp = await api_client.get(
-        f"/api/v1/orgs/{org.slug}/projects",
-        headers={"Authorization": f"Bearer {token}"},
+        f"/orgs/{org.slug}/projects",
+        cookies={"access_token": token},
     )
     assert resp.status_code == 200
 
@@ -403,7 +403,7 @@ async def test_revoked_access_token_returns_401(
     await revoke_token(db_session, payload["jti"], expires_at)
 
     resp = await api_client.get(
-        "/api/v1/orgs/test-org/projects", headers={"Authorization": f"Bearer {token}"}
+        "/orgs/test-org/projects", cookies={"access_token": token}
     )
     assert resp.status_code == 401
 

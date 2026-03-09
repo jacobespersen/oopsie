@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.api.deps import RequireRole, get_session
+from oopsie.deps import RequireRole, get_session
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.services.invitation_service import (
     create_invitation,

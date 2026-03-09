@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.api.deps import get_project_from_api_key, get_session
+from oopsie.deps import get_project_from_api_key, get_session
 from oopsie.models.project import Project
 from oopsie.services.error_service import upsert_error
 

@@ -12,9 +12,9 @@ os.environ.setdefault(
 
 import httpx  # noqa: E402
 import pytest_asyncio  # noqa: E402
-from oopsie.api.deps import get_session  # noqa: E402
 from oopsie.auth import create_access_token  # noqa: E402
 from oopsie.config import Settings  # noqa: E402
+from oopsie.deps import get_session  # noqa: E402
 from oopsie.main import app  # noqa: E402
 from oopsie.models import Error, FixAttempt, Project, RevokedToken, User  # noqa: F401
 from oopsie.models.base import Base

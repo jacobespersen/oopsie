@@ -8,8 +8,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.api.deps import RequireRole, get_session
 from oopsie.config import get_settings
+from oopsie.deps import RequireRole, get_session
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.project import Project

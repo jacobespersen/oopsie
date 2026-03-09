@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.logging import logger
 from oopsie.models.invitation import Invitation
-from oopsie.models.membership import MemberRole, Membership
+from oopsie.models.membership import MemberRole, Membership, role_rank
 from oopsie.models.user import User
 
 
@@ -17,12 +17,17 @@ async def create_invitation(
     email: str,
     role: MemberRole,
     invited_by_id: uuid.UUID | None,
+    inviter_role: MemberRole | None = None,
 ) -> Invitation:
     """Create or update an invitation for an email address.
 
     If an invitation already exists for this org+email, updates its role.
     Raises ValueError if the email already belongs to an org member.
+    Raises PermissionError if the inviter tries to grant a role above their own.
     """
+    # Enforce: inviter can only grant roles at or below their own rank
+    if inviter_role is not None and role_rank(role) > role_rank(inviter_role):
+        raise PermissionError("Cannot invite with a role higher than your own.")
     # Prevent inviting someone who is already a member
     existing_member = await session.scalar(
         select(Membership)

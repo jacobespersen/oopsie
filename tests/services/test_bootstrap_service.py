@@ -24,7 +24,7 @@ async def test_bootstrap_creates_org_and_invitation(db_session: AsyncSession):
     invitations = (await db_session.execute(select(Invitation))).scalars().all()
     assert len(invitations) == 1
     assert invitations[0].email == "admin@example.com"
-    assert invitations[0].role == MemberRole.OWNER
+    assert invitations[0].role == MemberRole.owner
     assert invitations[0].invited_by_id is None
 
 

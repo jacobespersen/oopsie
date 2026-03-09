@@ -459,9 +459,9 @@ def test_jwt_secret_not_required_without_google():
 
 
 @pytest.mark.asyncio
-async def test_get_invitation_found(db_session: AsyncSession, factory):
-    """get_invitation returns invitation when one exists for the email."""
-    from oopsie.auth import get_invitation
+async def test_get_pending_invitations_found(db_session: AsyncSession, factory):
+    """get_pending_invitations returns invitations for the email."""
+    from oopsie.auth import get_pending_invitations
 
     from tests.factories import InvitationFactory, OrganizationFactory
 
@@ -470,18 +470,34 @@ async def test_get_invitation_found(db_session: AsyncSession, factory):
         InvitationFactory, organization_id=org.id, email="invited@example.com"
     )
 
-    result = await get_invitation(db_session, "invited@example.com")
-    assert result is not None
-    assert result.id == inv.id
+    results = await get_pending_invitations(db_session, "invited@example.com")
+    assert len(results) == 1
+    assert results[0].id == inv.id
 
 
 @pytest.mark.asyncio
-async def test_get_invitation_not_found(db_session: AsyncSession):
-    """get_invitation returns None when no invitation exists."""
-    from oopsie.auth import get_invitation
+async def test_get_pending_invitations_not_found(db_session: AsyncSession):
+    """get_pending_invitations returns empty list when no invitation exists."""
+    from oopsie.auth import get_pending_invitations
 
-    result = await get_invitation(db_session, "unknown@example.com")
-    assert result is None
+    results = await get_pending_invitations(db_session, "unknown@example.com")
+    assert results == []
+
+
+@pytest.mark.asyncio
+async def test_get_pending_invitations_multiple_orgs(db_session: AsyncSession, factory):
+    """get_pending_invitations returns invitations from multiple orgs."""
+    from oopsie.auth import get_pending_invitations
+
+    from tests.factories import InvitationFactory, OrganizationFactory
+
+    org1 = await factory(OrganizationFactory, slug="org-a")
+    org2 = await factory(OrganizationFactory, slug="org-b")
+    await factory(InvitationFactory, organization_id=org1.id, email="multi@example.com")
+    await factory(InvitationFactory, organization_id=org2.id, email="multi@example.com")
+
+    results = await get_pending_invitations(db_session, "multi@example.com")
+    assert len(results) == 2
 
 
 @pytest.mark.asyncio
@@ -605,3 +621,44 @@ async def test_auth_callback_existing_user_bypasses_invitation(
 
     assert resp.status_code == 303
     assert resp.headers["location"] == f"/orgs/{org.slug}/projects"
+
+
+@pytest.mark.asyncio
+async def test_auth_callback_accepts_multiple_invitations(
+    api_client, db_session: AsyncSession, factory
+):
+    """New user with invitations from two orgs gets memberships in both."""
+    from oopsie.models.membership import Membership
+    from sqlalchemy import select
+
+    from tests.factories import InvitationFactory, OrganizationFactory
+
+    org1 = await factory(OrganizationFactory, slug="multi-org-a")
+    org2 = await factory(OrganizationFactory, slug="multi-org-b")
+    await factory(
+        InvitationFactory, organization_id=org1.id, email="multi-inv@example.com"
+    )
+    await factory(
+        InvitationFactory, organization_id=org2.id, email="multi-inv@example.com"
+    )
+
+    mock_google = AsyncMock()
+    mock_google.authorize_access_token = AsyncMock(
+        return_value={
+            "userinfo": {
+                "sub": "google-multi-inv-sub",
+                "email": "multi-inv@example.com",
+                "name": "Multi Org User",
+            }
+        }
+    )
+    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+        resp = await api_client.get("/auth/callback", follow_redirects=False)
+
+    assert resp.status_code == 303
+    assert "access_token" in resp.cookies
+
+    memberships = (await db_session.execute(select(Membership))).scalars().all()
+    assert len(memberships) == 2
+    org_ids = {m.organization_id for m in memberships}
+    assert org_ids == {org1.id, org2.id}

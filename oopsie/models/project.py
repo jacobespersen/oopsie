@@ -34,9 +34,8 @@ class Project(Base):
         onupdate=func.now(),
     )
 
-    # Nullable during migration; will be made NOT NULL once all projects are org-scoped.
-    organization_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=True, index=True
+    organization_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
     errors = relationship(

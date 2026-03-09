@@ -7,12 +7,13 @@ from oopsie.services.error_service import upsert_error
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.factories import ProjectFactory
+from tests.factories import OrganizationFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
 async def test_upsert_error_creates_new_error(db_session: AsyncSession, factory):
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await upsert_error(
         db_session, project.id, "ValueError", "bad value", "traceback line 1"
     )
@@ -32,7 +33,8 @@ async def test_upsert_error_creates_new_error(db_session: AsyncSession, factory)
 async def test_upsert_error_deduplicates_by_fingerprint(
     db_session: AsyncSession, factory
 ):
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     e1 = await upsert_error(db_session, project.id, "KeyError", "x", "tb")
     e2 = await upsert_error(db_session, project.id, "KeyError", "x", "tb")
 
@@ -47,7 +49,8 @@ async def test_upsert_error_deduplicates_by_fingerprint(
 
 @pytest.mark.asyncio
 async def test_upsert_error_without_stack_trace(db_session: AsyncSession, factory):
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await upsert_error(db_session, project.id, "RuntimeError", "oops", None)
     assert error.stack_trace is None
     assert error.occurrence_count == 1
@@ -57,7 +60,8 @@ async def test_upsert_error_without_stack_trace(db_session: AsyncSession, factor
 async def test_upsert_error_different_fingerprints_create_separate_errors(
     db_session: AsyncSession, factory
 ):
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     e1 = await upsert_error(db_session, project.id, "KeyError", "a", None)
     e2 = await upsert_error(db_session, project.id, "KeyError", "b", None)
 

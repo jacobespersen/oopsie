@@ -7,7 +7,6 @@ Create Date: 2026-03-06
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 
 revision: str = "004"
 down_revision: str | None = "003"
@@ -16,9 +15,7 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create enum types so sa.Enum(create_type=False) can reference them below
-    op.execute("CREATE TYPE memberrole AS ENUM ('OWNER', 'ADMIN', 'MEMBER')")
-    op.execute("CREATE TYPE invitationstatus AS ENUM ('pending', 'accepted')")
+    op.execute("CREATE TYPE memberrole AS ENUM ('owner', 'admin', 'member')")
 
     # organizations
     op.create_table(
@@ -50,9 +47,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column(
             "role",
-            postgresql.ENUM(
-                "OWNER", "ADMIN", "MEMBER", name="memberrole", create_type=False
-            ),
+            sa.Enum("owner", "admin", "member", name="memberrole", create_type=False),
             nullable=False,
         ),
         sa.Column(
@@ -83,16 +78,7 @@ def upgrade() -> None:
         sa.Column("email", sa.String(255), nullable=False),
         sa.Column(
             "role",
-            postgresql.ENUM(
-                "OWNER", "ADMIN", "MEMBER", name="memberrole", create_type=False
-            ),
-            nullable=False,
-        ),
-        sa.Column(
-            "status",
-            postgresql.ENUM(
-                "pending", "accepted", name="invitationstatus", create_type=False
-            ),
+            sa.Enum("owner", "admin", "member", name="memberrole", create_type=False),
             nullable=False,
         ),
         sa.Column("invited_by_id", sa.UUID(), nullable=True),
@@ -107,9 +93,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["invited_by_id"], ["users.id"], ondelete="SET NULL"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "organization_id", "email", "status", name="uq_invitation_org_email_status"
-        ),
+        sa.UniqueConstraint("organization_id", "email", name="uq_invitation_org_email"),
     )
     op.create_index(
         "ix_invitations_organization_id", "invitations", ["organization_id"]
@@ -119,7 +103,7 @@ def upgrade() -> None:
     # Add organization_id FK to projects
     op.add_column(
         "projects",
-        sa.Column("organization_id", sa.UUID(), nullable=True),
+        sa.Column("organization_id", sa.UUID(), nullable=False),
     )
     op.create_index("ix_projects_organization_id", "projects", ["organization_id"])
     op.create_foreign_key(
@@ -141,5 +125,4 @@ def downgrade() -> None:
     op.drop_table("memberships")
     op.drop_table("organizations")
 
-    sa.Enum(name="invitationstatus").drop(op.get_bind(), checkfirst=True)
     sa.Enum(name="memberrole").drop(op.get_bind(), checkfirst=True)

@@ -128,7 +128,7 @@ async def current_user(db_session: AsyncSession, organization) -> User:
     membership = MembershipFactory.build(
         user_id=user.id,
         organization_id=organization.id,
-        role=MemberRole.ADMIN,
+        role=MemberRole.admin,
     )
     db_session.add(membership)
     await db_session.flush()

@@ -5,7 +5,7 @@ from oopsie.models import Error, ErrorOccurrence
 from oopsie.utils.encryption import hash_api_key
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from tests.factories import ProjectFactory
+from tests.factories import OrganizationFactory, ProjectFactory
 
 _API_KEY = "test-api-key-123"
 
@@ -17,7 +17,10 @@ async def test_ingest_error_creates_error_and_occurrence(
     factory,
 ):
     """POST /api/v1/errors with valid API key returns 202."""
-    project = await factory(ProjectFactory, api_key_hash=hash_api_key(_API_KEY))
+    org = await factory(OrganizationFactory)
+    project = await factory(
+        ProjectFactory, organization_id=org.id, api_key_hash=hash_api_key(_API_KEY)
+    )
     response = await api_client.post(
         "/api/v1/errors",
         headers={"Authorization": f"Bearer {_API_KEY}"},
@@ -51,7 +54,10 @@ async def test_ingest_error_duplicate_increments_count_and_adds_occurrence(
     factory,
 ):
     """Duplicate request increments count and adds occurrence."""
-    project = await factory(ProjectFactory, api_key_hash=hash_api_key(_API_KEY))
+    org = await factory(OrganizationFactory)
+    project = await factory(
+        ProjectFactory, organization_id=org.id, api_key_hash=hash_api_key(_API_KEY)
+    )
     body = {
         "error_class": "NoMethodError",
         "message": "undefined method 'foo' for nil:NilClass",
@@ -91,7 +97,10 @@ async def test_ingest_error_unauthorized_without_api_key(api_client):
 @pytest.mark.asyncio
 async def test_ingest_error_unauthorized_invalid_api_key(api_client, factory):
     """POST /api/v1/errors with wrong API key returns 401."""
-    await factory(ProjectFactory, api_key_hash=hash_api_key(_API_KEY))
+    org = await factory(OrganizationFactory)
+    await factory(
+        ProjectFactory, organization_id=org.id, api_key_hash=hash_api_key(_API_KEY)
+    )
     response = await api_client.post(
         "/api/v1/errors",
         headers={"Authorization": "Bearer wrong-key"},

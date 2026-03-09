@@ -43,13 +43,13 @@ async def test_get_current_membership_returns_membership(
         MembershipFactory,
         organization_id=org.id,
         user_id=user.id,
-        role=MemberRole.ADMIN,
+        role=MemberRole.admin,
     )
 
     membership = await get_current_membership("test-org", db_session, user)
     assert membership is not None
     assert membership.user_id == user.id
-    assert membership.role == MemberRole.ADMIN
+    assert membership.role == MemberRole.admin
 
 
 @pytest.mark.asyncio
@@ -82,11 +82,11 @@ async def test_require_role_allows_sufficient_role(
         MembershipFactory,
         organization_id=org.id,
         user_id=user.id,
-        role=MemberRole.ADMIN,
+        role=MemberRole.admin,
     )
 
     access_token = create_access_token(user.id, user.email)
-    app = _make_app(MemberRole.MEMBER, db_session)
+    app = _make_app(MemberRole.member, db_session)
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
@@ -111,11 +111,11 @@ async def test_require_role_denies_insufficient_role(
         MembershipFactory,
         organization_id=org.id,
         user_id=user.id,
-        role=MemberRole.MEMBER,
+        role=MemberRole.member,
     )
 
     access_token = create_access_token(user.id, user.email)
-    app = _make_app(MemberRole.OWNER, db_session)
+    app = _make_app(MemberRole.owner, db_session)
 
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"

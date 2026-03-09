@@ -12,9 +12,18 @@ from oopsie.models.base import Base
 
 
 class MemberRole(enum.StrEnum):
-    OWNER = "owner"
-    ADMIN = "admin"
-    MEMBER = "member"
+    owner = "owner"
+    admin = "admin"
+    member = "member"
+
+
+# Ordered lowest → highest rank for comparison
+_ROLE_ORDER: list[MemberRole] = [MemberRole.member, MemberRole.admin, MemberRole.owner]
+
+
+def role_rank(role: MemberRole) -> int:
+    """Return the numeric rank of a role (higher = more privileged)."""
+    return _ROLE_ORDER.index(role)
 
 
 class Membership(Base):

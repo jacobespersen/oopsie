@@ -111,23 +111,34 @@ async def revoke_token(session: AsyncSession, jti: str, expires_at: datetime) ->
     logger.info("token_revoked", jti=jti)
 
 
-async def upsert_user(session: AsyncSession, google_user_info: dict[str, Any]) -> User:
-    """Find or create a user from Google userinfo. Updates fields if changed."""
-    google_sub = google_user_info["sub"]
-    result = await session.execute(select(User).where(User.google_sub == google_sub))
-    user = result.scalar_one_or_none()
+async def upsert_user(
+    session: AsyncSession,
+    google_user_info: dict[str, Any],
+    existing: User | None = None,
+) -> User:
+    """Find or create a user from Google userinfo. Updates fields if changed.
 
-    if user is None:
+    If *existing* is provided the lookup-by-google-sub is skipped.
+    """
+    if existing is None:
+        google_sub = google_user_info["sub"]
+        result = await session.execute(
+            select(User).where(User.google_sub == google_sub)
+        )
+        existing = result.scalar_one_or_none()
+
+    if existing is None:
         user = User(
             email=google_user_info["email"],
             name=google_user_info.get("name", google_user_info["email"]),
-            google_sub=google_sub,
+            google_sub=google_user_info["sub"],
             avatar_url=google_user_info.get("picture"),
         )
         session.add(user)
         await session.flush()
         logger.info("user_created", user_id=str(user.id), email=user.email)
     else:
+        user = existing
         user.email = google_user_info["email"]
         user.name = google_user_info.get("name", user.name)
         user.avatar_url = google_user_info.get("picture", user.avatar_url)
@@ -137,12 +148,14 @@ async def upsert_user(session: AsyncSession, google_user_info: dict[str, Any]) -
     return user
 
 
-async def get_invitation(session: AsyncSession, email: str) -> "Invitation | None":
-    """Return an invitation for the given email, or None."""
+async def get_pending_invitations(
+    session: AsyncSession, email: str
+) -> "list[Invitation]":
+    """Return all pending invitations for the given email."""
     from oopsie.models.invitation import Invitation
 
     result = await session.execute(select(Invitation).where(Invitation.email == email))
-    return result.scalar_one_or_none()
+    return list(result.scalars().all())
 
 
 async def accept_invitation(
@@ -172,30 +185,31 @@ async def accept_invitation(
 
 async def resolve_or_register_user(
     session: AsyncSession, google_user_info: dict[str, Any]
-) -> tuple[User, "Membership | None"]:
+) -> tuple[User, "list[Membership]"]:
     """Authenticate a Google OAuth user, handling invitation-gated registration.
 
-    Returns the user and a new Membership if an invitation was just accepted.
+    Returns the user and a list of new Memberships from accepted invitations.
     Raises ValueError with a redirect hint if the user is new and has no invitation.
     """
     google_sub = google_user_info["sub"]
     result = await session.execute(select(User).where(User.google_sub == google_sub))
     existing = result.scalar_one_or_none()
 
-    # Check for a pending invitation (both new and existing users)
-    invitation = await get_invitation(session, google_user_info["email"])
+    # Check for pending invitations (both new and existing users)
+    invitations = await get_pending_invitations(session, google_user_info["email"])
 
-    if existing is None and invitation is None:
+    if existing is None and not invitations:
         # New user with no invitation — reject registration
         raise ValueError("no_invitation")
 
-    user = await upsert_user(session, google_user_info)
+    user = await upsert_user(session, google_user_info, existing=existing)
 
-    membership = None
-    if invitation is not None:
+    memberships: list[Membership] = []
+    for invitation in invitations:
         membership = await accept_invitation(session, invitation, user)
+        memberships.append(membership)
 
-    return user, membership
+    return user, memberships
 
 
 async def get_user_default_redirect(session: AsyncSession, user_id: uuid.UUID) -> str:

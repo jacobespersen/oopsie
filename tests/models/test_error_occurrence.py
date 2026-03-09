@@ -4,13 +4,14 @@ import pytest
 from oopsie.models import Error, ErrorOccurrence
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from tests.factories import ErrorFactory, ProjectFactory
+from tests.factories import ErrorFactory, OrganizationFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
 async def test_error_occurrence_creation(db_session, factory):
     """ErrorOccurrence can be created linked to an error."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
 
     occurrence = ErrorOccurrence(error_id=error.id)
@@ -25,7 +26,8 @@ async def test_error_occurrence_creation(db_session, factory):
 @pytest.mark.asyncio
 async def test_error_occurrences_relationship(db_session, factory):
     """Error.occurrences returns linked ErrorOccurrence records."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
 
     for _ in range(3):
@@ -44,7 +46,8 @@ async def test_error_occurrences_relationship(db_session, factory):
 @pytest.mark.asyncio
 async def test_cascade_delete_error_deletes_occurrences(db_session, factory):
     """Deleting an error deletes its occurrences (cascade)."""
-    project = await factory(ProjectFactory)
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
 
     occurrence = ErrorOccurrence(error_id=error.id)

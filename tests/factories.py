@@ -24,7 +24,7 @@ class MembershipFactory(factory.Factory):
     class Meta:
         model = Membership
 
-    role = MemberRole.MEMBER
+    role = MemberRole.member
     # organization_id and user_id must be supplied by the caller (for Membership)
 
 
@@ -33,7 +33,7 @@ class InvitationFactory(factory.Factory):
         model = Invitation
 
     email = factory.Sequence(lambda n: f"invite-{n}@example.com")
-    role = MemberRole.MEMBER
+    role = MemberRole.member
     invited_by_id = None
     # organization_id must be supplied by the caller
 

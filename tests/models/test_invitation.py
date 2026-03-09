@@ -18,14 +18,14 @@ async def test_invitation_creation(db_session):
     inv = Invitation(
         organization_id=org.id,
         email="bob@example.com",
-        role=MemberRole.MEMBER,
+        role=MemberRole.member,
     )
     db_session.add(inv)
     await db_session.flush()
 
     assert inv.id is not None
     assert inv.email == "bob@example.com"
-    assert inv.role == MemberRole.MEMBER
+    assert inv.role == MemberRole.member
     assert inv.invited_by_id is None
     assert inv.created_at is not None
 
@@ -42,7 +42,7 @@ async def test_invitation_with_inviter(db_session):
     inv = Invitation(
         organization_id=org.id,
         email="bob@example.com",
-        role=MemberRole.ADMIN,
+        role=MemberRole.admin,
         invited_by_id=inviter.id,
     )
     db_session.add(inv)
@@ -60,14 +60,14 @@ async def test_invitation_unique_per_org_email(db_session):
 
     db_session.add(
         Invitation(
-            organization_id=org.id, email="bob@example.com", role=MemberRole.MEMBER
+            organization_id=org.id, email="bob@example.com", role=MemberRole.member
         )
     )
     await db_session.flush()
 
     db_session.add(
         Invitation(
-            organization_id=org.id, email="bob@example.com", role=MemberRole.ADMIN
+            organization_id=org.id, email="bob@example.com", role=MemberRole.admin
         )
     )
     with pytest.raises(IntegrityError):

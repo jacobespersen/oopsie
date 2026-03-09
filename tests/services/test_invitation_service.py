@@ -19,14 +19,14 @@ async def test_create_invitation_creates_pending(db_session: AsyncSession, facto
         db_session,
         organization_id=org.id,
         email="newuser@example.com",
-        role=MemberRole.MEMBER,
+        role=MemberRole.member,
         invited_by_id=inviter.id,
     )
 
     assert invitation.id is not None
     assert invitation.organization_id == org.id
     assert invitation.email == "newuser@example.com"
-    assert invitation.role == MemberRole.MEMBER
+    assert invitation.role == MemberRole.member
     assert invitation.invited_by_id == inviter.id
 
 
@@ -42,19 +42,19 @@ async def test_create_invitation_updates_existing(db_session: AsyncSession, fact
         InvitationFactory,
         organization_id=org.id,
         email="dup@example.com",
-        role=MemberRole.MEMBER,
+        role=MemberRole.member,
     )
 
     updated = await create_invitation(
         db_session,
         organization_id=org.id,
         email="dup@example.com",
-        role=MemberRole.ADMIN,
+        role=MemberRole.admin,
         invited_by_id=None,
     )
 
     assert updated.id == original.id
-    assert updated.role == MemberRole.ADMIN
+    assert updated.role == MemberRole.admin
 
 
 @pytest.mark.asyncio
@@ -76,7 +76,7 @@ async def test_create_invitation_raises_for_existing_member(
         MembershipFactory,
         organization_id=org.id,
         user_id=user.id,
-        role=MemberRole.MEMBER,
+        role=MemberRole.member,
     )
 
     with pytest.raises(ValueError, match="already a member"):
@@ -84,7 +84,7 @@ async def test_create_invitation_raises_for_existing_member(
             db_session,
             organization_id=org.id,
             email="member@example.com",
-            role=MemberRole.ADMIN,
+            role=MemberRole.admin,
             invited_by_id=None,
         )
 
@@ -170,3 +170,95 @@ async def test_revoke_invitation_raises_when_not_found(
         await revoke_invitation(
             db_session, invitation_id=uuid.uuid4(), organization_id=org.id
         )
+
+
+# ---------------------------------------------------------------------------
+# Inviter role enforcement
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_admin_cannot_invite_with_owner_role(db_session: AsyncSession, factory):
+    """ADMIN cannot create an invitation with OWNER role."""
+    from oopsie.services.invitation_service import create_invitation
+
+    from tests.factories import OrganizationFactory, UserFactory
+
+    org = await factory(OrganizationFactory)
+    inviter = await factory(UserFactory)
+
+    with pytest.raises(PermissionError, match="higher than your own"):
+        await create_invitation(
+            db_session,
+            organization_id=org.id,
+            email="new@example.com",
+            role=MemberRole.owner,
+            invited_by_id=inviter.id,
+            inviter_role=MemberRole.admin,
+        )
+
+
+@pytest.mark.asyncio
+async def test_admin_can_invite_with_member_role(db_session: AsyncSession, factory):
+    """ADMIN can invite with MEMBER role (below their rank)."""
+    from oopsie.services.invitation_service import create_invitation
+
+    from tests.factories import OrganizationFactory, UserFactory
+
+    org = await factory(OrganizationFactory)
+    inviter = await factory(UserFactory)
+
+    invitation = await create_invitation(
+        db_session,
+        organization_id=org.id,
+        email="new@example.com",
+        role=MemberRole.member,
+        invited_by_id=inviter.id,
+        inviter_role=MemberRole.admin,
+    )
+
+    assert invitation.role == MemberRole.member
+
+
+@pytest.mark.asyncio
+async def test_admin_can_invite_with_admin_role(db_session: AsyncSession, factory):
+    """ADMIN can invite with ADMIN role (equal to their rank)."""
+    from oopsie.services.invitation_service import create_invitation
+
+    from tests.factories import OrganizationFactory, UserFactory
+
+    org = await factory(OrganizationFactory)
+    inviter = await factory(UserFactory)
+
+    invitation = await create_invitation(
+        db_session,
+        organization_id=org.id,
+        email="peer@example.com",
+        role=MemberRole.admin,
+        invited_by_id=inviter.id,
+        inviter_role=MemberRole.admin,
+    )
+
+    assert invitation.role == MemberRole.admin
+
+
+@pytest.mark.asyncio
+async def test_owner_can_invite_with_owner_role(db_session: AsyncSession, factory):
+    """OWNER can invite with OWNER role."""
+    from oopsie.services.invitation_service import create_invitation
+
+    from tests.factories import OrganizationFactory, UserFactory
+
+    org = await factory(OrganizationFactory)
+    inviter = await factory(UserFactory)
+
+    invitation = await create_invitation(
+        db_session,
+        organization_id=org.id,
+        email="coowner@example.com",
+        role=MemberRole.owner,
+        invited_by_id=inviter.id,
+        inviter_role=MemberRole.owner,
+    )
+
+    assert invitation.role == MemberRole.owner

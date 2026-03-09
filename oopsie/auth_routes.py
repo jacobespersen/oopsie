@@ -2,14 +2,12 @@
 
 import uuid
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.templating import Jinja2Templates
 
 from oopsie.api.deps import get_session
 from oopsie.auth import (
@@ -24,10 +22,9 @@ from oopsie.auth import (
 from oopsie.config import get_settings
 from oopsie.logging import logger
 from oopsie.models.user import User
+from oopsie.web import templates
 
 router = APIRouter(prefix="/auth")
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 _COOKIE_OPTS: dict[str, Any] = {
     "httponly": True,
@@ -90,7 +87,7 @@ async def auth_callback(
 
     # Register or authenticate the user (invitation-gated for new users)
     try:
-        user, _membership = await resolve_or_register_user(session, user_info)
+        user, _memberships = await resolve_or_register_user(session, user_info)
     except ValueError:
         return RedirectResponse(url="/auth/login?error=no_invitation", status_code=303)
 

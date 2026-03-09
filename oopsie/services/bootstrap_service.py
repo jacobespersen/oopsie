@@ -66,7 +66,7 @@ async def bootstrap_if_needed(
     invitation = Invitation(
         organization_id=org.id,
         email=admin_email,
-        role=MemberRole.OWNER,
+        role=MemberRole.owner,
         invited_by_id=None,  # No inviter — system-generated bootstrap
     )
     session.add(invitation)

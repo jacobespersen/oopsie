@@ -17,7 +17,7 @@ async def test_membership_creation(db_session):
     await db_session.flush()
 
     membership = Membership(
-        organization_id=org.id, user_id=user.id, role=MemberRole.MEMBER
+        organization_id=org.id, user_id=user.id, role=MemberRole.member
     )
     db_session.add(membership)
     await db_session.flush()
@@ -25,7 +25,7 @@ async def test_membership_creation(db_session):
     assert membership.id is not None
     assert membership.organization_id == org.id
     assert membership.user_id == user.id
-    assert membership.role == MemberRole.MEMBER
+    assert membership.role == MemberRole.member
     assert membership.created_at is not None
 
 
@@ -39,12 +39,12 @@ async def test_membership_unique_per_org(db_session):
     await db_session.flush()
 
     db_session.add(
-        Membership(organization_id=org.id, user_id=user.id, role=MemberRole.MEMBER)
+        Membership(organization_id=org.id, user_id=user.id, role=MemberRole.member)
     )
     await db_session.flush()
 
     db_session.add(
-        Membership(organization_id=org.id, user_id=user.id, role=MemberRole.ADMIN)
+        Membership(organization_id=org.id, user_id=user.id, role=MemberRole.admin)
     )
     with pytest.raises(IntegrityError):
         await db_session.flush()
@@ -53,6 +53,6 @@ async def test_membership_unique_per_org(db_session):
 @pytest.mark.asyncio
 async def test_member_role_values(db_session):
     """MemberRole enum has the expected values."""
-    assert MemberRole.OWNER.value == "owner"
-    assert MemberRole.ADMIN.value == "admin"
-    assert MemberRole.MEMBER.value == "member"
+    assert MemberRole.owner.value == "owner"
+    assert MemberRole.admin.value == "admin"
+    assert MemberRole.member.value == "member"

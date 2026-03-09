@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from oopsie.auth import decode_jwt_token
 from oopsie.database import get_session
 from oopsie.logging import logger
-from oopsie.models.membership import MemberRole, Membership
+from oopsie.models.membership import MemberRole, Membership, role_rank
 from oopsie.models.project import Project
 from oopsie.models.user import User
 from oopsie.utils.encryption import hash_api_key
@@ -91,18 +91,6 @@ async def get_optional_user(
         return None
 
 
-__all__ = [
-    "get_session",
-    "get_project_from_api_key",
-    "get_current_user",
-    "get_optional_user",
-    "RequireRole",
-]
-
-
-_ROLE_ORDER: list[MemberRole] = [MemberRole.MEMBER, MemberRole.ADMIN, MemberRole.OWNER]
-
-
 async def get_current_membership(
     org_slug: str,
     session: AsyncSession = Depends(get_session),
@@ -140,14 +128,15 @@ class RequireRole:
 
         @router.get("/admin-only")
         async def admin_view(
-            membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
+            membership: Membership = Depends(RequireRole(MemberRole.admin)),
         ):
             ...
     """
 
     def __init__(self, *allowed_roles: MemberRole) -> None:
-        self._min_rank = min(_ROLE_ORDER.index(r) for r in allowed_roles)
-        self._label = allowed_roles[0].value
+        min_role = min(allowed_roles, key=role_rank)
+        self._min_rank = role_rank(min_role)
+        self._label = min_role.value
 
     async def __call__(
         self,
@@ -156,10 +145,11 @@ class RequireRole:
         current_user: User = Depends(get_current_user),
     ) -> Membership:
         membership = await get_current_membership(org_slug, session, current_user)
-        user_rank = _ROLE_ORDER.index(membership.role)
-        if user_rank < self._min_rank:
+        if role_rank(membership.role) < self._min_rank:
             raise HTTPException(
                 status_code=403,
                 detail=f"Insufficient permissions. Required: {self._label}",
             )
+        # Populate the user relationship so callers don't need a separate dep
+        membership.user = current_user
         return membership

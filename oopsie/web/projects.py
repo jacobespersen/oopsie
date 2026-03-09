@@ -2,31 +2,27 @@
 
 import secrets
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.templating import Jinja2Templates
 
-from oopsie.api.deps import RequireRole, get_current_user, get_session
+from oopsie.api.deps import RequireRole, get_session
 from oopsie.config import get_settings
 from oopsie.logging import logger
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.project import Project
-from oopsie.models.user import User
 from oopsie.queue import enqueue_fix_job
 from oopsie.services.fix_service import (
     get_fix_attempt_status_for_errors,
     get_fix_attempts_for_error,
 )
 from oopsie.utils.encryption import encrypt_value, hash_api_key
+from oopsie.web import templates
 
 router = APIRouter()
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 async def _get_org_project(
@@ -49,8 +45,7 @@ async def list_projects_page(
     request: Request,
     org_slug: str,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.member)),
 ):
     """List projects in the current org."""
     result = await session.execute(
@@ -62,7 +57,7 @@ async def list_projects_page(
     return templates.TemplateResponse(
         request=request,
         name="projects/list.html",
-        context={"projects": projects, "user": current_user, "org_slug": org_slug},
+        context={"projects": projects, "user": membership.user, "org_slug": org_slug},
     )
 
 
@@ -70,8 +65,7 @@ async def list_projects_page(
 async def new_project_page(
     request: Request,
     org_slug: str,
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.admin)),
 ):
     """Show create project form."""
     return templates.TemplateResponse(
@@ -80,7 +74,7 @@ async def new_project_page(
         context={
             "project": None,
             "title": "New Project",
-            "user": current_user,
+            "user": membership.user,
             "org_slug": org_slug,
         },
     )
@@ -88,11 +82,9 @@ async def new_project_page(
 
 @router.post("/orgs/{org_slug}/projects")
 async def create_project_action(
-    request: Request,
     org_slug: str,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.admin)),
     name: str = Form(...),
     github_repo_url: str = Form(...),
     github_token: str = Form(...),
@@ -128,8 +120,7 @@ async def project_created_page(
     org_slug: str,
     project_id: uuid.UUID,
     api_key: str,
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.member)),
 ):
     """Show API key after create (only time it's visible)."""
     return templates.TemplateResponse(
@@ -138,7 +129,7 @@ async def project_created_page(
         context={
             "project_id": project_id,
             "api_key": api_key,
-            "user": current_user,
+            "user": membership.user,
             "org_slug": org_slug,
         },
     )
@@ -152,8 +143,7 @@ async def project_api_key_page(
     org_slug: str,
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.admin)),
     api_key: str | None = None,
 ):
     """Show API key page for a project."""
@@ -165,7 +155,7 @@ async def project_api_key_page(
             "project": project,
             "api_key": api_key,
             "just_regenerated": api_key is not None,
-            "user": current_user,
+            "user": membership.user,
             "org_slug": org_slug,
         },
     )
@@ -173,12 +163,10 @@ async def project_api_key_page(
 
 @router.post("/orgs/{org_slug}/projects/{project_id}/regenerate-api-key")
 async def regenerate_api_key_action(
-    request: Request,
     org_slug: str,
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.admin)),
 ):
     """Regenerate API key and redirect to show the new key."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -200,8 +188,7 @@ async def project_errors_page(
     org_slug: str,
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.member)),
 ):
     """Show errors for a project."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -225,7 +212,7 @@ async def project_errors_page(
             "project": project,
             "errors": errors,
             "fix_statuses": fix_statuses,
-            "user": current_user,
+            "user": membership.user,
             "org_slug": org_slug,
         },
     )
@@ -241,8 +228,7 @@ async def error_show_page(
     project_id: uuid.UUID,
     error_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.member)),
 ):
     """Show details for a single error."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -263,7 +249,7 @@ async def error_show_page(
             "project": project,
             "error": error,
             "fix_attempts": fix_attempts,
-            "user": current_user,
+            "user": membership.user,
             "org_slug": org_slug,
         },
     )
@@ -275,8 +261,7 @@ async def edit_project_page(
     org_slug: str,
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.admin)),
 ):
     """Show edit project form."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -286,7 +271,7 @@ async def edit_project_page(
         context={
             "project": project,
             "title": "Edit Project",
-            "user": current_user,
+            "user": membership.user,
             "org_slug": org_slug,
         },
     )
@@ -294,12 +279,10 @@ async def edit_project_page(
 
 @router.post("/orgs/{org_slug}/projects/{project_id}")
 async def update_project_action(
-    request: Request,
     org_slug: str,
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.admin)),
     name: str = Form(...),
     github_repo_url: str = Form(...),
     github_token: str = Form(""),
@@ -324,12 +307,10 @@ async def update_project_action(
 
 @router.post("/orgs/{org_slug}/projects/{project_id}/delete")
 async def delete_project_action(
-    request: Request,
     org_slug: str,
     project_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.ADMIN)),
+    membership: Membership = Depends(RequireRole(MemberRole.admin)),
 ):
     """Delete a project and redirect to list."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -341,13 +322,11 @@ async def delete_project_action(
 
 @router.post("/orgs/{org_slug}/projects/{project_id}/errors/{error_id}/fix")
 async def trigger_fix_action(
-    request: Request,
     org_slug: str,
     project_id: uuid.UUID,
     error_id: uuid.UUID,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
-    membership: Membership = Depends(RequireRole(MemberRole.MEMBER)),
+    membership: Membership = Depends(RequireRole(MemberRole.member)),
 ):
     """Enqueue a fix job for an error and redirect back to errors page."""
     project = await _get_org_project(session, project_id, membership.organization_id)

@@ -15,8 +15,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("CREATE TYPE memberrole AS ENUM ('owner', 'admin', 'member')")
-
     # organizations
     op.create_table(
         "organizations",
@@ -47,7 +45,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column(
             "role",
-            sa.Enum("owner", "admin", "member", name="memberrole", create_type=False),
+            sa.Enum("owner", "admin", "member", name="memberrole"),
             nullable=False,
         ),
         sa.Column(

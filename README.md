@@ -16,14 +16,14 @@ Oopsie is a self-hosted error tracking service that automatically generates fix 
 
 ```
 ┌─────────────┐     POST /api/v1/errors     ┌──────────────┐
-│  Your App   │ ──────────────────────────── │   Oopsie     │
+│  Your App   │ ────────────────────────────│   Oopsie     │
 └─────────────┘         (API key)           │   FastAPI    │
                                             │   Server     │
                                             └──────┬───────┘
                                                    │
                               ┌─────────────────────┼─────────────────────┐
                               │                     │                     │
-                        ┌─────▼─────┐        ┌──────▼──────┐      ┌──────▼──────┐
+                        ┌─────▼─────┐        ┌──────▼───────┐      ┌──────▼──────┐
                         │ PostgreSQL│        │    Redis     │      │   Web UI    │
                         │ (storage) │        │  (job queue) │      │  (Jinja2)   │
                         └───────────┘        └──────┬───────┘      └─────────────┘

@@ -18,7 +18,7 @@ dev: services
 	honcho start
 
 setup:
-	python -m venv .venv
+	python3 -m venv .venv
 	.venv/bin/pip install -e ".[dev]"
 	.venv/bin/pre-commit install
 

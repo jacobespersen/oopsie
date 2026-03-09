@@ -5,8 +5,9 @@ Thanks for your interest in contributing to Oopsie! This document explains how t
 ## Getting Started
 
 1. Fork the repository and clone your fork
-2. Follow the [Quick Start](README.md#quick-start) instructions to set up your development environment
-3. Create a branch for your changes (`git checkout -b my-feature`)
+2. Run `make setup` to create a venv, install dependencies, and set up pre-commit hooks
+3. Copy `.env.example` to `.env` and fill in the required values (see [README](README.md#2-configure-environment))
+4. Create a branch for your changes (`git checkout -b my-feature`)
 
 ## Development Workflow
 
@@ -15,10 +16,7 @@ Thanks for your interest in contributing to Oopsie! This document explains how t
 3. Run the full CI check locally before pushing:
 
    ```bash
-   ruff check . && ruff format --check .
-   mypy oopsie
-   bandit -r oopsie -ll
-   pytest -v --cov=oopsie --cov-report=term-missing --cov-fail-under=90
+   make ci
    ```
 
 4. Open a pull request against `main`

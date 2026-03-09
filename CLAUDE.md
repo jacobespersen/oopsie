@@ -14,8 +14,8 @@ AI-powered error fix service that receives error reports and generates fix PRs u
 ## Setup
 
 ```bash
-python -m venv venv && source venv/bin/activate
-pip install -e ".[dev]"
+make setup                    # creates .venv, installs deps, sets up pre-commit hooks
+source .venv/bin/activate
 docker compose up -d          # postgres on :5433
 alembic upgrade head
 ```
@@ -30,10 +30,8 @@ LOG_FORMAT=console uvicorn oopsie.main:app --reload  # pretty dev logs
 ## Running Tests
 
 ```bash
-docker compose --profile test up -d   # test postgres on :5434
-pytest                                # run all tests
-pytest --cov                          # with coverage (fail_under=90)
-pytest tests/api/                     # subset
+make test                             # starts test DB + runs pytest with coverage
+pytest tests/api/                     # run a subset
 ```
 
 The `db_session` fixture auto-creates the `oopsie_test` database on port 5434 and rolls back each test. Set `DATABASE_URL` and optionally `TEST_DATABASE_URL` in `.env`.
@@ -41,11 +39,9 @@ The `db_session` fixture auto-creates the `oopsie_test` database on port 5434 an
 ## Lint & Format
 
 ```bash
-ruff check .          # lint (rules: E, F, I, N, W, UP)
-ruff check . --fix    # lint + autofix
-ruff format .         # format
-mypy oopsie           # type check
-bandit -r oopsie      # security scan (skips B101 in tests)
+make lint             # ruff check + ruff format --check + mypy + bandit
+ruff check . --fix    # autofix lint issues
+ruff format .         # autoformat
 ```
 
 ## Architecture

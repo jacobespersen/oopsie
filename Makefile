@@ -1,4 +1,4 @@
-.PHONY: dev services web worker console
+.PHONY: dev services web worker console setup lint test ci
 
 export COMPOSE_PROJECT_NAME = oopsie
 
@@ -16,3 +16,20 @@ console:
 
 dev: services
 	honcho start
+
+setup:
+	python -m venv .venv
+	.venv/bin/pip install -e ".[dev]"
+	.venv/bin/pre-commit install
+
+lint:
+	ruff check .
+	ruff format --check .
+	mypy oopsie
+	bandit -r oopsie -ll
+
+test:
+	docker compose --profile test up -d
+	pytest -v --cov=oopsie --cov-report=term-missing --cov-fail-under=90
+
+ci: lint test

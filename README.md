@@ -52,8 +52,8 @@ Oopsie is a self-hosted error tracking service that automatically generates fix 
 ```bash
 git clone https://github.com/jacobespersen/oopsie.git
 cd oopsie
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+make setup              # creates venv, installs deps, sets up pre-commit hooks
+source .venv/bin/activate
 ```
 
 ### 2. Configure environment
@@ -118,21 +118,16 @@ make services   # Docker services only
 
 ### Testing
 
-Tests use a separate PostgreSQL instance on port 5434:
-
 ```bash
-docker compose --profile test up -d   # start test DB
-pytest                                # run all tests
-pytest --cov                          # with coverage (fail_under=90)
+make test             # starts test DB + runs pytest with coverage
 ```
+
+Tests use a separate PostgreSQL instance on port 5434 (started automatically by `make test`).
 
 ### Linting & Type Checking
 
 ```bash
-ruff check .          # lint (E, F, I, N, W, UP rules)
-ruff format .         # format
-mypy oopsie           # type check
-bandit -r oopsie -ll  # security scan
+make lint             # ruff + mypy + bandit
 ```
 
 ### Full CI Check
@@ -140,10 +135,7 @@ bandit -r oopsie -ll  # security scan
 Run the same checks as CI before pushing:
 
 ```bash
-ruff check . && ruff format --check .
-mypy oopsie
-bandit -r oopsie -ll
-pytest -v --cov=oopsie --cov-report=term-missing --cov-fail-under=90
+make ci               # lint + test in one command
 ```
 
 ## Project Structure

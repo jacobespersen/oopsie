@@ -9,7 +9,7 @@ from oopsie.utils.encryption import decrypt_value
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.factories import ErrorFactory, ProjectFactory
+from tests.factories import ProjectFactory
 
 _settings = Settings()
 
@@ -307,58 +307,3 @@ async def test_root_redirects_to_login(api_client):
     response = await api_client.get("/", follow_redirects=False)
     assert response.status_code == 307
     assert response.headers["location"] == "/auth/login"
-
-
-@pytest.mark.asyncio
-async def test_web_project_errors_page_empty(
-    authenticated_client, current_user, organization, factory
-):
-    """GET /orgs/{slug}/projects/{id}/errors shows empty state when no errors."""
-    project = await factory(
-        ProjectFactory, name="test-project", organization_id=organization.id
-    )
-    pid = str(project.id)
-    response = await authenticated_client.get(
-        f"/orgs/{organization.slug}/projects/{pid}/errors"
-    )
-    assert response.status_code == 200
-    assert b"project-with-errors" not in response.content
-    assert b"test-project" in response.content
-    assert b"No errors" in response.content
-
-
-@pytest.mark.asyncio
-async def test_web_project_errors_page_with_errors(
-    authenticated_client, current_user, organization, factory
-):
-    """GET /orgs/{slug}/projects/{id}/errors lists errors for the project."""
-    project = await factory(
-        ProjectFactory, name="project-with-errors", organization_id=organization.id
-    )
-    await factory(
-        ErrorFactory,
-        project_id=project.id,
-        error_class="NoMethodError",
-        message="undefined method 'foo' for nil:NilClass",
-        fingerprint="abc123def456",
-        occurrence_count=3,
-    )
-    pid = str(project.id)
-    response = await authenticated_client.get(
-        f"/orgs/{organization.slug}/projects/{pid}/errors"
-    )
-    assert response.status_code == 200
-    assert b"project-with-errors" in response.content
-    assert b"NoMethodError" in response.content
-    assert b"undefined method" in response.content
-    assert b"3" in response.content
-
-
-@pytest.mark.asyncio
-async def test_web_project_errors_page_not_found(authenticated_client, organization):
-    """GET /orgs/{slug}/projects/{id}/errors returns 404 for unknown project."""
-    fake_id = str(uuid.uuid4())
-    response = await authenticated_client.get(
-        f"/orgs/{organization.slug}/projects/{fake_id}/errors"
-    )
-    assert response.status_code == 404

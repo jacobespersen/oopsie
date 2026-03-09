@@ -8,6 +8,7 @@ from oopsie.models import Project
 from oopsie.utils.encryption import decrypt_value
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from tests.factories import ErrorFactory, ProjectFactory
 
 _settings = Settings()

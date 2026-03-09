@@ -14,6 +14,7 @@ from oopsie.config import get_settings
 from oopsie.logging import RequestLoggingMiddleware, setup_logging
 from oopsie.queue import close_arq_pool
 from oopsie.services.bootstrap_service import bootstrap_if_needed
+from oopsie.web.errors import router as web_errors_router
 from oopsie.web.members import router as web_members_router
 from oopsie.web.projects import router as web_projects_router
 
@@ -53,6 +54,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(auth_router, tags=["auth"])
 app.include_router(errors_router, prefix="/api/v1/errors", tags=["errors"])
 app.include_router(web_projects_router, tags=["web"])
+app.include_router(web_errors_router, tags=["web"])
 app.include_router(web_members_router, tags=["web"])
 
 

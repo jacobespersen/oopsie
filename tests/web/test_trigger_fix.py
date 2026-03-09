@@ -8,7 +8,7 @@ from oopsie.models.error import ErrorStatus
 
 from tests.factories import ErrorFactory, ProjectFactory
 
-_ENQUEUE = "oopsie.web.projects.enqueue_fix_job"
+_ENQUEUE = "oopsie.web.errors.enqueue_fix_job"
 
 
 @pytest.mark.asyncio

@@ -126,6 +126,10 @@ alembic/           — DB migrations
 | `REDIS_URL` | yes | Redis connection URL (e.g. `redis://localhost:6379`) |
 | `LOG_FORMAT` | no | `json` (default) or `console` |
 
+## Changelog
+
+Update `CHANGELOG.md` when adding features, fixing bugs, or making breaking changes. Follow [Keep a Changelog](https://keepachangelog.com/) format. Add entries under `[Unreleased]` using the appropriate category: Added, Changed, Deprecated, Removed, Fixed, Security.
+
 ## Pre-completion CI Check
 
 Before considering any task complete, run the full CI pipeline locally to catch issues before they reach GitHub:

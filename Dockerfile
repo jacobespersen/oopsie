@@ -20,6 +20,7 @@ COPY alembic.ini ./
 COPY alembic alembic/
 COPY oopsie oopsie/
 COPY templates templates/
+COPY static static/
 COPY docker-entrypoint.sh ./
 
 RUN chown -R oopsie:oopsie /app

@@ -29,6 +29,7 @@ def _adapt_url_for_asyncpg(url: str) -> str:
 engine = create_async_engine(
     _adapt_url_for_asyncpg(get_settings().database_url),
     echo=False,
+    pool_pre_ping=True,
 )
 async_session_factory = async_sessionmaker(
     engine,

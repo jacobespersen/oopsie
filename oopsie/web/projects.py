@@ -8,12 +8,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.config import get_settings
 from oopsie.deps import RequireRole, get_session
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.project import Project
-from oopsie.utils.encryption import encrypt_value, hash_api_key
+from oopsie.utils.encryption import hash_api_key
 from oopsie.web import templates
 
 router = APIRouter()
@@ -81,7 +80,6 @@ async def create_project_action(
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
     name: str = Form(...),
     github_repo_url: str = Form(...),
-    github_token: str = Form(...),
     default_branch: str = Form("main"),
     error_threshold: int = Form(10),
 ) -> RedirectResponse:
@@ -91,11 +89,9 @@ async def create_project_action(
     but the key is never exposed. Users generate a visible key via
     the "Generate API Key" action on the project's API key page.
     """
-    settings = get_settings()
     project = Project(
         name=name,
         github_repo_url=github_repo_url,
-        github_token_encrypted=encrypt_value(github_token, settings.encryption_key),
         default_branch=default_branch,
         error_threshold=error_threshold,
         api_key_hash=hash_api_key(secrets.token_urlsafe(32)),
@@ -189,7 +185,6 @@ async def update_project_action(
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
     name: str = Form(...),
     github_repo_url: str = Form(...),
-    github_token: str = Form(""),
     default_branch: str = Form("main"),
     error_threshold: int = Form(10),
 ) -> RedirectResponse:
@@ -198,11 +193,6 @@ async def update_project_action(
 
     project.name = name
     project.github_repo_url = github_repo_url
-    if github_token:
-        settings = get_settings()
-        project.github_token_encrypted = encrypt_value(
-            github_token, settings.encryption_key
-        )
     project.default_branch = default_branch
     project.error_threshold = error_threshold
     await session.flush()

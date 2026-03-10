@@ -12,7 +12,6 @@ from oopsie.logging import logger
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.project import Project
 from oopsie.services import claude_service, fix_service, github_service
-from oopsie.utils.encryption import decrypt_value
 
 
 @dataclass
@@ -20,7 +19,6 @@ class _JobContext:
     """Data extracted from the DB before the clone directory is created."""
 
     fix_attempt_id: UUID
-    github_token: str
     branch_name: str
     error_class: str
     message: str
@@ -29,9 +27,7 @@ class _JobContext:
     default_branch: str
 
 
-async def _load_and_prepare(
-    error_id: str, project_id: str, settings: Settings
-) -> _JobContext | None:
+async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | None:
     """Load error + project, validate state, and create a PENDING fix attempt.
 
     Returns None if the job should be skipped (error not open, project missing).
@@ -58,9 +54,6 @@ async def _load_and_prepare(
 
         return _JobContext(
             fix_attempt_id=fix_attempt.id,
-            github_token=decrypt_value(
-                project.github_token_encrypted, settings.encryption_key
-            ),
             branch_name=branch_name,
             error_class=error.error_class,
             message=error.message,
@@ -70,6 +63,8 @@ async def _load_and_prepare(
         )
 
 
+# TODO Phase 4: replace empty token strings with installation access token
+# from github_app_service
 async def _run_fix(clone_dir: str, ctx: _JobContext, settings: Settings) -> str:
     """Clone repo, create branch, run Claude, commit and push.
 
@@ -77,9 +72,7 @@ async def _run_fix(clone_dir: str, ctx: _JobContext, settings: Settings) -> str:
     """
     owner, repo_name = github_service.parse_repo_owner_name(ctx.repo_url)
 
-    await github_service.clone_repo(
-        ctx.repo_url, ctx.github_token, ctx.default_branch, clone_dir
-    )
+    await github_service.clone_repo(ctx.repo_url, "", ctx.default_branch, clone_dir)
     await github_service.create_branch(clone_dir, ctx.branch_name)
 
     await claude_service.run_claude_code(
@@ -96,13 +89,13 @@ async def _run_fix(clone_dir: str, ctx: _JobContext, settings: Settings) -> str:
 
     commit_msg = f"fix: resolve {ctx.error_class} — {ctx.message[:60]}"
     await github_service.commit_and_push(
-        clone_dir, ctx.branch_name, commit_msg, ctx.github_token, ctx.repo_url
+        clone_dir, ctx.branch_name, commit_msg, "", ctx.repo_url
     )
 
     return await github_service.create_pull_request(
         owner,
         repo_name,
-        ctx.github_token,
+        "",
         ctx.branch_name,
         ctx.default_branch,
         title=f"[Oopsie] {commit_msg}",
@@ -118,7 +111,7 @@ async def run(error_id: str, project_id: str) -> None:
     settings = get_settings()
     logger.info("fix_pipeline_started", error_id=error_id, project_id=project_id)
 
-    job_ctx = await _load_and_prepare(error_id, project_id, settings)
+    job_ctx = await _load_and_prepare(error_id, project_id)
     if job_ctx is None:
         return
 

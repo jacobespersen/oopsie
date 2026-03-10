@@ -3,16 +3,11 @@
 import uuid
 
 import pytest
-from oopsie.config import Settings
 from oopsie.models import Project
-from oopsie.utils.encryption import decrypt_value
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.factories import ProjectFactory
-
-_settings = Settings()
-
 
 # ---------------------------------------------------------------------------
 # Web UI endpoints
@@ -70,7 +65,6 @@ async def test_web_create_project_redirects(authenticated_client, organization):
         data={
             "name": "web-created",
             "github_repo_url": "https://github.com/org/repo",
-            "github_token": "ghp_xxx",
             "default_branch": "main",
             "error_threshold": "10",
         },
@@ -90,7 +84,6 @@ async def test_web_create_project_and_verify(
         data={
             "name": "web-created",
             "github_repo_url": "https://github.com/a/b",
-            "github_token": "ghp_xxx",
             "default_branch": "main",
             "error_threshold": "5",
         },
@@ -149,7 +142,6 @@ async def test_web_update_project(
         data={
             "name": "updated-via-web",
             "github_repo_url": "https://github.com/new/repo",
-            "github_token": "",
             "default_branch": "develop",
             "error_threshold": "15",
         },
@@ -163,36 +155,6 @@ async def test_web_update_project(
     assert db_project.name == "updated-via-web"
     assert db_project.default_branch == "develop"
     assert db_project.error_threshold == 15
-
-
-@pytest.mark.asyncio
-async def test_web_update_project_with_new_token(
-    authenticated_client, current_user, organization, db_session: AsyncSession, factory
-):
-    """POST /orgs/{slug}/projects/{id} with non-empty github_token updates the token."""
-    project = await factory(ProjectFactory, organization_id=organization.id)
-    pid = str(project.id)
-    response = await authenticated_client.post(
-        f"/orgs/{organization.slug}/projects/{pid}",
-        data={
-            "name": "updated-with-token",
-            "github_repo_url": "https://github.com/other/repo",
-            "github_token": "ghp_new_token_value",
-            "default_branch": "main",
-            "error_threshold": "25",
-        },
-        follow_redirects=False,
-    )
-    assert response.status_code == 303
-
-    result = await db_session.execute(select(Project).where(Project.id == project.id))
-    db_project = result.scalar_one()
-    assert db_project.name == "updated-with-token"
-    assert (
-        decrypt_value(db_project.github_token_encrypted, _settings.encryption_key)
-        == "ghp_new_token_value"
-    )
-    assert db_project.error_threshold == 25
 
 
 @pytest.mark.asyncio

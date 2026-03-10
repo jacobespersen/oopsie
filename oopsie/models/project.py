@@ -18,7 +18,6 @@ class Project(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     github_repo_url: Mapped[str] = mapped_column(String(2048), nullable=False)
-    github_token_encrypted: Mapped[str] = mapped_column(String(2048), nullable=False)
     default_branch: Mapped[str] = mapped_column(
         String(64), default="main", nullable=False
     )

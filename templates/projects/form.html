@@ -18,14 +18,6 @@
   </div>
 
   <div class="form-group">
-    <div class="form-group-header"><label for="github_token">GitHub Token</label></div>
-    <div class="form-group-body">
-      <input class="form-control" type="password" id="github_token" name="github_token" {% if not project %}required{% endif %} placeholder="{% if project %}Leave blank to keep current{% else %}github_xxx{% endif %}">
-      {% if project %}<p class="note">Leave blank to keep the existing token.</p>{% endif %}
-    </div>
-  </div>
-
-  <div class="form-group">
     <div class="form-group-header"><label for="default_branch">Default Branch</label></div>
     <div class="form-group-body">
       <input class="form-control" type="text" id="default_branch" name="default_branch" value="{{ project.default_branch if project else 'main' }}" placeholder="main">

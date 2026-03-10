@@ -4,6 +4,7 @@ import factory
 from oopsie.config import get_settings
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
+from oopsie.models.github_installation import GithubInstallation, InstallationStatus
 from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.organization import Organization
@@ -83,3 +84,13 @@ class FixAttemptFactory(factory.Factory):
     pr_url = None
     claude_output = None
     # error_id must be supplied by the caller
+
+
+class GithubInstallationFactory(factory.Factory):
+    class Meta:
+        model = GithubInstallation
+
+    github_installation_id = factory.Sequence(lambda n: 1000 + n)
+    github_account_login = factory.Sequence(lambda n: f"github-org-{n}")
+    status = InstallationStatus.ACTIVE
+    # organization_id must be supplied by the caller

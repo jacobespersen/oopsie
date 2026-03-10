@@ -21,6 +21,7 @@ COPY alembic alembic/
 COPY oopsie oopsie/
 COPY templates templates/
 COPY static static/
+COPY run_worker.py ./
 COPY docker-entrypoint.sh ./
 
 RUN chown -R oopsie:oopsie /app

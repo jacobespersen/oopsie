@@ -2,14 +2,32 @@
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from oopsie.config import get_settings
 from oopsie.logging import logger
 
+
+def _adapt_url_for_asyncpg(url: str) -> str:
+    """Convert psycopg2-style connection params to asyncpg-compatible ones.
+
+    asyncpg uses 'ssl' instead of 'sslmode' and doesn't support 'channel_binding'.
+    """
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query)
+
+    if "sslmode" in params:
+        params["ssl"] = params.pop("sslmode")
+    params.pop("channel_binding", None)
+
+    new_query = urlencode({k: v[0] for k, v in params.items()})
+    return urlunparse(parsed._replace(query=new_query))
+
+
 engine = create_async_engine(
-    get_settings().database_url,
+    _adapt_url_for_asyncpg(get_settings().database_url),
     echo=False,
 )
 async_session_factory = async_sessionmaker(

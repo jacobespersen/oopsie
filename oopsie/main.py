@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from oopsie.api.errors import router as errors_router
 from oopsie.auth_routes import router as auth_router
@@ -50,6 +51,7 @@ _session_secret = _settings.jwt_secret_key or secrets.token_urlsafe(32)
 app.add_middleware(SessionMiddleware, secret_key=_session_secret)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 app.include_router(auth_router, tags=["auth"])
 app.include_router(errors_router, prefix="/api/v1/errors", tags=["errors"])

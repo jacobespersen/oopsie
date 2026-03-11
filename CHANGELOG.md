@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- GitHub App installation flow: "Connect GitHub" redirect and OAuth callback per org (INST-01, INST-02)
+- Org settings page at `/orgs/{slug}/settings` consolidating GitHub connection status and member management; `/members` GET redirects to `/settings` (INST-04)
+- Webhook endpoint at `POST /webhooks/github` with HMAC-SHA256 signature verification (WHOOK-01)
+- Webhook handlers for `installation.deleted`, `installation.suspended`, `installation.unsuspended` events (WHOOK-02, WHOOK-03)
+- Webhook handler for `pull_request` closed+merged event — auto-updates fix attempt status to MERGED (WHOOK-04)
+- Repo picker in project creation: dropdown from GitHub App installation repos replaces free-text URL input; access verified server-side (REPO-01, REPO-02)
+- `FixAttemptStatus.MERGED` terminal status for PR-merged fix attempts
+- `GITHUB_APP_SLUG` environment variable for constructing install redirect URLs
 - GitHub App authentication service (`github_app_service.py`) with JWT client management, installation token exchange, webhook signature verification, and repo listing
 - Error ingestion API with fingerprint-based deduplication
 - Web dashboard for viewing projects, errors, and team members

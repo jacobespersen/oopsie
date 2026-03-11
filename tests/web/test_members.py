@@ -5,78 +5,6 @@ from oopsie.models.membership import MemberRole
 
 
 @pytest.mark.asyncio
-async def test_members_list_redirects_to_settings(
-    authenticated_client, current_user, factory
-):
-    """GET /orgs/{slug}/members returns 301 redirect to /orgs/{slug}/settings."""
-    from tests.factories import MembershipFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory, slug="my-co")
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.admin,
-    )
-
-    resp = await authenticated_client.get("/orgs/my-co/members", follow_redirects=False)
-    assert resp.status_code == 301
-    assert resp.headers["location"] == "/orgs/my-co/settings"
-
-
-@pytest.mark.asyncio
-async def test_members_list_403_non_member(authenticated_client, factory):
-    """GET /orgs/{slug}/members returns 403 if user has no membership."""
-    from tests.factories import OrganizationFactory
-
-    await factory(OrganizationFactory, slug="other-co")
-
-    resp = await authenticated_client.get("/orgs/other-co/members")
-    assert resp.status_code == 403
-
-
-@pytest.mark.asyncio
-async def test_members_list_shows_members_and_invitations(
-    authenticated_client, current_user, factory
-):
-    """Settings page (reached via /members redirect) lists members and invitations."""
-    from tests.factories import (
-        InvitationFactory,
-        MembershipFactory,
-        OrganizationFactory,
-        UserFactory,
-    )
-
-    org = await factory(OrganizationFactory, slug="show-co")
-    other_user = await factory(UserFactory)
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.admin,
-    )
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=other_user.id,
-        role=MemberRole.member,
-    )
-    await factory(
-        InvitationFactory,
-        organization_id=org.id,
-        email="invited@example.com",
-    )
-
-    # Follow the 301 redirect to the settings page
-    resp = await authenticated_client.get(
-        "/orgs/show-co/members", follow_redirects=True
-    )
-    assert resp.status_code == 200
-    assert other_user.email in resp.text
-    assert "invited@example.com" in resp.text
-
-
-@pytest.mark.asyncio
 async def test_invite_member_redirects(authenticated_client, current_user, factory):
     """POST /orgs/{slug}/members/invite creates invitation and redirects."""
 
@@ -96,7 +24,7 @@ async def test_invite_member_redirects(authenticated_client, current_user, facto
     )
     assert resp.status_code in (200, 303)
     if resp.status_code == 303:
-        assert "/orgs/invite-co/members" in resp.headers["location"]
+        assert "/orgs/invite-co/settings" in resp.headers["location"]
 
 
 @pytest.mark.asyncio
@@ -169,7 +97,7 @@ async def test_revoke_invitation_redirects(authenticated_client, current_user, f
         f"/orgs/revoke-co/members/invitations/{inv.id}/revoke"
     )
     assert resp.status_code == 303
-    assert "/orgs/revoke-co/members" in resp.headers["location"]
+    assert "/orgs/revoke-co/settings" in resp.headers["location"]
 
 
 @pytest.mark.asyncio
@@ -200,7 +128,7 @@ async def test_update_member_role_redirects(
         data={"role": "admin"},
     )
     assert resp.status_code == 303
-    assert "/orgs/role-co/members" in resp.headers["location"]
+    assert "/orgs/role-co/settings" in resp.headers["location"]
 
 
 @pytest.mark.asyncio
@@ -256,7 +184,7 @@ async def test_remove_member_redirects(authenticated_client, current_user, facto
         f"/orgs/rem-co/members/{membership.id}/remove"
     )
     assert resp.status_code == 303
-    assert "/orgs/rem-co/members" in resp.headers["location"]
+    assert "/orgs/rem-co/settings" in resp.headers["location"]
 
 
 @pytest.mark.asyncio

@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.deps import RequireRole, get_session
@@ -12,19 +12,6 @@ from oopsie.services.invitation_service import create_invitation, revoke_invitat
 from oopsie.services.membership_service import remove_member, update_member_role
 
 router = APIRouter()
-
-
-@router.get("/orgs/{org_slug}/members", response_class=HTMLResponse)
-async def members_list_page(
-    org_slug: str,
-    membership: Membership = Depends(RequireRole(MemberRole.member)),
-) -> RedirectResponse:
-    """Redirect to the consolidated settings page.
-
-    The members list has moved to /orgs/{slug}/settings. POST routes for
-    member actions remain on /orgs/{slug}/members/... and are unchanged.
-    """
-    return RedirectResponse(url=f"/orgs/{org_slug}/settings", status_code=301)
 
 
 @router.post("/orgs/{org_slug}/members/invite")
@@ -55,7 +42,7 @@ async def invite_member_action(
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
 
-    return RedirectResponse(url=f"/orgs/{org_slug}/members", status_code=303)
+    return RedirectResponse(url=f"/orgs/{org_slug}/settings", status_code=303)
 
 
 @router.post("/orgs/{org_slug}/members/invitations/{invitation_id}/revoke")
@@ -75,7 +62,7 @@ async def revoke_invitation_action(
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
-    return RedirectResponse(url=f"/orgs/{org_slug}/members", status_code=303)
+    return RedirectResponse(url=f"/orgs/{org_slug}/settings", status_code=303)
 
 
 @router.post("/orgs/{org_slug}/members/{membership_id}/role")
@@ -107,7 +94,7 @@ async def update_member_role_action(
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 
-    return RedirectResponse(url=f"/orgs/{org_slug}/members", status_code=303)
+    return RedirectResponse(url=f"/orgs/{org_slug}/settings", status_code=303)
 
 
 @router.post("/orgs/{org_slug}/members/{membership_id}/remove")
@@ -132,4 +119,4 @@ async def remove_member_action(
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
 
-    return RedirectResponse(url=f"/orgs/{org_slug}/members", status_code=303)
+    return RedirectResponse(url=f"/orgs/{org_slug}/settings", status_code=303)

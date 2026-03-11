@@ -87,6 +87,6 @@ class GithubInstallationFactory(factory.Factory):
         model = GithubInstallation
 
     github_installation_id = factory.Sequence(lambda n: 1000 + n)
-    github_account_login = factory.Sequence(lambda n: f"github-org-{n}")
+    github_account_login = None
     status = InstallationStatus.ACTIVE
     # organization_id must be supplied by the caller

@@ -101,6 +101,25 @@ class Settings(BaseSettings):
             )
         return self
 
+    @model_validator(mode="after")
+    def _validate_github_app_config(self) -> "Settings":
+        """Ensure all required GitHub App settings are provided together."""
+        github_fields = {
+            "GITHUB_APP_ID": self.github_app_id,
+            "GITHUB_APP_PRIVATE_KEY_PEM": self.github_app_private_key_pem,
+            "GITHUB_WEBHOOK_SECRET": self.github_webhook_secret,
+        }
+        set_fields = {k for k, v in github_fields.items() if v}
+        if set_fields and set_fields != set(github_fields.keys()):
+            missing = set(github_fields.keys()) - set_fields
+            warnings.warn(
+                f"Partial GitHub App configuration: {', '.join(sorted(missing))} "
+                f"not set. All three are required for GitHub App integration to work.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return self
+
     def get_test_database_url(self) -> str:
         """Return test DB URL (test_database_url or database_url, db oopsie_test)."""
         if self.test_database_url:

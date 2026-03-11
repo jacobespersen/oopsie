@@ -39,8 +39,9 @@ class Organization(Base):
     projects = relationship(
         "Project", back_populates="organization", cascade="all, delete-orphan"
     )
-    github_installations = relationship(
+    github_installation = relationship(
         "GithubInstallation",
         back_populates="organization",
         cascade="all, delete-orphan",
+        uselist=False,
     )

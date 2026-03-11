@@ -47,7 +47,7 @@ async def process_install_callback(
         session,
         organization_id=org.id,
         github_installation_id=github_installation_id,
-        github_account_login="",  # Populated in Phase 4 via GitHub API
+        github_account_login=None,  # Populated in Phase 4 via GitHub API
     )
 
 

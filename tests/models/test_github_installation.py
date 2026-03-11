@@ -21,7 +21,8 @@ async def test_github_installation_persists_and_retrieves(db_session):
     assert installation.id is not None
     assert installation.organization_id == org.id
     assert isinstance(installation.github_installation_id, int)
-    assert isinstance(installation.github_account_login, str)
+    # github_account_login is nullable; factory defaults to None
+    assert installation.github_account_login is None
     assert installation.status == InstallationStatus.ACTIVE
     assert installation.created_at is not None
     assert installation.updated_at is not None
@@ -75,8 +76,8 @@ async def test_cascade_delete_removes_installation(db_session):
 
 
 @pytest.mark.asyncio
-async def test_organization_github_installations_relationship(db_session):
-    """Organization.github_installations relationship returns related installations."""
+async def test_organization_github_installation_relationship(db_session):
+    """Organization.github_installation returns the related installation."""
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
 
@@ -92,10 +93,10 @@ async def test_organization_github_installations_relationship(db_session):
     stmt = (
         select(Organization)
         .where(Organization.id == org.id)
-        .options(selectinload(Organization.github_installations))
+        .options(selectinload(Organization.github_installation))
     )
     result = await db_session.execute(stmt)
     loaded_org = result.scalar_one()
 
-    assert len(loaded_org.github_installations) == 1
-    assert loaded_org.github_installations[0].id == installation.id
+    assert loaded_org.github_installation is not None
+    assert loaded_org.github_installation.id == installation.id

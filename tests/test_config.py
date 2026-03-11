@@ -76,6 +76,8 @@ def test_github_app_private_key_empty_no_error():
     settings = Settings(
         database_url=FAKE_DB_URL,
         redis_url=FAKE_REDIS_URL,
+        github_app_private_key_pem="",
+        _env_file=None,
     )
     assert settings.github_app_private_key_bytes is None
 
@@ -85,6 +87,7 @@ def test_github_app_fields_default_empty():
     settings = Settings(
         database_url=FAKE_DB_URL,
         redis_url=FAKE_REDIS_URL,
+        _env_file=None,
     )
     assert settings.github_app_id == ""
     assert settings.github_webhook_secret == ""
@@ -95,6 +98,7 @@ def test_github_app_slug_default_empty():
     settings = Settings(
         database_url=FAKE_DB_URL,
         redis_url=FAKE_REDIS_URL,
+        _env_file=None,
     )
     assert settings.github_app_slug == ""
 
@@ -107,6 +111,44 @@ def test_github_app_slug_can_be_set():
         github_app_slug="my-oopsie-app",
     )
     assert settings.github_app_slug == "my-oopsie-app"
+
+
+def test_partial_github_app_config_warns():
+    """Partial GitHub App config (some fields set, others empty) emits a warning."""
+    import warnings as w
+
+    with w.catch_warnings(record=True) as caught:
+        w.simplefilter("always")
+        Settings(
+            database_url=FAKE_DB_URL,
+            redis_url=FAKE_REDIS_URL,
+            github_app_id="123",
+            # github_app_private_key_pem and github_webhook_secret left empty
+        )
+    partial_warnings = [
+        x for x in caught if "Partial GitHub App configuration" in str(x.message)
+    ]
+    assert len(partial_warnings) == 1
+    assert "GITHUB_WEBHOOK_SECRET" in str(partial_warnings[0].message)
+
+
+def test_full_github_app_config_no_partial_warning():
+    """Full GitHub App config does not emit a partial-config warning."""
+    import warnings as w
+
+    with w.catch_warnings(record=True) as caught:
+        w.simplefilter("always")
+        Settings(
+            database_url=FAKE_DB_URL,
+            redis_url=FAKE_REDIS_URL,
+            github_app_id="123",
+            github_app_private_key_pem=VALID_RSA_PEM_B64,
+            github_webhook_secret="my-secret",
+        )
+    partial_warnings = [
+        x for x in caught if "Partial GitHub App configuration" in str(x.message)
+    ]
+    assert len(partial_warnings) == 0
 
 
 def test_fix_attempt_status_merged_value():

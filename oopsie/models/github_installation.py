@@ -32,8 +32,8 @@ class GithubInstallation(Base):
     github_installation_id: Mapped[int] = mapped_column(
         Integer, nullable=False, index=True
     )
-    github_account_login: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[str] = mapped_column(
+    github_account_login: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[InstallationStatus] = mapped_column(
         String(32), default=InstallationStatus.ACTIVE, nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
@@ -46,7 +46,7 @@ class GithubInstallation(Base):
         onupdate=func.now(),
     )
 
-    organization = relationship("Organization", back_populates="github_installations")
+    organization = relationship("Organization", back_populates="github_installation")
 
     __table_args__ = (
         # One installation per Oopsie org — enforced at DB level

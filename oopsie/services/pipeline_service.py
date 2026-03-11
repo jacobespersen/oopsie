@@ -50,13 +50,13 @@ async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | Non
             logger.info("fix_pipeline_skipped", error_id=error_id, reason="not_open")
             return None
 
-        # Load project with org and installations in one query to avoid N+1
+        # Load project with org and installation in one query to avoid N+1
         result = await session.execute(
             select(Project)
             .where(Project.id == project_id)
             .options(
                 selectinload(Project.organization).selectinload(
-                    Organization.github_installations
+                    Organization.github_installation
                 )
             )
         )
@@ -69,17 +69,8 @@ async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | Non
             )
             return None
 
-        # Only ACTIVE installations are accepted; SUSPENDED and REMOVED are
-        # treated as missing — pipeline skips silently without creating a fix attempt.
-        installation = next(
-            (
-                i
-                for i in project.organization.github_installations
-                if i.status == InstallationStatus.ACTIVE
-            ),
-            None,
-        )
-        if installation is None:
+        installation = project.organization.github_installation
+        if installation is None or installation.status != InstallationStatus.ACTIVE:
             logger.warning(
                 "fix_pipeline_skipped",
                 error_id=error_id,

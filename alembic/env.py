@@ -10,6 +10,7 @@ from oopsie.models import (  # noqa: F401
     Error,
     ErrorOccurrence,
     FixAttempt,
+    GithubInstallation,
     Project,
     RevokedToken,
     User,

@@ -1,15 +1,15 @@
 """factory_boy factories for ORM model construction in tests."""
 
 import factory
-from oopsie.config import get_settings
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
+from oopsie.models.github_installation import GithubInstallation, InstallationStatus
 from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
 from oopsie.models.user import User
-from oopsie.utils.encryption import encrypt_value, hash_api_key
+from oopsie.utils.encryption import hash_api_key
 
 
 class OrganizationFactory(factory.Factory):
@@ -54,9 +54,6 @@ class ProjectFactory(factory.Factory):
 
     name = factory.Sequence(lambda n: f"project-{n}")
     github_repo_url = "https://github.com/o/r"
-    github_token_encrypted = factory.LazyFunction(
-        lambda: encrypt_value("ghp_t", get_settings().encryption_key)
-    )
     api_key_hash = factory.Sequence(lambda n: hash_api_key(f"key-{n}"))
     default_branch = "main"
     error_threshold = 10
@@ -83,3 +80,13 @@ class FixAttemptFactory(factory.Factory):
     pr_url = None
     claude_output = None
     # error_id must be supplied by the caller
+
+
+class GithubInstallationFactory(factory.Factory):
+    class Meta:
+        model = GithubInstallation
+
+    github_installation_id = factory.Sequence(lambda n: 1000 + n)
+    github_account_login = None
+    status = InstallationStatus.ACTIVE
+    # organization_id must be supplied by the caller

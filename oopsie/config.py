@@ -1,5 +1,6 @@
 """Application settings via pydantic-settings."""
 
+import base64
 import tempfile
 import warnings
 from functools import lru_cache
@@ -7,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -38,12 +40,38 @@ class Settings(BaseSettings):
     jwt_refresh_expiry_minutes: int = 60 * 24 * 7
     cookie_secure: bool = False
 
+    github_app_id: str = ""
+    github_app_private_key_pem: str = ""
+    github_webhook_secret: str = ""
+    github_app_slug: str = ""
+
+    @property
+    def github_app_private_key_bytes(self) -> bytes | None:
+        """Return decoded PEM bytes when configured, None when empty."""
+        if not self.github_app_private_key_pem:
+            return None
+        return base64.b64decode(self.github_app_private_key_pem)
+
+    @model_validator(mode="after")
+    def _validate_github_app_private_key(self) -> "Settings":
+        if not self.github_app_private_key_pem:
+            return self
+        try:
+            pem_bytes = base64.b64decode(self.github_app_private_key_pem)
+            load_pem_private_key(pem_bytes, password=None)
+        except Exception as exc:
+            raise ValueError(
+                "GITHUB_APP_PRIVATE_KEY_PEM is not a valid "
+                "base64-encoded RSA private key."
+            ) from exc
+        return self
+
     @model_validator(mode="after")
     def _validate_encryption_key(self) -> "Settings":
         if not self.encryption_key:
             warnings.warn(
                 "ENCRYPTION_KEY is not set. "
-                "Creating or updating projects with GitHub tokens will fail.",
+                "Features requiring encryption will not work.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -70,6 +98,25 @@ class Settings(BaseSettings):
                 "JWT_SECRET_KEY must be at least 32 characters. "
                 "Generate one with: python -c 'import secrets; "
                 "print(secrets.token_urlsafe(64))'"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_github_app_config(self) -> "Settings":
+        """Ensure all required GitHub App settings are provided together."""
+        github_fields = {
+            "GITHUB_APP_ID": self.github_app_id,
+            "GITHUB_APP_PRIVATE_KEY_PEM": self.github_app_private_key_pem,
+            "GITHUB_WEBHOOK_SECRET": self.github_webhook_secret,
+        }
+        set_fields = {k for k, v in github_fields.items() if v}
+        if set_fields and set_fields != set(github_fields.keys()):
+            missing = set(github_fields.keys()) - set_fields
+            warnings.warn(
+                f"Partial GitHub App configuration: {', '.join(sorted(missing))} "
+                f"not set. All three are required for GitHub App integration to work.",
+                UserWarning,
+                stacklevel=2,
             )
         return self
 

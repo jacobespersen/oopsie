@@ -8,12 +8,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.config import get_settings
 from oopsie.deps import RequireRole, get_session
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.project import Project
-from oopsie.utils.encryption import encrypt_value, hash_api_key
+from oopsie.services.github_installation_service import get_installation_repos
+from oopsie.utils.encryption import hash_api_key
 from oopsie.web import templates
 
 router = APIRouter()
@@ -59,9 +59,13 @@ async def list_projects_page(
 async def new_project_page(
     request: Request,
     org_slug: str,
+    session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
 ) -> HTMLResponse:
     """Show create project form."""
+    installation, repos, repo_error = await get_installation_repos(
+        session, membership.organization_id
+    )
     return templates.TemplateResponse(
         request=request,
         name="projects/form.html",
@@ -70,6 +74,9 @@ async def new_project_page(
             "title": "New Project",
             "user": membership.user,
             "org_slug": org_slug,
+            "installation": installation,
+            "repos": repos,
+            "repo_error": repo_error,
         },
     )
 
@@ -80,22 +87,33 @@ async def create_project_action(
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
     name: str = Form(...),
-    github_repo_url: str = Form(...),
-    github_token: str = Form(...),
+    github_repo_full_name: str = Form(...),
     default_branch: str = Form("main"),
     error_threshold: int = Form(10),
 ) -> RedirectResponse:
     """Create a project and redirect to the projects list.
 
+    Validates that the submitted repo is accessible via the GitHub App
+    installation before creating the project. The github_repo_url is
+    derived server-side from the submitted full_name (REPO-02).
+
     A placeholder API key hash is generated so the project is valid,
     but the key is never exposed. Users generate a visible key via
     the "Generate API Key" action on the project's API key page.
     """
-    settings = get_settings()
+    _installation, repos, _error = await get_installation_repos(
+        session, membership.organization_id
+    )
+    # Reject repos not in the accessible list — covers both no-installation
+    # and repos the GitHub App cannot access (REPO-02 enforcement).
+    if repos and github_repo_full_name not in repos:
+        raise HTTPException(
+            status_code=400, detail="Repository not accessible via GitHub App"
+        )
+    github_repo_url = f"https://github.com/{github_repo_full_name}"
     project = Project(
         name=name,
         github_repo_url=github_repo_url,
-        github_token_encrypted=encrypt_value(github_token, settings.encryption_key),
         default_branch=default_branch,
         error_threshold=error_threshold,
         api_key_hash=hash_api_key(secrets.token_urlsafe(32)),
@@ -169,6 +187,9 @@ async def edit_project_page(
 ) -> HTMLResponse:
     """Show edit project form."""
     project = await _get_org_project(session, project_id, membership.organization_id)
+    installation, repos, repo_error = await get_installation_repos(
+        session, membership.organization_id
+    )
     return templates.TemplateResponse(
         request=request,
         name="projects/form.html",
@@ -177,6 +198,9 @@ async def edit_project_page(
             "title": "Edit Project",
             "user": membership.user,
             "org_slug": org_slug,
+            "installation": installation,
+            "repos": repos,
+            "repo_error": repo_error,
         },
     )
 
@@ -188,21 +212,24 @@ async def update_project_action(
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
     name: str = Form(...),
-    github_repo_url: str = Form(...),
-    github_token: str = Form(""),
+    github_repo_full_name: str = Form(...),
     default_branch: str = Form("main"),
     error_threshold: int = Form(10),
 ) -> RedirectResponse:
     """Update a project and redirect to list."""
     project = await _get_org_project(session, project_id, membership.organization_id)
 
+    _installation, repos, _error = await get_installation_repos(
+        session, membership.organization_id
+    )
+    if repos and github_repo_full_name not in repos:
+        raise HTTPException(
+            status_code=400, detail="Repository not accessible via GitHub App"
+        )
+
+    github_repo_url = f"https://github.com/{github_repo_full_name}"
     project.name = name
     project.github_repo_url = github_repo_url
-    if github_token:
-        settings = get_settings()
-        project.github_token_encrypted = encrypt_value(
-            github_token, settings.encryption_key
-        )
     project.default_branch = default_branch
     project.error_threshold = error_threshold
     await session.flush()

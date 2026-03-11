@@ -85,7 +85,56 @@ python -c 'import secrets; print(secrets.token_urlsafe(64))'
 - Add `http://localhost:8000/auth/callback` as an authorized redirect URI
 - Copy the client ID and secret into `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 
-### 4. Start services and run
+### 4. Set up the GitHub App
+
+Oopsie uses a GitHub App to clone repositories and open fix PRs on your behalf.
+
+**Create the app**
+
+1. Go to [GitHub Developer Settings — New GitHub App](https://github.com/settings/apps/new)
+2. Fill in the basic details:
+   - **GitHub App name**: choose a unique name (e.g. `my-oopsie`)
+   - **Description**: optional — users see this when installing
+   - **Homepage URL**: your Oopsie instance URL (e.g. `http://localhost:8000`)
+3. Under **Identifying and authorizing users**:
+   - **Callback URL**: leave blank (Oopsie does not use GitHub user-level OAuth)
+   - **Setup URL**: `http://<your-host>/github/callback` (GitHub redirects here after a user installs the app)
+   - Check **Redirect on update** so re-installations also redirect back
+4. Under **Post installation**:
+   - Leave defaults
+5. Under **Webhook**:
+   - Check **Active**
+   - **Webhook URL**: `http://<your-host>/webhooks/github`
+   - **Webhook secret**: generate a random secret — you'll need this for `GITHUB_WEBHOOK_SECRET`:
+     ```bash
+     python -c 'import secrets; print(secrets.token_urlsafe(32))'
+     ```
+6. Under **Permissions**, grant:
+   - **Repository permissions**:
+     - **Contents**: Read & write (clone repo, push fix branch)
+     - **Pull requests**: Read & write (open fix PRs)
+     - **Metadata**: Read-only (required by GitHub)
+   - After setting permissions, the **Subscribe to events** checkboxes appear below — check **Pull request**
+7. Set **Where can this GitHub App be installed?** to **Any account** (or **Only on this account** for private use)
+8. Click **Create GitHub App**
+
+**Configure credentials**
+
+After creation, from the app's settings page:
+
+- Copy the **App ID** (shown near the top) → `GITHUB_APP_ID`
+- Scroll to **Private keys** → click **Generate a private key** → a `.pem` file downloads
+- Base64-encode it for use as an env var:
+  ```bash
+  base64 -i path/to/your-app.YYYY-MM-DD.private-key.pem | tr -d '\n'
+  ```
+  Paste the output as `GITHUB_APP_PRIVATE_KEY_PEM`
+- Copy the webhook secret you generated earlier → `GITHUB_WEBHOOK_SECRET`
+- The **App slug** is the URL-safe name visible at `https://github.com/apps/<slug>` → `GITHUB_APP_SLUG`
+
+Set all four values in your `.env` file.
+
+### 5. Start services and run
 
 ```bash
 docker compose up -d        # PostgreSQL on :5433
@@ -175,6 +224,10 @@ tests/             — Test suite (pytest, factory-boy)
 | `GOOGLE_CLIENT_ID` | Yes | Google OAuth 2.0 client ID |
 | `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth 2.0 client secret |
 | `ANTHROPIC_API_KEY` | For AI fixes | Claude API key for generating fix PRs |
+| `GITHUB_APP_ID` | For GitHub integration | Numeric App ID from the GitHub App settings page |
+| `GITHUB_APP_PRIVATE_KEY_PEM` | For GitHub integration | RSA private key, base64-encoded (see [GitHub App Setup](#4-set-up-the-github-app)) |
+| `GITHUB_WEBHOOK_SECRET` | For GitHub integration | Webhook secret set in the GitHub App settings |
+| `GITHUB_APP_SLUG` | For GitHub integration | App slug from `github.com/apps/{slug}` |
 | `ADMIN_EMAIL` | First deploy | Email to seed the first OWNER invitation |
 | `ORG_NAME` | No | Name for bootstrapped org (default: `"Oopsie"`) |
 | `TEST_DATABASE_URL` | No | Defaults to `DATABASE_URL` with db name `oopsie_test` |

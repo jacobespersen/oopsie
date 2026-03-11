@@ -16,6 +16,8 @@ class FixAttemptStatus(enum.StrEnum):
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
+    # PR was merged on GitHub; distinct from SUCCESS which means 'PR opened'
+    MERGED = "merged"
 
 
 class FixAttempt(Base):
@@ -27,7 +29,7 @@ class FixAttempt(Base):
     error_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("errors.id", ondelete="CASCADE"), nullable=False
     )
-    status: Mapped[str] = mapped_column(
+    status: Mapped[FixAttemptStatus] = mapped_column(
         String(32), default=FixAttemptStatus.PENDING, nullable=False
     )
     branch_name: Mapped[str | None] = mapped_column(String(255), nullable=True)

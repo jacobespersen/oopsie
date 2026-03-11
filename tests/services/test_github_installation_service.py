@@ -8,6 +8,7 @@ from oopsie.models.github_installation import InstallationStatus
 from oopsie.services.github_installation_service import (
     handle_installation_event,
     handle_pr_event,
+    process_install_callback,
     upsert_installation,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -329,3 +330,35 @@ async def test_handle_pr_event_merged_no_match_logs_warning(db_session: AsyncSes
     ):
         # Must not raise
         await handle_pr_event(db_session, raw_body)
+
+
+# ---------------------------------------------------------------------------
+# process_install_callback
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_process_install_callback_creates_installation(db_session: AsyncSession):
+    """process_install_callback looks up org by slug and upserts installation."""
+    org = OrganizationFactory.build()
+    db_session.add(org)
+    await db_session.flush()
+
+    installation = await process_install_callback(
+        db_session,
+        org_slug=org.slug,
+        github_installation_id=12345,
+    )
+    assert installation.organization_id == org.id
+    assert installation.github_installation_id == 12345
+
+
+@pytest.mark.asyncio
+async def test_process_install_callback_org_not_found(db_session: AsyncSession):
+    """process_install_callback raises ValueError for unknown org slug."""
+    with pytest.raises(ValueError, match="Organization not found"):
+        await process_install_callback(
+            db_session,
+            org_slug="nonexistent",
+            github_installation_id=12345,
+        )

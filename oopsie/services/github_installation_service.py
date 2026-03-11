@@ -23,11 +23,37 @@ _INSTALLATION_ACTION_MAP: dict[str, InstallationStatus] = {
 }
 
 
+async def process_install_callback(
+    session: AsyncSession,
+    org_slug: str,
+    github_installation_id: int,
+) -> GithubInstallation:
+    """Look up org by slug and upsert the GitHub installation.
+
+    Raises ValueError if the org slug does not match any organization.
+    """
+    from oopsie.models.organization import Organization
+
+    result = await session.execute(
+        select(Organization).where(Organization.slug == org_slug)
+    )
+    org = result.scalar_one_or_none()
+    if not org:
+        raise ValueError(f"Organization not found: {org_slug}")
+
+    return await upsert_installation(
+        session,
+        organization_id=org.id,
+        github_installation_id=github_installation_id,
+        github_account_login="",  # Populated in Phase 4 via GitHub API
+    )
+
+
 async def upsert_installation(
     session: AsyncSession,
     organization_id: uuid.UUID,
     github_installation_id: int,
-    github_account_login: str,
+    github_account_login: str | None,
 ) -> GithubInstallation:
     """Create or update the GithubInstallation record for an org.
 

@@ -21,7 +21,7 @@ from oopsie.services.github_app_service import verify_webhook
 from oopsie.services.github_installation_service import (
     handle_installation_event,
     handle_pr_event,
-    upsert_installation,
+    process_install_callback,
 )
 
 router = APIRouter()
@@ -63,16 +63,9 @@ async def github_install_callback(
 ) -> RedirectResponse:
     """Handle GitHub App installation callback.
 
-    Validates the CSRF state, creates/updates the GithubInstallation record,
-    then redirects to the org's settings page. The org slug comes from the
-    session (stored during the install redirect) rather than the URL, since
-    GitHub's callback URL has no org context.
-
-    The github_account_login is not available in the callback query params —
-    GitHub only sends installation_id and state. Passing an empty string for
-    now; a follow-up (Phase 4) should populate it via GET /app/installations/{id}.
+    Validates the CSRF state, delegates to the service layer for org lookup
+    and installation upsert, then redirects to the org's settings page.
     """
-    # Recover and validate CSRF state stored during the install redirect
     expected_state = request.session.pop("github_install_state", None)
     org_slug = request.session.pop("github_install_org_slug", None)
 
@@ -82,25 +75,14 @@ async def github_install_callback(
     if not org_slug:
         raise HTTPException(status_code=400, detail="Missing org context in session")
 
-    # Look up the org to get its UUID for the installation record
-    from sqlalchemy import select
-
-    from oopsie.models.organization import Organization
-
-    result = await session.execute(
-        select(Organization).where(Organization.slug == org_slug)
-    )
-    org = result.scalar_one_or_none()
-    if not org:
+    try:
+        await process_install_callback(
+            session,
+            org_slug=org_slug,
+            github_installation_id=installation_id,
+        )
+    except ValueError:
         raise HTTPException(status_code=404, detail="Organization not found")
-
-    # TODO (Phase 4): populate github_account_login via GET /app/installations/{id}
-    await upsert_installation(
-        session,
-        organization_id=org.id,
-        github_installation_id=installation_id,
-        github_account_login="",
-    )
 
     logger.info(
         "github_install_callback",

@@ -1,10 +1,12 @@
 """GitHub App authentication primitives.
 
-Provides lazy-singleton app client, installation-scoped clients, raw
+Provides cached app client, installation-scoped clients, raw
 installation access tokens, webhook signature verification, and repo listing.
 All GitHub App operations (webhook verification, repo listing, pipeline token
 injection) depend on these functions.
 """
+
+from functools import lru_cache
 
 from githubkit import AppAuthStrategy, GitHub
 from githubkit.webhooks import verify as _githubkit_verify
@@ -13,43 +15,38 @@ from oopsie.config import get_settings
 from oopsie.logging import logger
 from oopsie.services.exceptions import GitHubApiError, GitHubAppNotConfiguredError
 
-# Module-level singleton for the GitHub App client.
-# Lazy-initialized on first call to get_app_client().
-_app_client: GitHub | None = None
 
-
+@lru_cache(maxsize=1)
 def get_app_client() -> GitHub:
     """Return a singleton GitHub client authenticated as the GitHub App.
 
     Raises GitHubAppNotConfiguredError if GITHUB_APP_ID or
     GITHUB_APP_PRIVATE_KEY_PEM is not configured.
     """
-    global _app_client
-    if _app_client is None:
-        settings = get_settings()
-        if not settings.github_app_id:
-            raise GitHubAppNotConfiguredError(
-                "GITHUB_APP_ID is not configured. "
-                "Set the GITHUB_APP_ID environment variable."
-            )
-        private_key_bytes = settings.github_app_private_key_bytes
-        if not private_key_bytes:
-            raise GitHubAppNotConfiguredError(
-                "GITHUB_APP_PRIVATE_KEY_PEM is not configured. "
-                "Set the GITHUB_APP_PRIVATE_KEY_PEM environment variable."
-            )
-        _app_client = GitHub(
-            AppAuthStrategy(
-                app_id=settings.github_app_id,
-                # AppAuthStrategy expects the PEM as a string
-                private_key=private_key_bytes.decode("utf-8"),
-            )
+    settings = get_settings()
+    if not settings.github_app_id:
+        raise GitHubAppNotConfiguredError(
+            "GITHUB_APP_ID is not configured. "
+            "Set the GITHUB_APP_ID environment variable."
         )
-        logger.info(
-            "github_app_client_initialized",
+    private_key_bytes = settings.github_app_private_key_bytes
+    if not private_key_bytes:
+        raise GitHubAppNotConfiguredError(
+            "GITHUB_APP_PRIVATE_KEY_PEM is not configured. "
+            "Set the GITHUB_APP_PRIVATE_KEY_PEM environment variable."
+        )
+    client = GitHub(
+        AppAuthStrategy(
             app_id=settings.github_app_id,
+            # AppAuthStrategy expects the PEM as a string
+            private_key=private_key_bytes.decode("utf-8"),
         )
-    return _app_client
+    )
+    logger.info(
+        "github_app_client_initialized",
+        app_id=settings.github_app_id,
+    )
+    return client
 
 
 def get_installation_client(installation_id: int) -> GitHub:
@@ -82,9 +79,15 @@ async def get_installation_token(installation_id: int) -> str:
         )
         return token
     except Exception as exc:
+        logger.error(
+            "github_token_exchange_failed",
+            installation_id=installation_id,
+            error_type=type(exc).__name__,
+            error=str(exc),
+        )
         raise GitHubApiError(
             f"Failed to get installation access token for installation"
-            f" {installation_id}"
+            f" {installation_id}: {type(exc).__name__}: {exc}"
         ) from exc
 
 
@@ -123,12 +126,13 @@ async def list_installation_repos(installation_id: int) -> list[str]:
         )
         return [repo.full_name for repo in resp.parsed_data.repositories]
     except Exception as exc:
+        logger.error(
+            "github_list_repos_failed",
+            installation_id=installation_id,
+            error_type=type(exc).__name__,
+            error=str(exc),
+        )
         raise GitHubApiError(
-            f"Failed to list repos for installation {installation_id}"
+            f"Failed to list repos for installation"
+            f" {installation_id}: {type(exc).__name__}: {exc}"
         ) from exc
-
-
-def _reset_app_client() -> None:
-    """Reset the singleton app client. For test isolation only."""
-    global _app_client
-    _app_client = None

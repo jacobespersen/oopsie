@@ -8,7 +8,6 @@ from githubkit.webhooks import sign as webhook_sign
 from oopsie.config import Settings
 from oopsie.services.exceptions import GitHubApiError, GitHubAppNotConfiguredError
 from oopsie.services.github_app_service import (
-    _reset_app_client,
     get_app_client,
     get_installation_client,
     get_installation_token,
@@ -27,10 +26,10 @@ VALID_RSA_PEM_B64 = "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQpNSUlFb2dJQkFBS0N
 
 @pytest.fixture(autouse=True)
 def _reset_client():
-    """Reset singleton before and after each test for isolation."""
-    _reset_app_client()
+    """Clear lru_cache before and after each test for isolation."""
+    get_app_client.cache_clear()
     yield
-    _reset_app_client()
+    get_app_client.cache_clear()
 
 
 @pytest.fixture()
@@ -75,6 +74,7 @@ def test_get_app_client_raises_when_no_private_key():
         database_url=FAKE_DB_URL,
         redis_url=FAKE_REDIS_URL,
         github_app_id="123",
+        github_app_private_key_pem="",
     )
     with patch(
         "oopsie.services.github_app_service.get_settings", return_value=settings
@@ -94,14 +94,14 @@ def test_get_app_client_singleton(configured_settings):
         assert client1 is client2
 
 
-def test_get_app_client_reset(configured_settings):
-    """After _reset_app_client(), next call creates a new client instance."""
+def test_get_app_client_cache_clear(configured_settings):
+    """After cache_clear(), next call creates a new client instance."""
     with patch(
         "oopsie.services.github_app_service.get_settings",
         return_value=configured_settings,
     ):
         client1 = get_app_client()
-        _reset_app_client()
+        get_app_client.cache_clear()
         client2 = get_app_client()
         assert client1 is not client2
 

@@ -1,11 +1,13 @@
 """Tests for oopsie.services.github_installation_service."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from oopsie.models.fix_attempt import FixAttemptStatus
 from oopsie.models.github_installation import InstallationStatus
+from oopsie.services.exceptions import GitHubApiError
 from oopsie.services.github_installation_service import (
+    get_installation_repos,
     handle_installation_event,
     handle_pr_event,
     process_install_callback,
@@ -362,3 +364,72 @@ async def test_process_install_callback_org_not_found(db_session: AsyncSession):
             org_slug="nonexistent",
             github_installation_id=12345,
         )
+
+
+# ---------------------------------------------------------------------------
+# get_installation_repos
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_installation_repos_returns_repos(db_session: AsyncSession):
+    """get_installation_repos returns repo list for active installation."""
+    org = OrganizationFactory.build()
+    db_session.add(org)
+    await db_session.flush()
+    installation = GithubInstallationFactory.build(
+        organization_id=org.id, status=InstallationStatus.ACTIVE
+    )
+    db_session.add(installation)
+    await db_session.flush()
+
+    mock_repos = ["owner/repo1", "owner/repo2"]
+    with patch(
+        "oopsie.services.github_installation_service.github_app_service"
+        ".list_installation_repos",
+        new_callable=AsyncMock,
+        return_value=mock_repos,
+    ):
+        inst, repos, error = await get_installation_repos(db_session, org.id)
+    assert inst is not None
+    assert repos == mock_repos
+    assert error is None
+
+
+@pytest.mark.asyncio
+async def test_get_installation_repos_returns_error_on_api_failure(
+    db_session: AsyncSession,
+):
+    """get_installation_repos returns error message on GitHubApiError."""
+    org = OrganizationFactory.build()
+    db_session.add(org)
+    await db_session.flush()
+    installation = GithubInstallationFactory.build(
+        organization_id=org.id, status=InstallationStatus.ACTIVE
+    )
+    db_session.add(installation)
+    await db_session.flush()
+
+    with patch(
+        "oopsie.services.github_installation_service.github_app_service"
+        ".list_installation_repos",
+        new_callable=AsyncMock,
+        side_effect=GitHubApiError("API down"),
+    ):
+        inst, repos, error = await get_installation_repos(db_session, org.id)
+    assert inst is not None
+    assert repos == []
+    assert error is not None
+
+
+@pytest.mark.asyncio
+async def test_get_installation_repos_no_installation(db_session: AsyncSession):
+    """get_installation_repos returns (None, [], None) when no installation exists."""
+    org = OrganizationFactory.build()
+    db_session.add(org)
+    await db_session.flush()
+
+    inst, repos, error = await get_installation_repos(db_session, org.id)
+    assert inst is None
+    assert repos == []
+    assert error is None

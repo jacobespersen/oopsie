@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- GitHub App authentication service (`github_app_service.py`) with JWT client management, installation token exchange, webhook signature verification, and repo listing
 - Error ingestion API with fingerprint-based deduplication
 - Web dashboard for viewing projects, errors, and team members
 - Background worker for automated fix generation using Claude Code

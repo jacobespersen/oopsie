@@ -12,6 +12,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from oopsie.api.errors import router as errors_router
 from oopsie.auth_routes import router as auth_router
 from oopsie.config import get_settings
+from oopsie.github_routes import router as github_router
 from oopsie.logging import RequestLoggingMiddleware, setup_logging
 from oopsie.queue import close_arq_pool
 from oopsie.services.bootstrap_service import bootstrap_if_needed
@@ -55,6 +56,7 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 app.include_router(auth_router, tags=["auth"])
 app.include_router(errors_router, prefix="/api/v1/errors", tags=["errors"])
+app.include_router(github_router, tags=["github"])
 app.include_router(web_projects_router, tags=["web"])
 app.include_router(web_errors_router, tags=["web"])
 app.include_router(web_members_router, tags=["web"])

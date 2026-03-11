@@ -13,9 +13,10 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.config import get_settings
-from oopsie.deps import RequireRole, get_session
+from oopsie.deps import RequireRole, get_current_user, get_session
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership
+from oopsie.models.user import User
 from oopsie.services.github_app_service import verify_webhook
 from oopsie.services.github_installation_service import (
     handle_installation_event,
@@ -58,6 +59,7 @@ async def github_install_callback(
     setup_action: str,
     state: str | None = None,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(get_current_user),
 ) -> RedirectResponse:
     """Handle GitHub App installation callback.
 

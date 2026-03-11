@@ -128,6 +128,16 @@ async def test_install_callback_creates_installation(
 
 
 @pytest.mark.asyncio
+async def test_callback_requires_authentication(api_client):
+    """Unauthenticated request to callback should return 401."""
+    resp = await api_client.get(
+        "/github/callback",
+        params={"installation_id": 123, "setup_action": "install", "state": "abc"},
+    )
+    assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_install_callback_state_mismatch(
     authenticated_client, current_user, factory
 ):

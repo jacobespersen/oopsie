@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from githubkit import GitHub
+from githubkit.webhooks import sign as webhook_sign
 from oopsie.config import Settings
 from oopsie.services.exceptions import GitHubApiError, GitHubAppNotConfiguredError
 from oopsie.services.github_app_service import (
@@ -11,6 +12,8 @@ from oopsie.services.github_app_service import (
     get_app_client,
     get_installation_client,
     get_installation_token,
+    list_installation_repos,
+    verify_webhook,
 )
 
 FAKE_DB_URL = "postgresql+asyncpg://u:p@localhost:5432/db"
@@ -153,3 +156,117 @@ async def test_get_installation_token_raises_on_failure(configured_settings):
             with pytest.raises(GitHubApiError) as exc_info:
                 await get_installation_token(42)
             assert exc_info.value.__cause__ is original_error
+
+
+# ---------------------------------------------------------------------------
+# verify_webhook tests
+# ---------------------------------------------------------------------------
+
+_WEBHOOK_SECRET = "test-webhook-secret"
+_WEBHOOK_BODY = b'{"action": "opened", "number": 1}'
+
+
+def test_verify_webhook_valid_signature():
+    """verify_webhook returns True when signature matches the secret and body."""
+    sig = webhook_sign(_WEBHOOK_SECRET, _WEBHOOK_BODY)
+    assert verify_webhook(_WEBHOOK_SECRET, _WEBHOOK_BODY, sig) is True
+
+
+def test_verify_webhook_invalid_signature():
+    """verify_webhook returns False when the signature is tampered."""
+    assert verify_webhook(_WEBHOOK_SECRET, _WEBHOOK_BODY, "sha256=deadbeef") is False
+
+
+def test_verify_webhook_wrong_secret():
+    """verify_webhook returns False when signed with a different secret."""
+    sig = webhook_sign("wrong-secret", _WEBHOOK_BODY)
+    assert verify_webhook(_WEBHOOK_SECRET, _WEBHOOK_BODY, sig) is False
+
+
+# ---------------------------------------------------------------------------
+# list_installation_repos tests
+# ---------------------------------------------------------------------------
+
+
+def _make_repo(full_name: str) -> MagicMock:
+    repo = MagicMock()
+    repo.full_name = full_name
+    return repo
+
+
+@pytest.mark.asyncio
+async def test_list_installation_repos_returns_full_names(configured_settings):
+    """list_installation_repos returns a list of 'owner/repo' strings."""
+    mock_resp = MagicMock()
+    mock_resp.parsed_data.repositories = [
+        _make_repo("acme/api"),
+        _make_repo("acme/frontend"),
+    ]
+
+    with patch(
+        "oopsie.services.github_app_service.get_settings",
+        return_value=configured_settings,
+    ):
+        installation_client = get_installation_client(99)
+        with patch(
+            "oopsie.services.github_app_service.get_installation_client",
+            return_value=installation_client,
+        ):
+            with patch.object(
+                installation_client.rest.apps,
+                "async_list_repos_accessible_to_installation",
+                new_callable=AsyncMock,
+                return_value=mock_resp,
+            ):
+                repos = await list_installation_repos(99)
+                assert repos == ["acme/api", "acme/frontend"]
+
+
+@pytest.mark.asyncio
+async def test_list_installation_repos_empty(configured_settings):
+    """list_installation_repos returns an empty list when installation has no repos."""
+    mock_resp = MagicMock()
+    mock_resp.parsed_data.repositories = []
+
+    with patch(
+        "oopsie.services.github_app_service.get_settings",
+        return_value=configured_settings,
+    ):
+        installation_client = get_installation_client(99)
+        with patch(
+            "oopsie.services.github_app_service.get_installation_client",
+            return_value=installation_client,
+        ):
+            with patch.object(
+                installation_client.rest.apps,
+                "async_list_repos_accessible_to_installation",
+                new_callable=AsyncMock,
+                return_value=mock_resp,
+            ):
+                repos = await list_installation_repos(99)
+                assert repos == []
+
+
+@pytest.mark.asyncio
+async def test_list_installation_repos_raises_on_failure(configured_settings):
+    """When the REST call raises, list_installation_repos wraps it in GitHubApiError."""
+    original_error = RuntimeError("rate limited")
+
+    with patch(
+        "oopsie.services.github_app_service.get_settings",
+        return_value=configured_settings,
+    ):
+        installation_client = get_installation_client(99)
+        with patch(
+            "oopsie.services.github_app_service.get_installation_client",
+            return_value=installation_client,
+        ):
+            with patch.object(
+                installation_client.rest.apps,
+                "async_list_repos_accessible_to_installation",
+                new_callable=AsyncMock,
+                side_effect=original_error,
+            ):
+                with pytest.raises(GitHubApiError) as exc_info:
+                    await list_installation_repos(99)
+                assert exc_info.value.__cause__ is original_error

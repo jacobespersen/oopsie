@@ -1,13 +1,15 @@
 """Tests for project web UI endpoints."""
 
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from oopsie.models import Project
+from oopsie.services.exceptions import GitHubApiError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.factories import ProjectFactory
+from tests.factories import GithubInstallationFactory, ProjectFactory
 
 # ---------------------------------------------------------------------------
 # Web UI endpoints
@@ -49,46 +51,67 @@ async def test_web_list_projects_shows_project(
 
 @pytest.mark.asyncio
 async def test_web_new_project_page(authenticated_client, organization):
-    """GET /orgs/{slug}/projects/new returns create form."""
+    """GET /orgs/{slug}/projects/new shows connect notice when no installation."""
     response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/new")
     assert response.status_code == 200
     assert b"New Project" in response.content
     assert b"name" in response.content
-    assert b"github_repo_url" in response.content
+    # No active installation — form shows connect notice instead of repo URL input
+    assert b"Connect GitHub" in response.content
 
 
 @pytest.mark.asyncio
-async def test_web_create_project_redirects(authenticated_client, organization):
+async def test_web_create_project_redirects(
+    authenticated_client, organization, factory
+):
     """POST /orgs/{slug}/projects creates project and redirects to projects list."""
-    response = await authenticated_client.post(
-        f"/orgs/{organization.slug}/projects",
-        data={
-            "name": "web-created",
-            "github_repo_url": "https://github.com/org/repo",
-            "default_branch": "main",
-            "error_threshold": "10",
-        },
-        follow_redirects=False,
+    await factory(
+        GithubInstallationFactory,
+        organization_id=organization.id,
+        github_installation_id=99,
     )
+    with patch(
+        "oopsie.web.projects.list_installation_repos",
+        new=AsyncMock(return_value=["org/repo"]),
+    ):
+        response = await authenticated_client.post(
+            f"/orgs/{organization.slug}/projects",
+            data={
+                "name": "web-created",
+                "github_repo_full_name": "org/repo",
+                "default_branch": "main",
+                "error_threshold": "10",
+            },
+            follow_redirects=False,
+        )
     assert response.status_code == 303
     assert response.headers["location"] == f"/orgs/{organization.slug}/projects"
 
 
 @pytest.mark.asyncio
 async def test_web_create_project_and_verify(
-    authenticated_client, organization, db_session: AsyncSession
+    authenticated_client, organization, db_session: AsyncSession, factory
 ):
     """POST /orgs/{slug}/projects creates project in DB with org_id set."""
-    response = await authenticated_client.post(
-        f"/orgs/{organization.slug}/projects",
-        data={
-            "name": "web-created",
-            "github_repo_url": "https://github.com/a/b",
-            "default_branch": "main",
-            "error_threshold": "5",
-        },
-        follow_redirects=True,
+    await factory(
+        GithubInstallationFactory,
+        organization_id=organization.id,
+        github_installation_id=99,
     )
+    with patch(
+        "oopsie.web.projects.list_installation_repos",
+        new=AsyncMock(return_value=["a/b"]),
+    ):
+        response = await authenticated_client.post(
+            f"/orgs/{organization.slug}/projects",
+            data={
+                "name": "web-created",
+                "github_repo_full_name": "a/b",
+                "default_branch": "main",
+                "error_threshold": "5",
+            },
+            follow_redirects=True,
+        )
     assert response.status_code == 200
     # Follows redirect to projects list
     assert b"Projects" in response.content
@@ -253,3 +276,137 @@ async def test_root_redirects_to_login(api_client):
     response = await api_client.get("/", follow_redirects=False)
     assert response.status_code == 307
     assert response.headers["location"] == "/auth/login"
+
+
+# ---------------------------------------------------------------------------
+# Repo picker tests (plan 03-04)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_new_project_shows_repo_dropdown(
+    authenticated_client, organization, factory
+):
+    """GET /orgs/{slug}/projects/new shows repo dropdown when ACTIVE installation."""
+    await factory(
+        GithubInstallationFactory,
+        organization_id=organization.id,
+        github_installation_id=42,
+    )
+    with patch(
+        "oopsie.web.projects.list_installation_repos",
+        new=AsyncMock(return_value=["acme/api", "acme/web"]),
+    ):
+        response = await authenticated_client.get(
+            f"/orgs/{organization.slug}/projects/new"
+        )
+    assert response.status_code == 200
+    assert "acme/api" in response.text
+    assert "acme/web" in response.text
+    assert "github_repo_full_name" in response.text
+
+
+@pytest.mark.asyncio
+async def test_new_project_shows_connect_notice(authenticated_client, organization):
+    """GET /orgs/{slug}/projects/new shows connect notice when no installation."""
+    response = await authenticated_client.get(f"/orgs/{organization.slug}/projects/new")
+    assert response.status_code == 200
+    assert "Connect GitHub" in response.text
+
+
+@pytest.mark.asyncio
+async def test_new_project_list_repos_api_error_shows_empty(
+    authenticated_client, organization, factory
+):
+    """GET /orgs/{slug}/projects/new returns 200 when list_installation_repos fails."""
+    await factory(
+        GithubInstallationFactory,
+        organization_id=organization.id,
+        github_installation_id=42,
+    )
+    with patch(
+        "oopsie.web.projects.list_installation_repos",
+        new=AsyncMock(side_effect=GitHubApiError("API error")),
+    ):
+        response = await authenticated_client.get(
+            f"/orgs/{organization.slug}/projects/new"
+        )
+    assert response.status_code == 200
+    # Should show the connect notice or empty state — not crash
+    assert "Connect GitHub" in response.text
+
+
+@pytest.mark.asyncio
+async def test_create_project_valid_repo(
+    authenticated_client, organization, db_session: AsyncSession, factory
+):
+    """POST /orgs/{slug}/projects with valid repo creates project and redirects."""
+    await factory(
+        GithubInstallationFactory,
+        organization_id=organization.id,
+        github_installation_id=42,
+    )
+    with patch(
+        "oopsie.web.projects.list_installation_repos",
+        new=AsyncMock(return_value=["acme/api"]),
+    ):
+        response = await authenticated_client.post(
+            f"/orgs/{organization.slug}/projects",
+            data={
+                "name": "repo-picker-project",
+                "github_repo_full_name": "acme/api",
+                "default_branch": "main",
+                "error_threshold": "10",
+            },
+            follow_redirects=False,
+        )
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/orgs/{organization.slug}/projects"
+
+    result = await db_session.execute(
+        select(Project).where(Project.name == "repo-picker-project")
+    )
+    project = result.scalar_one_or_none()
+    assert project is not None
+    assert project.github_repo_url == "https://github.com/acme/api"
+
+
+@pytest.mark.asyncio
+async def test_create_project_invalid_repo(authenticated_client, organization, factory):
+    """POST /orgs/{slug}/projects with repo not in accessible list returns 400."""
+    await factory(
+        GithubInstallationFactory,
+        organization_id=organization.id,
+        github_installation_id=42,
+    )
+    with patch(
+        "oopsie.web.projects.list_installation_repos",
+        new=AsyncMock(return_value=["acme/api"]),
+    ):
+        response = await authenticated_client.post(
+            f"/orgs/{organization.slug}/projects",
+            data={
+                "name": "bad-repo-project",
+                "github_repo_full_name": "acme/other",
+                "default_branch": "main",
+                "error_threshold": "10",
+            },
+            follow_redirects=False,
+        )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_create_project_no_installation(authenticated_client, organization):
+    """POST /orgs/{slug}/projects with no installation returns 400."""
+    response = await authenticated_client.post(
+        f"/orgs/{organization.slug}/projects",
+        data={
+            "name": "no-install-project",
+            "github_repo_full_name": "acme/api",
+            "default_branch": "main",
+            "error_threshold": "10",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 400

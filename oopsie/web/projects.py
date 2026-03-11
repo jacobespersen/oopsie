@@ -10,8 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.deps import RequireRole, get_session
 from oopsie.logging import logger
+from oopsie.models.github_installation import GithubInstallation, InstallationStatus
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.project import Project
+from oopsie.services.exceptions import GitHubApiError
+from oopsie.services.github_app_service import list_installation_repos
 from oopsie.utils.encryption import hash_api_key
 from oopsie.web import templates
 
@@ -54,13 +57,47 @@ async def list_projects_page(
     )
 
 
+async def _get_installation_repos(
+    session: AsyncSession, organization_id: uuid.UUID
+) -> tuple[GithubInstallation | None, list[str]]:
+    """Fetch the active installation and its accessible repos for an org.
+
+    Returns (installation, repos). If there is no active installation or
+    the GitHub API call fails, repos is an empty list.
+    """
+    result = await session.execute(
+        select(GithubInstallation).where(
+            GithubInstallation.organization_id == organization_id
+        )
+    )
+    installation = result.scalar_one_or_none()
+
+    if installation and installation.status == InstallationStatus.ACTIVE:
+        try:
+            repos = await list_installation_repos(installation.github_installation_id)
+        except GitHubApiError:
+            logger.warning(
+                "list_repos_failed_for_project_form",
+                organization_id=str(organization_id),
+            )
+            repos = []
+    else:
+        repos = []
+
+    return installation, repos
+
+
 @router.get("/orgs/{org_slug}/projects/new", response_class=HTMLResponse)
 async def new_project_page(
     request: Request,
     org_slug: str,
+    session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
 ) -> HTMLResponse:
     """Show create project form."""
+    installation, repos = await _get_installation_repos(
+        session, membership.organization_id
+    )
     return templates.TemplateResponse(
         request=request,
         name="projects/form.html",
@@ -69,6 +106,8 @@ async def new_project_page(
             "title": "New Project",
             "user": membership.user,
             "org_slug": org_slug,
+            "installation": installation,
+            "repos": repos,
         },
     )
 
@@ -79,16 +118,30 @@ async def create_project_action(
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.admin)),
     name: str = Form(...),
-    github_repo_url: str = Form(...),
+    github_repo_full_name: str = Form(...),
     default_branch: str = Form("main"),
     error_threshold: int = Form(10),
 ) -> RedirectResponse:
     """Create a project and redirect to the projects list.
 
+    Validates that the submitted repo is accessible via the GitHub App
+    installation before creating the project. The github_repo_url is
+    derived server-side from the submitted full_name (REPO-02).
+
     A placeholder API key hash is generated so the project is valid,
     but the key is never exposed. Users generate a visible key via
     the "Generate API Key" action on the project's API key page.
     """
+    _installation, repos = await _get_installation_repos(
+        session, membership.organization_id
+    )
+    # Reject repos not in the accessible list — covers both no-installation
+    # and repos the GitHub App cannot access (REPO-02 enforcement).
+    if github_repo_full_name not in repos:
+        raise HTTPException(
+            status_code=400, detail="Repository not accessible via GitHub App"
+        )
+    github_repo_url = f"https://github.com/{github_repo_full_name}"
     project = Project(
         name=name,
         github_repo_url=github_repo_url,
@@ -173,6 +226,9 @@ async def edit_project_page(
             "title": "Edit Project",
             "user": membership.user,
             "org_slug": org_slug,
+            # repos/installation not used in edit mode but required by template context
+            "installation": None,
+            "repos": [],
         },
     )
 

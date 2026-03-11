@@ -13,6 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from oopsie.logging import logger
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
 from oopsie.models.github_installation import GithubInstallation, InstallationStatus
+from oopsie.services import github_app_service
+from oopsie.services.exceptions import GitHubApiError
 
 # Maps GitHub webhook action strings to InstallationStatus values.
 # Only these three actions modify DB state; others are logged and ignored.
@@ -47,6 +49,39 @@ async def process_install_callback(
         github_installation_id=github_installation_id,
         github_account_login="",  # Populated in Phase 4 via GitHub API
     )
+
+
+async def get_installation_repos(
+    session: AsyncSession,
+    organization_id: uuid.UUID,
+) -> tuple[GithubInstallation | None, list[str], str | None]:
+    """Fetch the active installation and its accessible repos for an org.
+
+    Returns (installation, repos, error_message). If the GitHub API call
+    fails, repos is empty and error_message describes the failure.
+    """
+    result = await session.execute(
+        select(GithubInstallation).where(
+            GithubInstallation.organization_id == organization_id
+        )
+    )
+    installation = result.scalar_one_or_none()
+
+    if not installation or installation.status != InstallationStatus.ACTIVE:
+        return installation, [], None
+
+    try:
+        repos = await github_app_service.list_installation_repos(
+            installation.github_installation_id
+        )
+        return installation, repos, None
+    except GitHubApiError as exc:
+        logger.warning(
+            "list_repos_failed",
+            organization_id=str(organization_id),
+            error=str(exc),
+        )
+        return installation, [], str(exc)
 
 
 async def upsert_installation(

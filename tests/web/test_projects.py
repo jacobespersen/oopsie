@@ -71,7 +71,7 @@ async def test_web_create_project_redirects(
         github_installation_id=99,
     )
     with patch(
-        "oopsie.web.projects.list_installation_repos",
+        "oopsie.services.github_installation_service.github_app_service.list_installation_repos",
         new=AsyncMock(return_value=["org/repo"]),
     ):
         response = await authenticated_client.post(
@@ -99,7 +99,7 @@ async def test_web_create_project_and_verify(
         github_installation_id=99,
     )
     with patch(
-        "oopsie.web.projects.list_installation_repos",
+        "oopsie.services.github_installation_service.github_app_service.list_installation_repos",
         new=AsyncMock(return_value=["a/b"]),
     ):
         response = await authenticated_client.post(
@@ -164,7 +164,7 @@ async def test_web_update_project(
         f"/orgs/{organization.slug}/projects/{pid}",
         data={
             "name": "updated-via-web",
-            "github_repo_url": "https://github.com/new/repo",
+            "github_repo_full_name": "new/repo",
             "default_branch": "develop",
             "error_threshold": "15",
         },
@@ -176,6 +176,7 @@ async def test_web_update_project(
     result = await db_session.execute(select(Project).where(Project.id == project.id))
     db_project = result.scalar_one()
     assert db_project.name == "updated-via-web"
+    assert db_project.github_repo_url == "https://github.com/new/repo"
     assert db_project.default_branch == "develop"
     assert db_project.error_threshold == 15
 
@@ -294,7 +295,7 @@ async def test_new_project_shows_repo_dropdown(
         github_installation_id=42,
     )
     with patch(
-        "oopsie.web.projects.list_installation_repos",
+        "oopsie.services.github_installation_service.github_app_service.list_installation_repos",
         new=AsyncMock(return_value=["acme/api", "acme/web"]),
     ):
         response = await authenticated_client.get(
@@ -325,15 +326,15 @@ async def test_new_project_list_repos_api_error_shows_empty(
         github_installation_id=42,
     )
     with patch(
-        "oopsie.web.projects.list_installation_repos",
+        "oopsie.services.github_installation_service.github_app_service.list_installation_repos",
         new=AsyncMock(side_effect=GitHubApiError("API error")),
     ):
         response = await authenticated_client.get(
             f"/orgs/{organization.slug}/projects/new"
         )
     assert response.status_code == 200
-    # Should show the connect notice or empty state — not crash
-    assert "Connect GitHub" in response.text
+    # Should show the warning banner and the connect notice
+    assert "Could not load repositories from GitHub" in response.text
 
 
 @pytest.mark.asyncio
@@ -347,7 +348,7 @@ async def test_create_project_valid_repo(
         github_installation_id=42,
     )
     with patch(
-        "oopsie.web.projects.list_installation_repos",
+        "oopsie.services.github_installation_service.github_app_service.list_installation_repos",
         new=AsyncMock(return_value=["acme/api"]),
     ):
         response = await authenticated_client.post(
@@ -380,7 +381,7 @@ async def test_create_project_invalid_repo(authenticated_client, organization, f
         github_installation_id=42,
     )
     with patch(
-        "oopsie.web.projects.list_installation_repos",
+        "oopsie.services.github_installation_service.github_app_service.list_installation_repos",
         new=AsyncMock(return_value=["acme/api"]),
     ):
         response = await authenticated_client.post(
@@ -397,8 +398,14 @@ async def test_create_project_invalid_repo(authenticated_client, organization, f
 
 
 @pytest.mark.asyncio
-async def test_create_project_no_installation(authenticated_client, organization):
-    """POST /orgs/{slug}/projects with no installation returns 400."""
+async def test_create_project_no_installation_allows_creation(
+    authenticated_client, organization
+):
+    """POST /orgs/{slug}/projects with no installation still creates project.
+
+    When no installation is active (empty repo list), repo validation is
+    skipped — the form falls back to accepting user-provided repo names.
+    """
     response = await authenticated_client.post(
         f"/orgs/{organization.slug}/projects",
         data={
@@ -409,4 +416,4 @@ async def test_create_project_no_installation(authenticated_client, organization
         },
         follow_redirects=False,
     )
-    assert response.status_code == 400
+    assert response.status_code == 303

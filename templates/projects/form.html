@@ -10,41 +10,41 @@
     </div>
   </div>
 
-  {# Repo selection — only on create (project is None); edit keeps the existing text input #}
-  {% if not project %}
-    <div class="form-group">
-      <div class="form-group-header"><label for="github_repo_full_name">GitHub Repository</label></div>
-      <div class="form-group-body">
-        {% if repos %}
-          <select class="form-select width-full" id="github_repo_full_name" name="github_repo_full_name" required>
-            <option value="" disabled selected>Select a repository…</option>
-            {% for repo in repos %}
-            <option value="{{ repo }}">{{ repo }}</option>
-            {% endfor %}
-          </select>
+  {% if repo_error %}
+  <div class="flash flash-warn mb-3">
+    Could not load repositories from GitHub. Please try again later.
+  </div>
+  {% endif %}
+
+  <div class="form-group">
+    <div class="form-group-header"><label for="github_repo_full_name">GitHub Repository</label></div>
+    <div class="form-group-body">
+      {% if repos %}
+        {% set current_repo = project.github_repo_url.replace('https://github.com/', '') if project else '' %}
+        <select class="form-select width-full" id="github_repo_full_name" name="github_repo_full_name" required>
+          <option value="" disabled {% if not project %}selected{% endif %}>Select a repository…</option>
+          {% for repo in repos %}
+          <option value="{{ repo }}" {% if repo == current_repo %}selected{% endif %}>{{ repo }}</option>
+          {% endfor %}
+        </select>
+      {% else %}
+        <p class="color-fg-muted mb-2">
+          {% if installation and installation.status == "suspended" %}
+            GitHub connection is suspended. Contact your GitHub org admin to unsuspend.
+          {% else %}
+            Connect GitHub to select a repository.
+            <a href="/orgs/{{ org_slug }}/github/install">Connect GitHub</a>
+          {% endif %}
+        </p>
+        {# Hidden input so form submission still works (will be caught server-side) #}
+        {% if project %}
+          <input type="hidden" name="github_repo_full_name" value="{{ project.github_repo_url.replace('https://github.com/', '') }}">
         {% else %}
-          <p class="color-fg-muted mb-2">
-            {% if installation and installation.status == "suspended" %}
-              GitHub connection is suspended. Contact your GitHub org admin to unsuspend.
-            {% else %}
-              Connect GitHub to select a repository.
-              <a href="/orgs/{{ org_slug }}/github/install">Connect GitHub</a>
-            {% endif %}
-          </p>
-          {# Hidden input so form submission still works (will be caught server-side) #}
           <input type="hidden" name="github_repo_full_name" value="">
         {% endif %}
-      </div>
+      {% endif %}
     </div>
-  {% else %}
-    {# Edit mode — repo URL already set on the project; allow free-text edit #}
-    <div class="form-group">
-      <div class="form-group-header"><label for="github_repo_url">GitHub Repo URL</label></div>
-      <div class="form-group-body">
-        <input class="form-control" type="url" id="github_repo_url" name="github_repo_url" required value="{{ project.github_repo_url }}">
-      </div>
-    </div>
-  {% endif %}
+  </div>
 
   <div class="form-group">
     <div class="form-group-header"><label for="default_branch">Default Branch</label></div>

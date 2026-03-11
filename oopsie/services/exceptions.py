@@ -15,3 +15,7 @@ class ClaudeCodeError(OopsieServiceError):
 
 class GitHubApiError(OopsieServiceError):
     """Raised when GitHub REST API call fails."""
+
+
+class GitHubAppNotConfiguredError(OopsieServiceError):
+    """Raised when GitHub App credentials are not configured."""

@@ -5,8 +5,10 @@ from oopsie.models.membership import MemberRole
 
 
 @pytest.mark.asyncio
-async def test_members_list_200(authenticated_client, current_user, factory):
-    """GET /orgs/{slug}/members returns 200 for a member of the org."""
+async def test_members_list_redirects_to_settings(
+    authenticated_client, current_user, factory
+):
+    """GET /orgs/{slug}/members returns 301 redirect to /orgs/{slug}/settings."""
     from tests.factories import MembershipFactory, OrganizationFactory
 
     org = await factory(OrganizationFactory, slug="my-co")
@@ -17,9 +19,9 @@ async def test_members_list_200(authenticated_client, current_user, factory):
         role=MemberRole.admin,
     )
 
-    resp = await authenticated_client.get("/orgs/my-co/members")
-    assert resp.status_code == 200
-    assert "Members" in resp.text
+    resp = await authenticated_client.get("/orgs/my-co/members", follow_redirects=False)
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/orgs/my-co/settings"
 
 
 @pytest.mark.asyncio
@@ -37,7 +39,7 @@ async def test_members_list_403_non_member(authenticated_client, factory):
 async def test_members_list_shows_members_and_invitations(
     authenticated_client, current_user, factory
 ):
-    """Members page lists members and pending invitations."""
+    """Settings page (reached via /members redirect) lists members and invitations."""
     from tests.factories import (
         InvitationFactory,
         MembershipFactory,
@@ -65,7 +67,10 @@ async def test_members_list_shows_members_and_invitations(
         email="invited@example.com",
     )
 
-    resp = await authenticated_client.get("/orgs/show-co/members")
+    # Follow the 301 redirect to the settings page
+    resp = await authenticated_client.get(
+        "/orgs/show-co/members", follow_redirects=True
+    )
     assert resp.status_code == 200
     assert other_user.email in resp.text
     assert "invited@example.com" in resp.text

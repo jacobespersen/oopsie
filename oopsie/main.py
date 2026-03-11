@@ -19,6 +19,7 @@ from oopsie.services.bootstrap_service import bootstrap_if_needed
 from oopsie.web.errors import router as web_errors_router
 from oopsie.web.members import router as web_members_router
 from oopsie.web.projects import router as web_projects_router
+from oopsie.web.settings import router as web_settings_router
 
 _settings = get_settings()
 setup_logging(_settings.log_level, _settings.log_format)
@@ -60,6 +61,7 @@ app.include_router(github_router, tags=["github"])
 app.include_router(web_projects_router, tags=["web"])
 app.include_router(web_errors_router, tags=["web"])
 app.include_router(web_members_router, tags=["web"])
+app.include_router(web_settings_router, tags=["web"])
 
 
 @app.get("/")

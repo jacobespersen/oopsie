@@ -2,51 +2,29 @@
 
 import uuid
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.deps import RequireRole, get_session
 from oopsie.models.membership import MemberRole, Membership
-from oopsie.services.invitation_service import (
-    create_invitation,
-    list_invitations,
-    revoke_invitation,
-)
-from oopsie.services.membership_service import (
-    list_members,
-    remove_member,
-    update_member_role,
-)
-from oopsie.web import templates
+from oopsie.services.invitation_service import create_invitation, revoke_invitation
+from oopsie.services.membership_service import remove_member, update_member_role
 
 router = APIRouter()
 
 
 @router.get("/orgs/{org_slug}/members", response_class=HTMLResponse)
 async def members_list_page(
-    request: Request,
     org_slug: str,
-    session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.member)),
-) -> HTMLResponse:
-    """Show members and pending invitations for the org."""
-    members = await list_members(session, organization_id=membership.organization_id)
-    invitations = await list_invitations(
-        session, organization_id=membership.organization_id
-    )
-    return templates.TemplateResponse(
-        request=request,
-        name="members/list.html",
-        context={
-            "org_slug": org_slug,
-            "members": members,
-            "invitations": invitations,
-            "current_membership": membership,
-            "user": membership.user,
-            "MemberRole": MemberRole,
-        },
-    )
+) -> RedirectResponse:
+    """Redirect to the consolidated settings page.
+
+    The members list has moved to /orgs/{slug}/settings. POST routes for
+    member actions remain on /orgs/{slug}/members/... and are unchanged.
+    """
+    return RedirectResponse(url=f"/orgs/{org_slug}/settings", status_code=301)
 
 
 @router.post("/orgs/{org_slug}/members/invite")

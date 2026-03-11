@@ -297,6 +297,46 @@ async def test_webhook_unknown_event_returns_200(authenticated_client):
 
 
 @pytest.mark.asyncio
+async def test_webhook_rejects_when_secret_not_configured(authenticated_client):
+    """Webhook returns 500 when GITHUB_WEBHOOK_SECRET is empty."""
+    with patch("oopsie.web.github.get_settings") as mock_settings:
+        mock_settings.return_value.github_webhook_secret = ""
+
+        resp = await authenticated_client.post(
+            "/webhooks/github",
+            content=b'{"action": "test"}',
+            headers={
+                "X-Hub-Signature-256": "sha256=abc",
+                "X-GitHub-Event": "ping",
+            },
+        )
+    assert resp.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_webhook_returns_200_on_parse_error(authenticated_client):
+    """Malformed payload with valid signature returns 200, not 500."""
+    secret = "test-webhook-secret"
+    body = b"not valid json at all"
+    sig = webhook_sign(secret, body)
+
+    with patch("oopsie.web.github.get_settings") as mock_settings:
+        mock_settings.return_value.github_webhook_secret = secret
+
+        resp = await authenticated_client.post(
+            "/webhooks/github",
+            content=body,
+            headers={
+                "X-Hub-Signature-256": sig,
+                "X-GitHub-Event": "installation",
+                "Content-Type": "application/json",
+            },
+        )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "error"
+
+
+@pytest.mark.asyncio
 async def test_settings_page_200_no_installation(
     authenticated_client, current_user, factory
 ):

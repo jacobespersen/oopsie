@@ -109,17 +109,32 @@ async def github_webhook(
     raw_body = await request.body()
 
     settings = get_settings()
-    signature = request.headers.get("X-Hub-Signature-256", "")
+    if not settings.github_webhook_secret:
+        logger.error("webhook_rejected_secret_not_configured")
+        raise HTTPException(status_code=500, detail="Webhook secret not configured")
+
+    signature = request.headers.get("X-Hub-Signature-256")
+    if not signature:
+        raise HTTPException(status_code=403, detail="Missing signature header")
+
     if not verify_webhook(settings.github_webhook_secret, raw_body, signature):
         raise HTTPException(status_code=403, detail="Invalid webhook signature")
 
     event_name = request.headers.get("X-GitHub-Event", "")
 
-    if event_name == "installation":
-        await handle_installation_event(session, raw_body)
-    elif event_name == "pull_request":
-        await handle_pr_event(session, raw_body)
-    else:
-        logger.info("webhook_event_ignored", event_name=event_name)
+    try:
+        if event_name == "installation":
+            await handle_installation_event(session, raw_body)
+        elif event_name == "pull_request":
+            await handle_pr_event(session, raw_body)
+        else:
+            logger.info("webhook_event_ignored", event_name=event_name)
+    except Exception:
+        logger.error(
+            "webhook_event_processing_failed",
+            event_name=event_name,
+            exc_info=True,
+        )
+        return JSONResponse({"status": "error", "detail": "processing failed"})
 
     return JSONResponse({"status": "ok"})

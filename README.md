@@ -12,6 +12,12 @@ Oopsie is a self-hosted error tracking service that automatically generates fix 
 2. **Track** — Oopsie aggregates occurrences and surfaces errors in a web dashboard
 3. **Fix** — When an error crosses the threshold, a background worker invokes Claude Code to analyze the stack trace, write a fix, and open a PR on GitHub
 
+## Client Libraries
+
+| Language | Gem / Package | Description |
+|----------|---------------|-------------|
+| Ruby | [`oopsie-ruby`](https://github.com/jacobespersen/oopsie-ruby) | Lightweight gem with Rack middleware and manual reporting — zero runtime dependencies |
+
 ## Architecture
 
 ```

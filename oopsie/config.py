@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     github_app_id: str = ""
     github_app_private_key_pem: str = ""
     github_webhook_secret: str = ""
+    github_app_slug: str = ""
 
     @property
     def github_app_private_key_bytes(self) -> bytes | None:

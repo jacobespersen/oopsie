@@ -16,6 +16,8 @@ class FixAttemptStatus(enum.StrEnum):
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
+    # PR was merged on GitHub; distinct from SUCCESS which means 'PR opened'
+    MERGED = "merged"
 
 
 class FixAttempt(Base):

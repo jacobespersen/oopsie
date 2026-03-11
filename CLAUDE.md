@@ -121,6 +121,7 @@ alembic/           — DB migrations
 | `LOG_LEVEL` | no | Default: `INFO` |
 | `REDIS_URL` | yes | Redis connection URL (e.g. `redis://localhost:6379`) |
 | `LOG_FORMAT` | no | `json` (default) or `console` |
+| `GITHUB_APP_SLUG` | for install flow | Slug from `github.com/apps/{slug}` (human-readable name) |
 
 ## Changelog
 

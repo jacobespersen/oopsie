@@ -6,12 +6,22 @@ import tempfile
 from dataclasses import dataclass
 from uuid import UUID
 
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
 from oopsie.config import Settings, get_settings
 from oopsie.database import worker_session
 from oopsie.logging import logger
 from oopsie.models.error import Error, ErrorStatus
+from oopsie.models.github_installation import InstallationStatus
+from oopsie.models.organization import Organization
 from oopsie.models.project import Project
-from oopsie.services import claude_service, fix_service, github_service
+from oopsie.services import (
+    claude_service,
+    fix_service,
+    github_app_service,
+    github_service,
+)
 
 
 @dataclass
@@ -25,12 +35,14 @@ class _JobContext:
     stack_trace: str | None
     repo_url: str
     default_branch: str
+    installation_id: int
 
 
 async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | None:
-    """Load error + project, validate state, and create a PENDING fix attempt.
+    """Load error, project, org, and installation; create a PENDING fix attempt.
 
-    Returns None if the job should be skipped (error not open, project missing).
+    Returns None if the job should be skipped (error not open, project missing,
+    or no active GitHub App installation for the project's org).
     """
     async with worker_session() as session:
         error = await session.get(Error, error_id)
@@ -38,12 +50,41 @@ async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | Non
             logger.info("fix_pipeline_skipped", error_id=error_id, reason="not_open")
             return None
 
-        project = await session.get(Project, project_id)
+        # Load project with org and installations in one query to avoid N+1
+        result = await session.execute(
+            select(Project)
+            .where(Project.id == project_id)
+            .options(
+                selectinload(Project.organization).selectinload(
+                    Organization.github_installations
+                )
+            )
+        )
+        project = result.scalar_one_or_none()
         if not project:
             logger.error(
                 "fix_pipeline_skipped",
                 error_id=error_id,
                 reason="project_not_found",
+            )
+            return None
+
+        # Only ACTIVE installations are accepted; SUSPENDED and REMOVED are
+        # treated as missing — pipeline skips silently without creating a fix attempt.
+        installation = next(
+            (
+                i
+                for i in project.organization.github_installations
+                if i.status == InstallationStatus.ACTIVE
+            ),
+            None,
+        )
+        if installation is None:
+            logger.warning(
+                "fix_pipeline_skipped",
+                error_id=error_id,
+                reason="no_github_installation",
+                org_id=str(project.organization_id),
             )
             return None
 
@@ -60,19 +101,22 @@ async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | Non
             stack_trace=error.stack_trace,
             repo_url=project.github_repo_url,
             default_branch=project.default_branch,
+            installation_id=installation.github_installation_id,
         )
 
 
-# TODO Phase 4: replace empty token strings with installation access token
-# from github_app_service
 async def _run_fix(clone_dir: str, ctx: _JobContext, settings: Settings) -> str:
     """Clone repo, create branch, run Claude, commit and push.
 
     Returns the PR URL on success. Raises on any failure.
     """
+    # Exchange the app JWT for a short-lived installation access token.
+    # Raises GitHubApiError if the API call fails — caught by the caller.
+    token = await github_app_service.get_installation_token(ctx.installation_id)
+
     owner, repo_name = github_service.parse_repo_owner_name(ctx.repo_url)
 
-    await github_service.clone_repo(ctx.repo_url, "", ctx.default_branch, clone_dir)
+    await github_service.clone_repo(ctx.repo_url, token, ctx.default_branch, clone_dir)
     await github_service.create_branch(clone_dir, ctx.branch_name)
 
     await claude_service.run_claude_code(
@@ -89,13 +133,13 @@ async def _run_fix(clone_dir: str, ctx: _JobContext, settings: Settings) -> str:
 
     commit_msg = f"fix: resolve {ctx.error_class} — {ctx.message[:60]}"
     await github_service.commit_and_push(
-        clone_dir, ctx.branch_name, commit_msg, "", ctx.repo_url
+        clone_dir, ctx.branch_name, commit_msg, token, ctx.repo_url
     )
 
     return await github_service.create_pull_request(
         owner,
         repo_name,
-        "",
+        token,
         ctx.branch_name,
         ctx.default_branch,
         title=f"[Oopsie] {commit_msg}",

@@ -88,16 +88,29 @@ Oopsie uses a GitHub App to clone repositories and open fix PRs on your behalf.
 1. Go to [GitHub Developer Settings — New GitHub App](https://github.com/settings/apps/new)
 2. Fill in the basic details:
    - **GitHub App name**: choose a unique name (e.g. `my-oopsie`)
+   - **Description**: optional — users see this when installing
    - **Homepage URL**: your Oopsie instance URL (e.g. `http://localhost:8000`)
-   - **Webhook URL**: `http://<your-host>/api/v1/github/webhook`
-   - **Webhook secret**: generate and note a random secret (see below)
-3. Under **Repository permissions**, grant:
-   - **Contents**: Read & write (clone repo, push fix branch)
-   - **Pull requests**: Read & write (open fix PRs)
-   - **Metadata**: Read-only (required by GitHub)
-4. Under **Subscribe to events**, check **Installation** and **Pull request**
-5. Set **Where can this GitHub App be installed?** to **Any account** (or **Only on this account** for private use)
-6. Click **Create GitHub App**
+3. Under **Identifying and authorizing users**:
+   - **Callback URL**: leave blank (Oopsie does not use GitHub user-level OAuth)
+   - **Setup URL**: `http://<your-host>/github/callback` (GitHub redirects here after a user installs the app)
+   - Check **Redirect on update** so re-installations also redirect back
+4. Under **Post installation**:
+   - Leave defaults
+5. Under **Webhook**:
+   - Check **Active**
+   - **Webhook URL**: `http://<your-host>/webhooks/github`
+   - **Webhook secret**: generate a random secret — you'll need this for `GITHUB_WEBHOOK_SECRET`:
+     ```bash
+     python -c 'import secrets; print(secrets.token_urlsafe(32))'
+     ```
+6. Under **Permissions**, grant:
+   - **Repository permissions**:
+     - **Contents**: Read & write (clone repo, push fix branch)
+     - **Pull requests**: Read & write (open fix PRs)
+     - **Metadata**: Read-only (required by GitHub)
+   - After setting permissions, the **Subscribe to events** checkboxes appear below — check **Pull request**
+7. Set **Where can this GitHub App be installed?** to **Any account** (or **Only on this account** for private use)
+8. Click **Create GitHub App**
 
 **Configure credentials**
 

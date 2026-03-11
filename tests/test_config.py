@@ -88,3 +88,47 @@ def test_github_app_fields_default_empty():
     )
     assert settings.github_app_id == ""
     assert settings.github_webhook_secret == ""
+
+
+def test_github_app_slug_default_empty():
+    """github_app_slug defaults to empty string."""
+    settings = Settings(
+        database_url=FAKE_DB_URL,
+        redis_url=FAKE_REDIS_URL,
+    )
+    assert settings.github_app_slug == ""
+
+
+def test_github_app_slug_can_be_set():
+    """Settings constructed with github_app_slug preserves the value."""
+    settings = Settings(
+        database_url=FAKE_DB_URL,
+        redis_url=FAKE_REDIS_URL,
+        github_app_slug="my-oopsie-app",
+    )
+    assert settings.github_app_slug == "my-oopsie-app"
+
+
+def test_fix_attempt_status_merged_value():
+    """FixAttemptStatus.MERGED has value 'merged'."""
+    from oopsie.models.fix_attempt import FixAttemptStatus
+
+    assert FixAttemptStatus.MERGED == "merged"
+    assert FixAttemptStatus.MERGED.value == "merged"
+
+
+def test_fix_attempt_status_merged_distinct_from_success():
+    """FixAttemptStatus.MERGED is distinct from SUCCESS."""
+    from oopsie.models.fix_attempt import FixAttemptStatus
+
+    assert FixAttemptStatus.MERGED != FixAttemptStatus.SUCCESS
+
+
+def test_fix_attempt_status_existing_values_unchanged():
+    """Existing FixAttemptStatus values remain unchanged after adding MERGED."""
+    from oopsie.models.fix_attempt import FixAttemptStatus
+
+    assert FixAttemptStatus.PENDING == "pending"
+    assert FixAttemptStatus.RUNNING == "running"
+    assert FixAttemptStatus.SUCCESS == "success"
+    assert FixAttemptStatus.FAILED == "failed"

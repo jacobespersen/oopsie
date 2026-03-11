@@ -12,11 +12,11 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from oopsie.api.errors import router as errors_router
 from oopsie.auth_routes import router as auth_router
 from oopsie.config import get_settings
-from oopsie.github_routes import router as github_router
 from oopsie.logging import RequestLoggingMiddleware, setup_logging
 from oopsie.queue import close_arq_pool
 from oopsie.services.bootstrap_service import bootstrap_if_needed
 from oopsie.web.errors import router as web_errors_router
+from oopsie.web.github import router as github_router
 from oopsie.web.members import router as web_members_router
 from oopsie.web.projects import router as web_projects_router
 from oopsie.web.settings import router as web_settings_router

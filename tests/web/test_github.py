@@ -170,9 +170,9 @@ async def test_webhook_valid_signature_installation(
     sig = webhook_sign(secret, body)
 
     with (
-        patch("oopsie.github_routes.get_settings") as mock_settings,
+        patch("oopsie.web.github.get_settings") as mock_settings,
         patch(
-            "oopsie.github_routes.handle_installation_event", new_callable=AsyncMock
+            "oopsie.web.github.handle_installation_event", new_callable=AsyncMock
         ) as mock_handler,
     ):
         mock_settings.return_value.github_webhook_secret = secret
@@ -202,9 +202,9 @@ async def test_webhook_valid_signature_pull_request(
     sig = webhook_sign(secret, body)
 
     with (
-        patch("oopsie.github_routes.get_settings") as mock_settings,
+        patch("oopsie.web.github.get_settings") as mock_settings,
         patch(
-            "oopsie.github_routes.handle_pr_event", new_callable=AsyncMock
+            "oopsie.web.github.handle_pr_event", new_callable=AsyncMock
         ) as mock_handler,
     ):
         mock_settings.return_value.github_webhook_secret = secret
@@ -229,7 +229,7 @@ async def test_webhook_invalid_signature(authenticated_client):
     """POST /webhooks/github with bad sig → 403."""
     body = b'{"action": "created"}'
 
-    with patch("oopsie.github_routes.get_settings") as mock_settings:
+    with patch("oopsie.web.github.get_settings") as mock_settings:
         mock_settings.return_value.github_webhook_secret = "real-secret"
 
         resp = await authenticated_client.post(
@@ -249,7 +249,7 @@ async def test_webhook_missing_signature(authenticated_client):
     """POST /webhooks/github with no X-Hub-Signature-256 → 403."""
     body = b'{"action": "created"}'
 
-    with patch("oopsie.github_routes.get_settings") as mock_settings:
+    with patch("oopsie.web.github.get_settings") as mock_settings:
         mock_settings.return_value.github_webhook_secret = "real-secret"
 
         resp = await authenticated_client.post(
@@ -270,7 +270,7 @@ async def test_webhook_unknown_event_returns_200(authenticated_client):
     body = b'{"ref": "refs/heads/main"}'
     sig = webhook_sign(secret, body)
 
-    with patch("oopsie.github_routes.get_settings") as mock_settings:
+    with patch("oopsie.web.github.get_settings") as mock_settings:
         mock_settings.return_value.github_webhook_secret = secret
 
         resp = await authenticated_client.post(

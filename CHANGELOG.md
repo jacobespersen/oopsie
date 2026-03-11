@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Fix pipeline now authenticates git operations with GitHub App installation access tokens; pipeline skips gracefully when no active installation exists for the project's org (PIPE-01)
 - GitHub App installation flow: "Connect GitHub" redirect and OAuth callback per org (INST-01, INST-02)
 - Org settings page at `/orgs/{slug}/settings` consolidating GitHub connection status and member management; `/members` GET redirects to `/settings` (INST-04)
 - Webhook endpoint at `POST /webhooks/github` with HMAC-SHA256 signature verification (WHOOK-01)

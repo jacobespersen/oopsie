@@ -17,7 +17,7 @@ from oopsie.deps import RequireRole, get_session
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.services.github_app_service import verify_webhook
-from oopsie.services.installation_service import (
+from oopsie.services.github_installation_service import (
     handle_installation_event,
     handle_pr_event,
     upsert_installation,

@@ -1,6 +1,6 @@
 """Business logic for GitHub installation lifecycle and webhook events.
 
-Called from github_routes.py (Plan 03). Keeps routing thin by isolating all
+Called from web/github.py. Keeps routing thin by isolating all
 DB interaction and dispatch logic here.
 """
 

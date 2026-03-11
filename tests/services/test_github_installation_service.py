@@ -1,11 +1,11 @@
-"""Tests for oopsie.services.installation_service."""
+"""Tests for oopsie.services.github_installation_service."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 from oopsie.models.fix_attempt import FixAttemptStatus
 from oopsie.models.github_installation import InstallationStatus
-from oopsie.services.installation_service import (
+from oopsie.services.github_installation_service import (
     handle_installation_event,
     handle_pr_event,
     upsert_installation,
@@ -134,7 +134,7 @@ async def test_handle_installation_event_deleted(db_session: AsyncSession):
     raw_body = b'{"action": "deleted"}'
 
     with patch(
-        "oopsie.services.installation_service.parse_webhook",
+        "oopsie.services.github_installation_service.parse_webhook",
         return_value=fake_event,
     ):
         await handle_installation_event(db_session, raw_body)
@@ -162,7 +162,7 @@ async def test_handle_installation_event_suspended(db_session: AsyncSession):
     raw_body = b'{"action": "suspended"}'
 
     with patch(
-        "oopsie.services.installation_service.parse_webhook",
+        "oopsie.services.github_installation_service.parse_webhook",
         return_value=fake_event,
     ):
         await handle_installation_event(db_session, raw_body)
@@ -190,7 +190,7 @@ async def test_handle_installation_event_unsuspended(db_session: AsyncSession):
     raw_body = b'{"action": "unsuspended"}'
 
     with patch(
-        "oopsie.services.installation_service.parse_webhook",
+        "oopsie.services.github_installation_service.parse_webhook",
         return_value=fake_event,
     ):
         await handle_installation_event(db_session, raw_body)
@@ -218,7 +218,7 @@ async def test_handle_installation_event_unknown_action(db_session: AsyncSession
     raw_body = b'{"action": "new_permissions_accepted"}'
 
     with patch(
-        "oopsie.services.installation_service.parse_webhook",
+        "oopsie.services.github_installation_service.parse_webhook",
         return_value=fake_event,
     ):
         # Must not raise
@@ -236,7 +236,7 @@ async def test_handle_installation_event_not_found(db_session: AsyncSession):
     raw_body = b'{"action": "deleted"}'
 
     with patch(
-        "oopsie.services.installation_service.parse_webhook",
+        "oopsie.services.github_installation_service.parse_webhook",
         return_value=fake_event,
     ):
         # Must not raise even when installation is missing
@@ -257,7 +257,7 @@ async def test_handle_pr_event_ignores_non_closed(db_session: AsyncSession):
     raw_body = b'{"action": "opened"}'
 
     with patch(
-        "oopsie.services.installation_service.parse_webhook",
+        "oopsie.services.github_installation_service.parse_webhook",
         return_value=fake_event,
     ):
         # Must not raise or mutate any state
@@ -273,7 +273,7 @@ async def test_handle_pr_event_ignores_closed_not_merged(db_session: AsyncSessio
     raw_body = b'{"action": "closed"}'
 
     with patch(
-        "oopsie.services.installation_service.parse_webhook",
+        "oopsie.services.github_installation_service.parse_webhook",
         return_value=fake_event,
     ):
         await handle_pr_event(db_session, raw_body)
@@ -307,7 +307,7 @@ async def test_handle_pr_event_merged_updates_fix_attempt(db_session: AsyncSessi
     raw_body = b'{"action": "closed"}'
 
     with patch(
-        "oopsie.services.installation_service.parse_webhook",
+        "oopsie.services.github_installation_service.parse_webhook",
         return_value=fake_event,
     ):
         await handle_pr_event(db_session, raw_body)
@@ -324,7 +324,7 @@ async def test_handle_pr_event_merged_no_match_logs_warning(db_session: AsyncSes
     raw_body = b'{"action": "closed"}'
 
     with patch(
-        "oopsie.services.installation_service.parse_webhook",
+        "oopsie.services.github_installation_service.parse_webhook",
         return_value=fake_event,
     ):
         # Must not raise

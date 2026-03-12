@@ -8,10 +8,17 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from oopsie.config import get_settings
 from oopsie.deps import RequireRole, get_session
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.project import Project
+from oopsie.services.anthropic_key_service import (
+    clear_anthropic_api_key,
+    get_anthropic_api_key,
+    mask_anthropic_api_key,
+    set_anthropic_api_key,
+)
 from oopsie.services.github_installation_service import get_installation_repos
 from oopsie.utils.encryption import hash_api_key
 from oopsie.web import templates
@@ -77,6 +84,7 @@ async def new_project_page(
             "installation": installation,
             "repos": repos,
             "repo_error": repo_error,
+            "anthropic_key_masked": None,
         },
     )
 
@@ -90,6 +98,7 @@ async def create_project_action(
     github_repo_full_name: str = Form(...),
     default_branch: str = Form("main"),
     error_threshold: int = Form(10),
+    anthropic_api_key: str = Form(""),
 ) -> RedirectResponse:
     """Create a project and redirect to the projects list.
 
@@ -121,6 +130,9 @@ async def create_project_action(
     )
     session.add(project)
     await session.flush()
+    if anthropic_api_key:
+        set_anthropic_api_key(project, anthropic_api_key, get_settings().encryption_key)
+        await session.flush()
     logger.info("project_created", project_id=str(project.id), name=name)
     return RedirectResponse(
         url=f"/orgs/{org_slug}/projects",
@@ -190,6 +202,8 @@ async def edit_project_page(
     installation, repos, repo_error = await get_installation_repos(
         session, membership.organization_id
     )
+    decrypted = get_anthropic_api_key(project, get_settings().encryption_key)
+    anthropic_key_masked = mask_anthropic_api_key(decrypted) if decrypted else None
     return templates.TemplateResponse(
         request=request,
         name="projects/form.html",
@@ -201,6 +215,7 @@ async def edit_project_page(
             "installation": installation,
             "repos": repos,
             "repo_error": repo_error,
+            "anthropic_key_masked": anthropic_key_masked,
         },
     )
 
@@ -215,6 +230,8 @@ async def update_project_action(
     github_repo_full_name: str = Form(...),
     default_branch: str = Form("main"),
     error_threshold: int = Form(10),
+    anthropic_api_key: str = Form(""),
+    clear_anthropic_key: str = Form(""),
 ) -> RedirectResponse:
     """Update a project and redirect to list."""
     project = await _get_org_project(session, project_id, membership.organization_id)
@@ -232,6 +249,10 @@ async def update_project_action(
     project.github_repo_url = github_repo_url
     project.default_branch = default_branch
     project.error_threshold = error_threshold
+    if clear_anthropic_key:
+        clear_anthropic_api_key(project)
+    elif anthropic_api_key:
+        set_anthropic_api_key(project, anthropic_api_key, get_settings().encryption_key)
     await session.flush()
     return RedirectResponse(url=f"/orgs/{org_slug}/projects", status_code=303)
 

@@ -18,6 +18,7 @@ class OrganizationFactory(factory.Factory):
 
     name = factory.Sequence(lambda n: f"Org {n}")
     slug = factory.Sequence(lambda n: f"org-{n}")
+    anthropic_api_key_encrypted = None
 
 
 class MembershipFactory(factory.Factory):
@@ -57,6 +58,7 @@ class ProjectFactory(factory.Factory):
     api_key_hash = factory.Sequence(lambda n: hash_api_key(f"key-{n}"))
     default_branch = "main"
     error_threshold = 10
+    anthropic_api_key_encrypted = None
 
 
 class ErrorFactory(factory.Factory):

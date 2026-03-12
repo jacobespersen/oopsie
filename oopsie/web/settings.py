@@ -51,8 +51,10 @@ async def settings_page(
 
     # Resolve masked Anthropic key for display
     org = await session.get(Organization, membership.organization_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
     settings = get_settings()
-    decrypted = get_anthropic_api_key(org, settings.encryption_key) if org else None
+    decrypted = get_anthropic_api_key(org, settings.encryption_key)
     anthropic_key_masked = mask_anthropic_api_key(decrypted) if decrypted else None
 
     return templates.TemplateResponse(

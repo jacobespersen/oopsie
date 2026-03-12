@@ -108,6 +108,46 @@ def test_decode_jwt_invalid_signature():
 
 
 # ---------------------------------------------------------------------------
+# decode_jwt_allow_expired
+# ---------------------------------------------------------------------------
+
+
+def test_decode_jwt_allow_expired_returns_expired_payload():
+    """decode_jwt_allow_expired decodes an expired token without raising."""
+    import jwt as _jwt
+    from oopsie.auth import decode_jwt_allow_expired
+    from oopsie.config import get_settings
+
+    settings = get_settings()
+    now = datetime.now(tz=UTC)
+    payload = {
+        "jti": str(uuid.uuid4()),
+        "sub": str(uuid.uuid4()),
+        "email": "expired@example.com",
+        "type": "access",
+        "iat": now - timedelta(hours=2),
+        "exp": now - timedelta(hours=1),
+    }
+    token = _jwt.encode(
+        payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+    )
+    result = decode_jwt_allow_expired(token)
+    assert result["email"] == "expired@example.com"
+    assert result["type"] == "access"
+
+
+def test_decode_jwt_allow_expired_raises_on_invalid_signature():
+    """decode_jwt_allow_expired still raises ValueError for tampered tokens."""
+    from oopsie.auth import decode_jwt_allow_expired
+
+    user_id = uuid.uuid4()
+    token = create_access_token(user_id, "a@b.com")
+    tampered = token[:-4] + "xxxx"
+    with pytest.raises(ValueError):
+        decode_jwt_allow_expired(tampered)
+
+
+# ---------------------------------------------------------------------------
 # Token revocation (requires DB)
 # ---------------------------------------------------------------------------
 

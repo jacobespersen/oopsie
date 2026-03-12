@@ -98,6 +98,25 @@ def decode_jwt(token: str) -> dict[str, Any]:
         raise ValueError(f"Invalid token: {exc}")
 
 
+def decode_jwt_allow_expired(token: str) -> dict[str, Any]:
+    """Decode a JWT token without verifying expiry.
+
+    Used by the token refresh middleware to read claims from expired
+    access tokens. Signature is still verified — only expiry is skipped.
+    Raises ValueError on invalid/tampered tokens.
+    """
+    settings = get_settings()
+    try:
+        return jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+            options={"verify_exp": False},
+        )
+    except jwt.InvalidTokenError as exc:
+        raise ValueError(f"Invalid token: {exc}")
+
+
 async def decode_jwt_token(token: str, session: AsyncSession) -> dict[str, Any]:
     """Decode JWT and verify it has not been revoked."""
     payload = decode_jwt(token)

@@ -105,6 +105,10 @@ async def test_happy_path(db_session: AsyncSession, factory):
 
         mock_gh.create_branch.assert_called_once()
         mock_claude.run_claude_code.assert_called_once()
+        # Verify the resolved Anthropic key was passed to Claude
+        claude_args = mock_claude.run_claude_code.call_args
+        assert claude_args.args[4] == "sk-ant-test-key"
+
         mock_gh.commit_and_push.assert_called_once()
         commit_args = mock_gh.commit_and_push.call_args
         assert (

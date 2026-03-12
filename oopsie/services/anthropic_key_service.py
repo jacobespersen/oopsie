@@ -1,5 +1,8 @@
 """Service for managing encrypted Anthropic API keys on orgs and projects."""
 
+from cryptography.fernet import InvalidToken
+
+from oopsie.logging import logger
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
 from oopsie.services.exceptions import AnthropicKeyNotConfiguredError
@@ -16,10 +19,18 @@ def set_anthropic_api_key(
 def get_anthropic_api_key(
     entity: Organization | Project, encryption_key: str
 ) -> str | None:
-    """Decrypt and return the Anthropic API key, or None if not set."""
+    """Decrypt and return the Anthropic API key, or None if not set or corrupt."""
     if not entity.anthropic_api_key_encrypted:
         return None
-    return decrypt_value(entity.anthropic_api_key_encrypted, encryption_key)
+    try:
+        return decrypt_value(entity.anthropic_api_key_encrypted, encryption_key)
+    except InvalidToken:
+        logger.error(
+            "anthropic_key_decryption_failed",
+            entity_type=type(entity).__name__,
+            entity_id=str(entity.id),
+        )
+        return None
 
 
 def clear_anthropic_api_key(entity: Organization | Project) -> None:

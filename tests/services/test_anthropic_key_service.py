@@ -130,3 +130,33 @@ class TestResolveAnthropicApiKey:
 
         with pytest.raises(AnthropicKeyNotConfiguredError):
             resolve_anthropic_api_key(project, _TEST_ENCRYPTION_KEY)
+
+
+class TestGetAnthropicApiKeyDecryptionFailure:
+    async def test_returns_none_on_corrupt_ciphertext(self, db_session):
+        """Corrupted ciphertext returns None instead of crashing."""
+        org = OrganizationFactory.build()
+        db_session.add(org)
+        await db_session.flush()
+
+        # Manually set garbage ciphertext
+        org.anthropic_api_key_encrypted = "not-valid-fernet-ciphertext"
+        await db_session.flush()
+
+        result = get_anthropic_api_key(org, _TEST_ENCRYPTION_KEY)
+        assert result is None
+
+    async def test_returns_none_on_wrong_encryption_key(self, db_session):
+        """Ciphertext encrypted with a different key returns None."""
+        from cryptography.fernet import Fernet
+
+        org = OrganizationFactory.build()
+        db_session.add(org)
+        await db_session.flush()
+
+        set_anthropic_api_key(org, "sk-ant-real-key", _TEST_ENCRYPTION_KEY)
+        await db_session.flush()
+
+        wrong_key = Fernet.generate_key().decode()
+        result = get_anthropic_api_key(org, wrong_key)
+        assert result is None

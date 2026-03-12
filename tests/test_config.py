@@ -124,6 +124,7 @@ def test_partial_github_app_config_warns():
             redis_url=FAKE_REDIS_URL,
             github_app_id="123",
             # github_app_private_key_pem and github_webhook_secret left empty
+            _env_file=None,
         )
     partial_warnings = [
         x for x in caught if "Partial GitHub App configuration" in str(x.message)
@@ -144,6 +145,7 @@ def test_full_github_app_config_no_partial_warning():
             github_app_id="123",
             github_app_private_key_pem=VALID_RSA_PEM_B64,
             github_webhook_secret="my-secret",
+            _env_file=None,
         )
     partial_warnings = [
         x for x in caught if "Partial GitHub App configuration" in str(x.message)

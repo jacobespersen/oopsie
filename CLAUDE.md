@@ -116,7 +116,6 @@ alembic/           — DB migrations
 | `GOOGLE_CLIENT_SECRET` | for OAuth login | Google OAuth 2.0 client secret |
 | `ADMIN_EMAIL` | for bootstrap | Email to seed the first OWNER invitation on first deploy |
 | `ORG_NAME` | no | Name for the bootstrapped org (default: `"Oopsie"`) |
-| `ANTHROPIC_API_KEY` | for AI features | Claude API key |
 | `TEST_DATABASE_URL` | no | Defaults to `DATABASE_URL` with db name `oopsie_test` |
 | `LOG_LEVEL` | no | Default: `INFO` |
 | `REDIS_URL` | yes | Redis connection URL (e.g. `redis://localhost:6379`) |

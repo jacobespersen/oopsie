@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Server-side token refresh middleware — users stay logged in for up to 7 days of inactivity instead of being logged out after 60 minutes (#21)
 - Fix pipeline now authenticates git operations with GitHub App installation access tokens; pipeline skips gracefully when no active installation exists for the project's org (PIPE-01)
 - GitHub App installation flow: "Connect GitHub" redirect and OAuth callback per org (INST-01, INST-02)
 - Org settings page at `/orgs/{slug}/settings` consolidating GitHub connection status and member management; `/members` GET redirects to `/settings` (INST-04)
@@ -26,3 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub token encryption at rest (Fernet)
 - API key management with hash-based storage
 - Structured JSON logging with structlog
+
+### Changed
+- Extracted shared cookie constants (`AUTH_COOKIE_OPTS`) from `auth_routes.py` to `auth.py` for DRY reuse

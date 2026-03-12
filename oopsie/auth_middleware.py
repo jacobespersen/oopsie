@@ -5,24 +5,19 @@ using the refresh token cookie. Skips API routes, auth routes, static
 files, and health checks.
 """
 
-import uuid
 from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from oopsie.auth import (
     AUTH_COOKIE_OPTS,
-    create_access_token,
-    create_refresh_token,
     decode_jwt_allow_expired,
-    decode_jwt_token,
-    revoke_token,
+    rotate_tokens,
 )
 from oopsie.config import get_settings
 from oopsie.logging import logger
-from oopsie.models.user import User
 
 # Paths where the middleware should not attempt token refresh
 _SKIP_PREFIXES = ("/auth/", "/static/", "/api/v1/")
@@ -159,6 +154,7 @@ class TokenRefreshMiddleware:
         try:
             access_payload = decode_jwt_allow_expired(access_token)
         except ValueError:
+            logger.info("token_refresh_invalid_access_token")
             return _clear_cookie_headers(), cookies
 
         if access_payload.get("type") != "access":
@@ -168,6 +164,7 @@ class TokenRefreshMiddleware:
 
         exp_timestamp = access_payload.get("exp")
         if exp_timestamp is None:
+            logger.warning("token_refresh_missing_exp", sub=access_payload.get("sub"))
             return None
 
         exp_dt = datetime.fromtimestamp(exp_timestamp, tz=UTC)
@@ -178,6 +175,7 @@ class TokenRefreshMiddleware:
 
         refresh_token = cookies.get("refresh_token")
         if not refresh_token:
+            logger.info("token_refresh_no_refresh_cookie")
             return _clear_cookie_headers(), cookies
 
         return await self._do_refresh(refresh_token, cookies)
@@ -192,47 +190,13 @@ class TokenRefreshMiddleware:
             async with async_session_factory() as session:
                 async with session.begin():
                     try:
-                        refresh_payload = await decode_jwt_token(refresh_token, session)
+                        new_access, new_refresh = await rotate_tokens(
+                            session, refresh_token
+                        )
                     except ValueError as exc:
                         logger.info("token_refresh_failed", reason=str(exc))
                         return _clear_cookie_headers(), cookies
 
-                    if refresh_payload.get("type") != "refresh":
-                        logger.info(
-                            "token_refresh_failed",
-                            reason="wrong_token_type",
-                        )
-                        return _clear_cookie_headers(), cookies
-
-                    # Revoke old refresh token
-                    exp = refresh_payload.get("exp")
-                    expires_at = (
-                        datetime.fromtimestamp(exp, tz=UTC)
-                        if exp
-                        else datetime.now(tz=UTC)
-                    )
-                    await revoke_token(session, refresh_payload["jti"], expires_at)
-
-                    # Look up user for the new access token
-                    user_id = uuid.UUID(refresh_payload["sub"])
-                    result = await session.execute(
-                        select(User).where(User.id == user_id)
-                    )
-                    user = result.scalar_one_or_none()
-                    if not user:
-                        logger.info(
-                            "token_refresh_failed",
-                            reason="user_not_found",
-                        )
-                        return _clear_cookie_headers(), cookies
-
-                    # Issue new tokens
-                    new_access = create_access_token(user.id, user.email)
-                    new_refresh = create_refresh_token(user.id)
-
-                    logger.info("token_refresh_success", user_id=str(user.id))
-
-                    # Update cookies dict so the request scope gets new values
                     updated_cookies = {
                         **cookies,
                         "access_token": new_access,
@@ -245,7 +209,10 @@ class TokenRefreshMiddleware:
                     ]
 
                     return response_headers, updated_cookies
-        except Exception:
-            # DB failure — fail open, let the request proceed unchanged
-            logger.warning("token_refresh_db_error", exc_info=True)
+        except (SQLAlchemyError, OSError, ConnectionRefusedError) as exc:
+            logger.warning(
+                "token_refresh_db_error",
+                error_type=type(exc).__name__,
+                exc_info=True,
+            )
             return None

@@ -117,6 +117,36 @@ def decode_jwt_allow_expired(token: str) -> dict[str, Any]:
         raise ValueError(f"Invalid token: {exc}")
 
 
+async def rotate_tokens(session: AsyncSession, refresh_token: str) -> tuple[str, str]:
+    """Validate refresh token, revoke it, and issue a new token pair.
+
+    Returns (new_access_token, new_refresh_token).
+    Raises ValueError if the refresh token is invalid, revoked,
+    wrong type, or the user no longer exists.
+    """
+    payload = await decode_jwt_token(refresh_token, session)
+
+    if payload.get("type") != "refresh":
+        raise ValueError("Invalid token type")
+
+    # Revoke old refresh token
+    exp = payload.get("exp")
+    expires_at = datetime.fromtimestamp(exp, tz=UTC) if exp else datetime.now(tz=UTC)
+    await revoke_token(session, payload["jti"], expires_at)
+
+    # Look up user for the new access token
+    user_id = uuid.UUID(payload["sub"])
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise ValueError("User not found")
+
+    new_access = create_access_token(user.id, user.email)
+    new_refresh = create_refresh_token(user.id)
+    logger.info("token_rotation_success", user_id=str(user.id))
+    return new_access, new_refresh
+
+
 async def decode_jwt_token(token: str, session: AsyncSession) -> dict[str, Any]:
     """Decode JWT and verify it has not been revoked."""
     payload = decode_jwt(token)

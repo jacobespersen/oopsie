@@ -339,7 +339,9 @@ async def test_db_error_fails_open(api_client, db_session: AsyncSession, factory
     # Patch at source — the middleware re-imports each call
     with patch("oopsie.database.async_session_factory") as mock_factory:
         mock_session = AsyncMock()
-        mock_session.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
+        from sqlalchemy.exc import SQLAlchemyError
+
+        mock_session.__aenter__ = AsyncMock(side_effect=SQLAlchemyError("DB down"))
         mock_factory.return_value = mock_session
 
         resp = await api_client.get(

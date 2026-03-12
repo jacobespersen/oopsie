@@ -23,6 +23,7 @@ from oopsie.services import (
     github_service,
 )
 from oopsie.services.anthropic_key_service import resolve_anthropic_api_key
+from oopsie.services.exceptions import AnthropicKeyNotConfiguredError
 
 
 @dataclass
@@ -81,10 +82,19 @@ async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | Non
             )
             return None
 
-        # Resolve the Anthropic API key (project → org → error)
-        anthropic_api_key = resolve_anthropic_api_key(
-            project, get_settings().encryption_key
-        )
+        # Resolve the Anthropic API key (project → org); skip gracefully if not set
+        try:
+            anthropic_api_key = resolve_anthropic_api_key(
+                project, get_settings().encryption_key
+            )
+        except AnthropicKeyNotConfiguredError:
+            logger.warning(
+                "fix_pipeline_skipped",
+                error_id=error_id,
+                reason="no_anthropic_key",
+                org_id=str(project.organization_id),
+            )
+            return None
 
         branch_name = fix_service.generate_branch_name(error_id)
         fix_attempt = await fix_service.create_fix_attempt(

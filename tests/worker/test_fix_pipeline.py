@@ -298,6 +298,38 @@ async def test_clone_failure_marks_failed(db_session: AsyncSession, factory):
 
 
 @pytest.mark.asyncio
+async def test_skips_when_no_anthropic_key(db_session: AsyncSession, factory):
+    """Pipeline skips gracefully when no Anthropic key is configured."""
+    import structlog.testing
+
+    org = await factory(OrganizationFactory)
+    # No anthropic key set on org or project
+    project = await factory(ProjectFactory, organization_id=org.id)
+    error = await factory(ErrorFactory, project_id=project.id)
+    await factory(GithubInstallationFactory, organization_id=org.id)
+
+    with (
+        patch(_WS, _mock_worker_session(db_session)),
+        patch(_GH) as mock_gh,
+        structlog.testing.capture_logs() as logs,
+    ):
+        # Should NOT raise — pipeline handles missing key gracefully
+        await run_fix_pipeline({}, str(error.id), str(project.id))
+
+    # Should NOT have attempted clone or fix
+    mock_gh.clone_repo.assert_not_called()
+
+    # Should NOT have created any fix attempt
+    result = await db_session.execute(select(FixAttempt))
+    assert result.scalars().all() == []
+
+    # Should have emitted a structured warning
+    skipped = [entry for entry in logs if entry.get("event") == "fix_pipeline_skipped"]
+    assert len(skipped) == 1
+    assert skipped[0]["reason"] == "no_anthropic_key"
+
+
+@pytest.mark.asyncio
 async def test_claude_failure_marks_failed(db_session: AsyncSession, factory):
     """When Claude Code fails, mark FAILED."""
     org = await factory(OrganizationFactory)

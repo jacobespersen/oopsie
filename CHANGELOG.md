@@ -10,7 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Anthropic API key is now stored encrypted per-organization and per-project instead of as a global environment variable. Projects inherit the org key unless overridden. The `ANTHROPIC_API_KEY` environment variable is no longer used.
 
+### Fixed
+- Fix pipeline now skips gracefully when no Anthropic API key is configured instead of crashing the worker
+- Corrupted or re-keyed encrypted Anthropic keys no longer cause 500 errors (returns None with structured error log)
+- Settings page raises 404 instead of silently swallowing missing organization
+
 ### Added
+- Audit logging for Anthropic key set/clear operations
 - Fix pipeline now authenticates git operations with GitHub App installation access tokens; pipeline skips gracefully when no active installation exists for the project's org (PIPE-01)
 - GitHub App installation flow: "Connect GitHub" redirect and OAuth callback per org (INST-01, INST-02)
 - Org settings page at `/orgs/{slug}/settings` consolidating GitHub connection status and member management; `/members` GET redirects to `/settings` (INST-04)

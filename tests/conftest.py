@@ -6,6 +6,11 @@ import warnings
 # Must be set before Settings is imported (it reads env vars at import time).
 # These are dummy keys for tests only — never use them outside of tests.
 os.environ.setdefault("ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U=")
+
+# Matches the ENCRYPTION_KEY env var set above. Import this constant in tests
+# instead of duplicating the value.
+TEST_ENCRYPTION_KEY = "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
+
 os.environ.setdefault(
     "JWT_SECRET_KEY", "test-jwt-secret-key-for-tests-only-not-secure!!"
 )
@@ -16,10 +21,16 @@ from oopsie.auth import create_access_token  # noqa: E402
 from oopsie.config import Settings  # noqa: E402
 from oopsie.deps import get_session  # noqa: E402
 from oopsie.main import app  # noqa: E402
-from oopsie.models import Error, FixAttempt, Project, RevokedToken, User  # noqa: F401
-from oopsie.models.base import Base
-from oopsie.models.membership import MemberRole
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from oopsie.models import (  # noqa: E402, F401
+    Error,
+    FixAttempt,
+    Project,
+    RevokedToken,
+    User,
+)
+from oopsie.models.base import Base  # noqa: E402
+from oopsie.models.membership import MemberRole  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
 
 from tests.factories import (  # noqa: E402
     MembershipFactory,

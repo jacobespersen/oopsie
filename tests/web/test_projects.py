@@ -13,9 +13,8 @@ from oopsie.services.exceptions import GitHubApiError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.conftest import TEST_ENCRYPTION_KEY
 from tests.factories import GithubInstallationFactory, ProjectFactory
-
-_TEST_ENCRYPTION_KEY = "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
 
 # ---------------------------------------------------------------------------
 # Web UI endpoints
@@ -460,7 +459,7 @@ async def test_create_project_with_anthropic_key(
     )
     project = result.scalar_one()
     assert project.anthropic_api_key_encrypted is not None
-    decrypted = get_anthropic_api_key(project, _TEST_ENCRYPTION_KEY)
+    decrypted = get_anthropic_api_key(project, TEST_ENCRYPTION_KEY)
     assert decrypted == "sk-ant-create-test-abcd"
 
 
@@ -483,7 +482,7 @@ async def test_update_project_sets_anthropic_key(
     )
     result = await db_session.execute(select(Project).where(Project.id == project.id))
     db_project = result.scalar_one()
-    decrypted = get_anthropic_api_key(db_project, _TEST_ENCRYPTION_KEY)
+    decrypted = get_anthropic_api_key(db_project, TEST_ENCRYPTION_KEY)
     assert decrypted == "sk-ant-update-key-5678"
 
 
@@ -493,7 +492,7 @@ async def test_update_project_empty_key_preserves_existing(
 ):
     """Submitting empty anthropic_api_key leaves existing key unchanged."""
     project = await factory(ProjectFactory, organization_id=organization.id)
-    set_anthropic_api_key(project, "sk-ant-keep-me-1234", _TEST_ENCRYPTION_KEY)
+    set_anthropic_api_key(project, "sk-ant-keep-me-1234", TEST_ENCRYPTION_KEY)
     await db_session.flush()
     original_encrypted = project.anthropic_api_key_encrypted
 
@@ -519,7 +518,7 @@ async def test_update_project_clear_anthropic_key(
 ):
     """Checking clear_anthropic_key checkbox removes the key."""
     project = await factory(ProjectFactory, organization_id=organization.id)
-    set_anthropic_api_key(project, "sk-ant-to-clear", _TEST_ENCRYPTION_KEY)
+    set_anthropic_api_key(project, "sk-ant-to-clear", TEST_ENCRYPTION_KEY)
     await db_session.flush()
 
     await authenticated_client.post(
@@ -545,7 +544,7 @@ async def test_edit_page_shows_masked_anthropic_key(
 ):
     """Edit page shows masked Anthropic key when one is set."""
     project = await factory(ProjectFactory, organization_id=organization.id)
-    set_anthropic_api_key(project, "sk-ant-display-wxyz", _TEST_ENCRYPTION_KEY)
+    set_anthropic_api_key(project, "sk-ant-display-wxyz", TEST_ENCRYPTION_KEY)
     await db_session.flush()
 
     response = await authenticated_client.get(

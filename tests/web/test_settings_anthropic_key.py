@@ -6,7 +6,7 @@ from oopsie.services.anthropic_key_service import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
-_TEST_ENCRYPTION_KEY = "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
+from tests.conftest import TEST_ENCRYPTION_KEY
 
 
 class TestOrgSettingsAnthropicKey:
@@ -20,7 +20,7 @@ class TestOrgSettingsAnthropicKey:
     async def test_settings_page_shows_masked_key(
         self, authenticated_client, organization, db_session: AsyncSession
     ):
-        set_anthropic_api_key(organization, "sk-ant-org-key-1234", _TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(organization, "sk-ant-org-key-1234", TEST_ENCRYPTION_KEY)
         await db_session.flush()
 
         resp = await authenticated_client.get(f"/orgs/{organization.slug}/settings")
@@ -37,13 +37,13 @@ class TestOrgSettingsAnthropicKey:
         assert resp.status_code in (303, 302)
 
         await db_session.refresh(organization)
-        key = get_anthropic_api_key(organization, _TEST_ENCRYPTION_KEY)
+        key = get_anthropic_api_key(organization, TEST_ENCRYPTION_KEY)
         assert key == "sk-ant-new-org-key-abcd"
 
     async def test_post_clear_removes_key(
         self, authenticated_client, organization, db_session: AsyncSession
     ):
-        set_anthropic_api_key(organization, "sk-ant-to-clear", _TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(organization, "sk-ant-to-clear", TEST_ENCRYPTION_KEY)
         await db_session.flush()
 
         resp = await authenticated_client.post(
@@ -53,12 +53,12 @@ class TestOrgSettingsAnthropicKey:
         assert resp.status_code in (303, 302)
 
         await db_session.refresh(organization)
-        assert get_anthropic_api_key(organization, _TEST_ENCRYPTION_KEY) is None
+        assert get_anthropic_api_key(organization, TEST_ENCRYPTION_KEY) is None
 
     async def test_post_empty_preserves_existing(
         self, authenticated_client, organization, db_session: AsyncSession
     ):
-        set_anthropic_api_key(organization, "sk-ant-keep-me", _TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(organization, "sk-ant-keep-me", TEST_ENCRYPTION_KEY)
         await db_session.flush()
 
         resp = await authenticated_client.post(
@@ -68,5 +68,5 @@ class TestOrgSettingsAnthropicKey:
         assert resp.status_code in (303, 302)
 
         await db_session.refresh(organization)
-        key = get_anthropic_api_key(organization, _TEST_ENCRYPTION_KEY)
+        key = get_anthropic_api_key(organization, TEST_ENCRYPTION_KEY)
         assert key == "sk-ant-keep-me"

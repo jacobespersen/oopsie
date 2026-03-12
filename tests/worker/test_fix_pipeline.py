@@ -19,14 +19,13 @@ from oopsie.worker.fix_pipeline import run_fix_pipeline
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.conftest import TEST_ENCRYPTION_KEY
 from tests.factories import (
     ErrorFactory,
     GithubInstallationFactory,
     OrganizationFactory,
     ProjectFactory,
 )
-
-_TEST_ENCRYPTION_KEY = "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
 
 _WS = "oopsie.services.pipeline_service.worker_session"
 _GH = "oopsie.services.pipeline_service.github_service"
@@ -67,7 +66,7 @@ def test_job_context_repr_hides_api_key():
 async def test_happy_path(db_session: AsyncSession, factory):
     """Full pipeline: clone, fix, push, PR, success — token passed to all git calls."""
     org = await factory(OrganizationFactory)
-    set_anthropic_api_key(org, "sk-ant-test-key", _TEST_ENCRYPTION_KEY)
+    set_anthropic_api_key(org, "sk-ant-test-key", TEST_ENCRYPTION_KEY)
     project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     installation = await factory(GithubInstallationFactory, organization_id=org.id)
@@ -217,7 +216,7 @@ async def test_skips_suspended_installation(db_session: AsyncSession, factory):
 async def test_token_fetch_failure_marks_failed(db_session: AsyncSession, factory):
     """When get_installation_token raises, fix attempt is marked FAILED."""
     org = await factory(OrganizationFactory)
-    set_anthropic_api_key(org, "sk-ant-test-key", _TEST_ENCRYPTION_KEY)
+    set_anthropic_api_key(org, "sk-ant-test-key", TEST_ENCRYPTION_KEY)
     project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     await factory(GithubInstallationFactory, organization_id=org.id)
@@ -248,7 +247,7 @@ async def test_token_fetch_failure_marks_failed(db_session: AsyncSession, factor
 async def test_no_changes_marks_failed(db_session: AsyncSession, factory):
     """When Claude produces no changes, mark FAILED."""
     org = await factory(OrganizationFactory)
-    set_anthropic_api_key(org, "sk-ant-test-key", _TEST_ENCRYPTION_KEY)
+    set_anthropic_api_key(org, "sk-ant-test-key", TEST_ENCRYPTION_KEY)
     project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     await factory(GithubInstallationFactory, organization_id=org.id)
@@ -286,7 +285,7 @@ async def test_no_changes_marks_failed(db_session: AsyncSession, factory):
 async def test_clone_failure_marks_failed(db_session: AsyncSession, factory):
     """When git clone fails, mark FAILED."""
     org = await factory(OrganizationFactory)
-    set_anthropic_api_key(org, "sk-ant-test-key", _TEST_ENCRYPTION_KEY)
+    set_anthropic_api_key(org, "sk-ant-test-key", TEST_ENCRYPTION_KEY)
     project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     await factory(GithubInstallationFactory, organization_id=org.id)
@@ -351,7 +350,7 @@ async def test_skips_when_no_anthropic_key(db_session: AsyncSession, factory):
 async def test_claude_failure_marks_failed(db_session: AsyncSession, factory):
     """When Claude Code fails, mark FAILED."""
     org = await factory(OrganizationFactory)
-    set_anthropic_api_key(org, "sk-ant-test-key", _TEST_ENCRYPTION_KEY)
+    set_anthropic_api_key(org, "sk-ant-test-key", TEST_ENCRYPTION_KEY)
     project = await factory(ProjectFactory, organization_id=org.id)
     error = await factory(ErrorFactory, project_id=project.id)
     await factory(GithubInstallationFactory, organization_id=org.id)

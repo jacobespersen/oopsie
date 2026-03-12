@@ -12,10 +12,8 @@ from oopsie.services.anthropic_key_service import (
 )
 from oopsie.services.exceptions import AnthropicKeyNotConfiguredError
 
+from tests.conftest import TEST_ENCRYPTION_KEY
 from tests.factories import OrganizationFactory, ProjectFactory
-
-# The test conftest.py sets ENCRYPTION_KEY to a known test value.
-_TEST_ENCRYPTION_KEY = "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
 
 
 class TestSetAndGetAnthropicApiKey:
@@ -24,10 +22,10 @@ class TestSetAndGetAnthropicApiKey:
         db_session.add(org)
         await db_session.flush()
 
-        set_anthropic_api_key(org, "sk-ant-test-key-1234", _TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(org, "sk-ant-test-key-1234", TEST_ENCRYPTION_KEY)
         await db_session.flush()
 
-        result = get_anthropic_api_key(org, _TEST_ENCRYPTION_KEY)
+        result = get_anthropic_api_key(org, TEST_ENCRYPTION_KEY)
         assert result == "sk-ant-test-key-1234"
 
     async def test_set_and_get_on_project(self, db_session):
@@ -38,10 +36,10 @@ class TestSetAndGetAnthropicApiKey:
         db_session.add(project)
         await db_session.flush()
 
-        set_anthropic_api_key(project, "sk-ant-proj-key-5678", _TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(project, "sk-ant-proj-key-5678", TEST_ENCRYPTION_KEY)
         await db_session.flush()
 
-        result = get_anthropic_api_key(project, _TEST_ENCRYPTION_KEY)
+        result = get_anthropic_api_key(project, TEST_ENCRYPTION_KEY)
         assert result == "sk-ant-proj-key-5678"
 
     async def test_get_returns_none_when_not_set(self, db_session):
@@ -49,7 +47,7 @@ class TestSetAndGetAnthropicApiKey:
         db_session.add(org)
         await db_session.flush()
 
-        result = get_anthropic_api_key(org, _TEST_ENCRYPTION_KEY)
+        result = get_anthropic_api_key(org, TEST_ENCRYPTION_KEY)
         assert result is None
 
 
@@ -59,13 +57,13 @@ class TestClearAnthropicApiKey:
         db_session.add(org)
         await db_session.flush()
 
-        set_anthropic_api_key(org, "sk-ant-to-clear", _TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(org, "sk-ant-to-clear", TEST_ENCRYPTION_KEY)
         await db_session.flush()
-        assert get_anthropic_api_key(org, _TEST_ENCRYPTION_KEY) is not None
+        assert get_anthropic_api_key(org, TEST_ENCRYPTION_KEY) is not None
 
         clear_anthropic_api_key(org)
         await db_session.flush()
-        assert get_anthropic_api_key(org, _TEST_ENCRYPTION_KEY) is None
+        assert get_anthropic_api_key(org, TEST_ENCRYPTION_KEY) is None
 
 
 class TestMaskAnthropicApiKey:
@@ -99,11 +97,11 @@ class TestResolveAnthropicApiKey:
         # Eagerly load the relationship
         project.organization = org
 
-        set_anthropic_api_key(org, "sk-ant-org-key", _TEST_ENCRYPTION_KEY)
-        set_anthropic_api_key(project, "sk-ant-proj-key", _TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(org, "sk-ant-org-key", TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(project, "sk-ant-proj-key", TEST_ENCRYPTION_KEY)
         await db_session.flush()
 
-        result = resolve_anthropic_api_key(project, _TEST_ENCRYPTION_KEY)
+        result = resolve_anthropic_api_key(project, TEST_ENCRYPTION_KEY)
         assert result == "sk-ant-proj-key"
 
     async def test_falls_back_to_org_key(self, db_session):
@@ -115,10 +113,10 @@ class TestResolveAnthropicApiKey:
         await db_session.flush()
         project.organization = org
 
-        set_anthropic_api_key(org, "sk-ant-org-key", _TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(org, "sk-ant-org-key", TEST_ENCRYPTION_KEY)
         await db_session.flush()
 
-        result = resolve_anthropic_api_key(project, _TEST_ENCRYPTION_KEY)
+        result = resolve_anthropic_api_key(project, TEST_ENCRYPTION_KEY)
         assert result == "sk-ant-org-key"
 
     async def test_raises_when_neither_set(self, db_session):
@@ -131,7 +129,7 @@ class TestResolveAnthropicApiKey:
         project.organization = org
 
         with pytest.raises(AnthropicKeyNotConfiguredError):
-            resolve_anthropic_api_key(project, _TEST_ENCRYPTION_KEY)
+            resolve_anthropic_api_key(project, TEST_ENCRYPTION_KEY)
 
 
 class TestGetAnthropicApiKeyDecryptionFailure:
@@ -145,7 +143,7 @@ class TestGetAnthropicApiKeyDecryptionFailure:
         org.anthropic_api_key_encrypted = "not-valid-fernet-ciphertext"
         await db_session.flush()
 
-        result = get_anthropic_api_key(org, _TEST_ENCRYPTION_KEY)
+        result = get_anthropic_api_key(org, TEST_ENCRYPTION_KEY)
         assert result is None
 
     async def test_returns_none_on_wrong_encryption_key(self, db_session):
@@ -156,7 +154,7 @@ class TestGetAnthropicApiKeyDecryptionFailure:
         db_session.add(org)
         await db_session.flush()
 
-        set_anthropic_api_key(org, "sk-ant-real-key", _TEST_ENCRYPTION_KEY)
+        set_anthropic_api_key(org, "sk-ant-real-key", TEST_ENCRYPTION_KEY)
         await db_session.flush()
 
         wrong_key = Fernet.generate_key().decode()
@@ -171,7 +169,7 @@ class TestAuditLogging:
         await db_session.flush()
 
         with patch("oopsie.services.anthropic_key_service.logger") as mock_logger:
-            set_anthropic_api_key(org, "sk-ant-log-test", _TEST_ENCRYPTION_KEY)
+            set_anthropic_api_key(org, "sk-ant-log-test", TEST_ENCRYPTION_KEY)
 
         mock_logger.info.assert_called_once_with(
             "anthropic_key_set",
@@ -199,7 +197,7 @@ class TestAuditLogging:
         await db_session.flush()
 
         with patch("oopsie.services.anthropic_key_service.logger") as mock_logger:
-            set_anthropic_api_key(org, "sk-ant-secret-value", _TEST_ENCRYPTION_KEY)
+            set_anthropic_api_key(org, "sk-ant-secret-value", TEST_ENCRYPTION_KEY)
 
         # The actual key value must never appear in log kwargs
         call_kwargs = mock_logger.info.call_args

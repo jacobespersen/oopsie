@@ -21,6 +21,14 @@ from oopsie.logging import logger
 from oopsie.models.revoked_token import RevokedToken
 from oopsie.models.user import User
 
+# Shared cookie options for auth tokens (httponly, samesite, path).
+# Used by auth_routes.py and auth_middleware.py.
+AUTH_COOKIE_OPTS: dict[str, Any] = {
+    "httponly": True,
+    "samesite": "lax",
+    "path": "/",
+}
+
 
 @lru_cache(maxsize=1)
 def _build_google_client() -> Any:

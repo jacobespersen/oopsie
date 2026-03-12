@@ -2,7 +2,6 @@
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -10,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.auth import (
+    AUTH_COOKIE_OPTS,
     create_access_token,
     create_refresh_token,
     decode_jwt_token,
@@ -26,22 +26,19 @@ from oopsie.web import templates
 
 router = APIRouter(prefix="/auth")
 
-_COOKIE_OPTS: dict[str, Any] = {
-    "httponly": True,
-    "samesite": "lax",
-    "path": "/",
-}
-
 
 def _set_auth_cookies(
     response: Response, access_token: str, refresh_token: str
 ) -> None:
     settings = get_settings()
     response.set_cookie(
-        "access_token", access_token, **_COOKIE_OPTS, secure=settings.cookie_secure
+        "access_token", access_token, **AUTH_COOKIE_OPTS, secure=settings.cookie_secure
     )
     response.set_cookie(
-        "refresh_token", refresh_token, **_COOKIE_OPTS, secure=settings.cookie_secure
+        "refresh_token",
+        refresh_token,
+        **AUTH_COOKIE_OPTS,
+        secure=settings.cookie_secure,
     )
 
 

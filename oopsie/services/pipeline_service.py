@@ -3,7 +3,7 @@
 import os
 import shutil
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from sqlalchemy import select
@@ -38,7 +38,8 @@ class _JobContext:
     repo_url: str
     default_branch: str
     installation_id: int
-    anthropic_api_key: str
+    # Excluded from repr/str to prevent accidental key logging
+    anthropic_api_key: str = field(repr=False)
 
 
 async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | None:

@@ -14,6 +14,7 @@ from oopsie.services.exceptions import (
     GitHubApiError,
     GitOperationError,
 )
+from oopsie.services.pipeline_service import _JobContext
 from oopsie.worker.fix_pipeline import run_fix_pipeline
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,6 +44,23 @@ def _mock_worker_session(db_session):
         yield db_session
 
     return fake_worker_session
+
+
+def test_job_context_repr_hides_api_key():
+    """Anthropic API key must not appear in _JobContext repr."""
+    ctx = _JobContext(
+        fix_attempt_id=uuid.uuid4(),
+        branch_name="fix/test",
+        error_class="ValueError",
+        message="test",
+        stack_trace=None,
+        repo_url="https://github.com/org/repo",
+        default_branch="main",
+        installation_id=123,
+        anthropic_api_key="sk-ant-secret-key-1234",
+    )
+    assert "sk-ant-secret-key-1234" not in repr(ctx)
+    assert "sk-ant-secret-key-1234" not in str(ctx)
 
 
 @pytest.mark.asyncio

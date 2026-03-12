@@ -1,5 +1,7 @@
 """Tests for anthropic_key_service."""
 
+from unittest.mock import patch
+
 import pytest
 from oopsie.services.anthropic_key_service import (
     clear_anthropic_api_key,
@@ -160,3 +162,45 @@ class TestGetAnthropicApiKeyDecryptionFailure:
         wrong_key = Fernet.generate_key().decode()
         result = get_anthropic_api_key(org, wrong_key)
         assert result is None
+
+
+class TestAuditLogging:
+    async def test_set_key_logs_event(self, db_session):
+        org = OrganizationFactory.build()
+        db_session.add(org)
+        await db_session.flush()
+
+        with patch("oopsie.services.anthropic_key_service.logger") as mock_logger:
+            set_anthropic_api_key(org, "sk-ant-log-test", _TEST_ENCRYPTION_KEY)
+
+        mock_logger.info.assert_called_once_with(
+            "anthropic_key_set",
+            entity_type="organization",
+            entity_id=str(org.id),
+        )
+
+    async def test_clear_key_logs_event(self, db_session):
+        org = OrganizationFactory.build()
+        db_session.add(org)
+        await db_session.flush()
+
+        with patch("oopsie.services.anthropic_key_service.logger") as mock_logger:
+            clear_anthropic_api_key(org)
+
+        mock_logger.info.assert_called_once_with(
+            "anthropic_key_cleared",
+            entity_type="organization",
+            entity_id=str(org.id),
+        )
+
+    async def test_set_key_does_not_log_key_value(self, db_session):
+        org = OrganizationFactory.build()
+        db_session.add(org)
+        await db_session.flush()
+
+        with patch("oopsie.services.anthropic_key_service.logger") as mock_logger:
+            set_anthropic_api_key(org, "sk-ant-secret-value", _TEST_ENCRYPTION_KEY)
+
+        # The actual key value must never appear in log kwargs
+        call_kwargs = mock_logger.info.call_args
+        assert "sk-ant-secret-value" not in str(call_kwargs)

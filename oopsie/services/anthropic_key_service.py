@@ -14,6 +14,11 @@ def set_anthropic_api_key(
 ) -> None:
     """Encrypt and store an Anthropic API key on an org or project."""
     entity.anthropic_api_key_encrypted = encrypt_value(plaintext_key, encryption_key)
+    logger.info(
+        "anthropic_key_set",
+        entity_type=type(entity).__name__.lower(),
+        entity_id=str(entity.id),
+    )
 
 
 def get_anthropic_api_key(
@@ -36,6 +41,11 @@ def get_anthropic_api_key(
 def clear_anthropic_api_key(entity: Organization | Project) -> None:
     """Remove the stored Anthropic API key."""
     entity.anthropic_api_key_encrypted = None
+    logger.info(
+        "anthropic_key_cleared",
+        entity_type=type(entity).__name__.lower(),
+        entity_id=str(entity.id),
+    )
 
 
 def mask_anthropic_api_key(plaintext: str) -> str:

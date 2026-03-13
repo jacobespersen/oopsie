@@ -43,6 +43,7 @@ dev = [
     "pip-audit",
     "pre-commit",
     "honcho",
+    "fakeredis[lua]",
 ]
 
 [tool.setuptools.packages.find]

@@ -226,3 +226,19 @@ async def db_session() -> AsyncSession:
     finally:
         await connection.close()
         await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def fake_redis(monkeypatch):
+    """Provide a fakeredis instance and patch oopsie.session.get_redis to use it."""
+    import fakeredis.aioredis as fake_aioredis
+    import oopsie.session
+
+    fake = fake_aioredis.FakeRedis()
+
+    async def _get_fake_redis():
+        return fake
+
+    monkeypatch.setattr(oopsie.session, "get_redis", _get_fake_redis)
+    yield fake
+    await fake.aclose()

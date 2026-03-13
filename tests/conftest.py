@@ -24,6 +24,7 @@ from oopsie.models import (  # noqa: E402, F401
 )
 from oopsie.models.base import Base  # noqa: E402
 from oopsie.models.membership import MemberRole  # noqa: E402
+from oopsie.session import create_session  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
 
 from tests.factories import (  # noqa: E402
@@ -145,7 +146,6 @@ async def authenticated_client(
     db_session: AsyncSession, current_user: User, fake_redis
 ):
     """HTTP client with a valid session cookie for current_user."""
-    from oopsie.session import create_session
 
     async def override_get_session():
         yield db_session

@@ -3,7 +3,7 @@
 import os
 import shutil
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from sqlalchemy import select
@@ -22,6 +22,8 @@ from oopsie.services import (
     github_app_service,
     github_service,
 )
+from oopsie.services.anthropic_key_service import resolve_anthropic_api_key
+from oopsie.services.exceptions import AnthropicKeyNotConfiguredError
 
 
 @dataclass
@@ -36,6 +38,8 @@ class _JobContext:
     repo_url: str
     default_branch: str
     installation_id: int
+    # Excluded from repr/str to prevent accidental key logging
+    anthropic_api_key: str = field(repr=False)
 
 
 async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | None:
@@ -79,6 +83,20 @@ async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | Non
             )
             return None
 
+        # Resolve the Anthropic API key (project → org); skip gracefully if not set
+        try:
+            anthropic_api_key = resolve_anthropic_api_key(
+                project, get_settings().encryption_key
+            )
+        except AnthropicKeyNotConfiguredError:
+            logger.warning(
+                "fix_pipeline_skipped",
+                error_id=error_id,
+                reason="no_anthropic_key",
+                org_id=str(project.organization_id),
+            )
+            return None
+
         branch_name = fix_service.generate_branch_name(error_id)
         fix_attempt = await fix_service.create_fix_attempt(
             session, error.id, branch_name
@@ -93,6 +111,7 @@ async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | Non
             repo_url=project.github_repo_url,
             default_branch=project.default_branch,
             installation_id=installation.github_installation_id,
+            anthropic_api_key=anthropic_api_key,
         )
 
 
@@ -115,7 +134,7 @@ async def _run_fix(clone_dir: str, ctx: _JobContext, settings: Settings) -> str:
         ctx.error_class,
         ctx.message,
         ctx.stack_trace,
-        settings.anthropic_api_key,
+        ctx.anthropic_api_key,
         settings.job_timeout_seconds,
     )
 

@@ -18,6 +18,31 @@
   {% endif %}
 </div>
 
+{# Anthropic API Key section (admin/owner only) #}
+{% if current_membership.role in [MemberRole.admin, MemberRole.owner] %}
+<h2 class="f4 mb-2">Anthropic API Key</h2>
+<div class="Box p-3 mb-4" style="max-width:560px;">
+  <p class="color-fg-muted mb-2">Organization default key used by all projects unless overridden.</p>
+  <form method="post" action="/orgs/{{ org_slug }}/settings/anthropic-key">
+    <div class="form-group mb-2">
+      <input class="form-control" type="password" id="anthropic_api_key" name="anthropic_api_key"
+             placeholder="{{ anthropic_key_masked if anthropic_key_masked else 'sk-ant-...' }}"
+             value="">
+      {% if anthropic_key_masked %}
+      <p class="note">Current: <code>{{ anthropic_key_masked }}</code></p>
+      {% endif %}
+    </div>
+    <div class="d-flex flex-gap-2">
+      <button type="submit" class="btn btn-sm btn-primary">Save Key</button>
+      {% if anthropic_key_masked %}
+      <button type="submit" name="clear" value="1" class="btn btn-sm btn-danger"
+              onclick="return confirm('Remove the organization Anthropic API key?');">Clear Key</button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endif %}
+
 {# Members section #}
 <h2 class="f4 mb-2">Members</h2>
 <div class="Box mb-4">

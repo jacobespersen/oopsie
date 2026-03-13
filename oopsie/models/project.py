@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -23,6 +23,9 @@ class Project(Base):
     )
     error_threshold: Mapped[int] = mapped_column(default=10, nullable=False)
     api_key_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    anthropic_api_key_encrypted: Mapped[str | None] = mapped_column(
+        Text, nullable=True, default=None
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

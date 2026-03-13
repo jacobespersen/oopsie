@@ -5,10 +5,15 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from oopsie.models import Project
+from oopsie.services.anthropic_key_service import (
+    get_anthropic_api_key,
+    set_anthropic_api_key,
+)
 from oopsie.services.exceptions import GitHubApiError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from tests.conftest import TEST_ENCRYPTION_KEY
 from tests.factories import GithubInstallationFactory, ProjectFactory
 
 # ---------------------------------------------------------------------------
@@ -417,3 +422,133 @@ async def test_create_project_no_installation_allows_creation(
         follow_redirects=False,
     )
     assert response.status_code == 303
+
+
+# ---------------------------------------------------------------------------
+# Anthropic API key tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_project_with_anthropic_key(
+    authenticated_client, organization, db_session: AsyncSession, factory
+):
+    """POST /orgs/{slug}/projects with anthropic_api_key encrypts and stores it."""
+    await factory(
+        GithubInstallationFactory,
+        organization_id=organization.id,
+        github_installation_id=99,
+    )
+    with patch(
+        "oopsie.services.github_installation_service.github_app_service.list_installation_repos",
+        new=AsyncMock(return_value=["org/repo"]),
+    ):
+        await authenticated_client.post(
+            f"/orgs/{organization.slug}/projects",
+            data={
+                "name": "key-project",
+                "github_repo_full_name": "org/repo",
+                "default_branch": "main",
+                "error_threshold": "10",
+                "anthropic_api_key": "sk-ant-create-test-abcd",
+            },
+            follow_redirects=False,
+        )
+    result = await db_session.execute(
+        select(Project).where(Project.name == "key-project")
+    )
+    project = result.scalar_one()
+    assert project.anthropic_api_key_encrypted is not None
+    decrypted = get_anthropic_api_key(project, TEST_ENCRYPTION_KEY)
+    assert decrypted == "sk-ant-create-test-abcd"
+
+
+@pytest.mark.asyncio
+async def test_update_project_sets_anthropic_key(
+    authenticated_client, current_user, organization, db_session: AsyncSession, factory
+):
+    """POST update with anthropic_api_key sets the encrypted value."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+    await authenticated_client.post(
+        f"/orgs/{organization.slug}/projects/{project.id}",
+        data={
+            "name": project.name,
+            "github_repo_full_name": "new/repo",
+            "default_branch": "main",
+            "error_threshold": "10",
+            "anthropic_api_key": "sk-ant-update-key-5678",
+        },
+        follow_redirects=False,
+    )
+    result = await db_session.execute(select(Project).where(Project.id == project.id))
+    db_project = result.scalar_one()
+    decrypted = get_anthropic_api_key(db_project, TEST_ENCRYPTION_KEY)
+    assert decrypted == "sk-ant-update-key-5678"
+
+
+@pytest.mark.asyncio
+async def test_update_project_empty_key_preserves_existing(
+    authenticated_client, current_user, organization, db_session: AsyncSession, factory
+):
+    """Submitting empty anthropic_api_key leaves existing key unchanged."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+    set_anthropic_api_key(project, "sk-ant-keep-me-1234", TEST_ENCRYPTION_KEY)
+    await db_session.flush()
+    original_encrypted = project.anthropic_api_key_encrypted
+
+    await authenticated_client.post(
+        f"/orgs/{organization.slug}/projects/{project.id}",
+        data={
+            "name": project.name,
+            "github_repo_full_name": "new/repo",
+            "default_branch": "main",
+            "error_threshold": "10",
+            "anthropic_api_key": "",
+        },
+        follow_redirects=False,
+    )
+    result = await db_session.execute(select(Project).where(Project.id == project.id))
+    db_project = result.scalar_one()
+    assert db_project.anthropic_api_key_encrypted == original_encrypted
+
+
+@pytest.mark.asyncio
+async def test_update_project_clear_anthropic_key(
+    authenticated_client, current_user, organization, db_session: AsyncSession, factory
+):
+    """Checking clear_anthropic_key checkbox removes the key."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+    set_anthropic_api_key(project, "sk-ant-to-clear", TEST_ENCRYPTION_KEY)
+    await db_session.flush()
+
+    await authenticated_client.post(
+        f"/orgs/{organization.slug}/projects/{project.id}",
+        data={
+            "name": project.name,
+            "github_repo_full_name": "new/repo",
+            "default_branch": "main",
+            "error_threshold": "10",
+            "anthropic_api_key": "",
+            "clear_anthropic_key": "1",
+        },
+        follow_redirects=False,
+    )
+    result = await db_session.execute(select(Project).where(Project.id == project.id))
+    db_project = result.scalar_one()
+    assert db_project.anthropic_api_key_encrypted is None
+
+
+@pytest.mark.asyncio
+async def test_edit_page_shows_masked_anthropic_key(
+    authenticated_client, current_user, organization, db_session: AsyncSession, factory
+):
+    """Edit page shows masked Anthropic key when one is set."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+    set_anthropic_api_key(project, "sk-ant-display-wxyz", TEST_ENCRYPTION_KEY)
+    await db_session.flush()
+
+    response = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/edit"
+    )
+    assert response.status_code == 200
+    assert "sk-\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022wxyz" in response.text

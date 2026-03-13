@@ -19,3 +19,7 @@ class GitHubApiError(OopsieServiceError):
 
 class GitHubAppNotConfiguredError(OopsieServiceError):
     """Raised when GitHub App credentials are not configured."""
+
+
+class AnthropicKeyNotConfiguredError(OopsieServiceError):
+    """Raised when no Anthropic API key is configured for a project or its org."""

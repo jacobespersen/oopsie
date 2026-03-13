@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -28,6 +28,9 @@ class Organization(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+    anthropic_api_key_encrypted: Mapped[str | None] = mapped_column(
+        Text, nullable=True, default=None
     )
 
     memberships = relationship(

@@ -66,6 +66,7 @@ alembic/           — DB migrations
 
 ## Conventions
 
+- **Imports at the top** — all imports belong at the top of the file. The only exception is `tests/conftest.py`, where `os.environ.setdefault()` must run before importing modules that read env vars at import time (those imports use `# noqa: E402`).
 - **Python 3.11+**, ruff line-length 88
 - **Async everywhere** — async endpoints, `AsyncSession`, `asyncpg` driver
 - **SQLAlchemy 2.0 style** — `Mapped[]`, `mapped_column()`, `DeclarativeBase`
@@ -138,6 +139,10 @@ pytest -v --cov=oopsie --cov-report=term-missing --cov-fail-under=90  # tests + 
 ```
 
 These match the steps in `.github/workflows/ci.yml`. All must pass before finishing.
+
+## Git Worktrees
+
+All git worktrees must be created in the `.worktrees` directory at the project root.
 
 ## Implementation Plans
 

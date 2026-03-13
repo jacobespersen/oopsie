@@ -29,6 +29,7 @@ dependencies = [
     "pyjwt[crypto]",
     "githubkit[auth-app]",
     "itsdangerous",
+    "claude-agent-sdk",
 ]
 
 [project.optional-dependencies]

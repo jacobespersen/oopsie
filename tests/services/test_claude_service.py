@@ -1,70 +1,101 @@
 """Tests for oopsie.services.claude_service."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
+from claude_agent_sdk import (
+    AssistantMessage,
+    ClaudeSDKError,
+    CLINotFoundError,
+    ProcessError,
+    TextBlock,
+)
 from oopsie.services.claude_service import _build_prompt, run_claude_code
 from oopsie.services.exceptions import ClaudeCodeError
 
-_EXEC = "oopsie.services.claude_service.asyncio.create_subprocess_exec"
-_WAIT = "oopsie.services.claude_service.asyncio.wait_for"
+_QUERY = "oopsie.services.claude_service.query"
 
 
-def _make_process(
-    returncode: int = 0,
-    stdout: bytes = b"",
-    stderr: bytes = b"",
-):
-    """Create a mock subprocess."""
-    proc = AsyncMock()
-    proc.returncode = returncode
-    proc.communicate = AsyncMock(return_value=(stdout, stderr))
-    proc.kill = AsyncMock()
-    return proc
+async def _mock_query_yielding(messages):
+    """Create an async generator that yields the given messages."""
+    for msg in messages:
+        yield msg
+
+
+def _text_message(text: str) -> AssistantMessage:
+    """Create an AssistantMessage with a single TextBlock."""
+    block = TextBlock(text=text)
+    return AssistantMessage(content=[block], model="claude-opus-4-6")
 
 
 @pytest.mark.asyncio
 class TestRunClaudeCode:
     async def test_success(self):
-        proc = _make_process(stdout=b"Fixed the bug in main.py")
-        with patch(_EXEC, return_value=proc) as mock_exec:
+        with patch(
+            _QUERY,
+            return_value=_mock_query_yielding(
+                [_text_message("Fixed the bug in main.py")]
+            ),
+        ) as mock_query:
             output = await run_claude_code(
-                "/repo",
-                "ValueError",
-                "bad value",
-                "traceback",
-                "sk-key",
-                300,
+                "/repo", "ValueError", "bad value", "traceback", "sk-key", 300
             )
             assert output == "Fixed the bug in main.py"
-            args = mock_exec.call_args[0]
-            assert args[0] == "claude"
-            assert "--print" in args
-            assert "--dangerously-skip-permissions" in args
+            # Verify SDK was called with correct options
+            call_kwargs = mock_query.call_args[1]
+            assert "ValueError" in call_kwargs["prompt"]
+            opts = call_kwargs["options"]
+            assert opts.permission_mode == "bypassPermissions"
+            assert opts.cwd == "/repo"
+            assert opts.env["ANTHROPIC_API_KEY"] == "sk-key"
 
-    async def test_sets_api_key_in_env(self):
-        proc = _make_process(stdout=b"done")
-        with patch(_EXEC, return_value=proc) as mock_exec:
+    async def test_sets_api_key_in_options(self):
+        with patch(
+            _QUERY, return_value=_mock_query_yielding([_text_message("done")])
+        ) as mock_query:
             await run_claude_code("/repo", "E", "m", None, "sk-test-key", 300)
-            kwargs = mock_exec.call_args[1]
-            assert kwargs["env"]["ANTHROPIC_API_KEY"] == "sk-test-key"
+            opts = mock_query.call_args[1]["options"]
+            assert opts.env["ANTHROPIC_API_KEY"] == "sk-test-key"
 
-    async def test_nonzero_exit_raises(self):
-        proc = _make_process(returncode=1, stderr=b"something went wrong")
-        with patch(_EXEC, return_value=proc):
+    async def test_joins_multiple_text_blocks(self):
+        """Multiple AssistantMessages are concatenated."""
+        with patch(
+            _QUERY,
+            return_value=_mock_query_yielding(
+                [
+                    _text_message("part1"),
+                    _text_message("part2"),
+                ]
+            ),
+        ):
+            output = await run_claude_code("/repo", "E", "m", None, "key", 300)
+            assert output == "part1part2"
+
+    async def test_process_error_raises(self):
+        with patch(_QUERY, side_effect=ProcessError("exit code 1")):
             with pytest.raises(ClaudeCodeError, match="Claude Code failed"):
                 await run_claude_code("/repo", "E", "m", None, "key", 300)
 
-    async def test_timeout_raises(self):
-        proc = _make_process()
-        proc.kill = MagicMock()
-        proc.communicate = AsyncMock(return_value=(b"", b""))
+    async def test_cli_not_found_raises(self):
+        with patch(_QUERY, side_effect=CLINotFoundError("not found")):
+            with pytest.raises(ClaudeCodeError, match="CLI not found"):
+                await run_claude_code("/repo", "E", "m", None, "key", 300)
 
-        with patch(_EXEC, return_value=proc):
-            with patch(_WAIT, side_effect=TimeoutError()):
-                with pytest.raises(ClaudeCodeError, match="timed out"):
-                    await run_claude_code("/repo", "E", "m", None, "key", 5)
-                proc.kill.assert_called_once()
+    async def test_sdk_error_raises(self):
+        with patch(_QUERY, side_effect=ClaudeSDKError("something broke")):
+            with pytest.raises(ClaudeCodeError, match="Claude Code error"):
+                await run_claude_code("/repo", "E", "m", None, "key", 300)
+
+    async def test_timeout_raises(self):
+        async def slow_query(**kwargs):
+            import asyncio
+
+            await asyncio.sleep(10)
+            yield _text_message("too late")  # pragma: no cover
+
+        with patch(_QUERY, return_value=slow_query()):
+            with pytest.raises(ClaudeCodeError, match="timed out"):
+                await run_claude_code("/repo", "E", "m", None, "key", 0)
 
 
 class TestBuildPrompt:

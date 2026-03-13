@@ -13,6 +13,10 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir -e "."
 COPY . .
 
-RUN mkdir -p /tmp/oopsie-clones
+RUN useradd --create-home --shell /bin/bash worker \
+    && mkdir -p /tmp/oopsie-clones \
+    && chown worker:worker /tmp/oopsie-clones /app
+
+USER worker
 
 CMD ["arq", "oopsie.worker.settings.WorkerSettings"]

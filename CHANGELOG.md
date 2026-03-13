@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Anthropic API key is now stored encrypted per-organization and per-project instead of as a global environment variable. Projects inherit the org key unless overridden. The `ANTHROPIC_API_KEY` environment variable is no longer used.
+- Replace Claude Code CLI subprocess with `claude-agent-sdk` Python SDK for cleaner process management and error handling
+
+### Security
+- Worker Docker container now runs as non-root `worker` user instead of root
 
 ### Fixed
 - Fix pipeline now skips gracefully when no Anthropic API key is configured instead of crashing the worker

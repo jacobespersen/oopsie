@@ -11,6 +11,7 @@ from oopsie.auth import (
     decode_jwt,
     decode_jwt_token,
     revoke_token,
+    rotate_tokens,
     upsert_user,
 )
 from oopsie.models.revoked_token import RevokedToken
@@ -105,6 +106,46 @@ def test_decode_jwt_invalid_signature():
     tampered = token[:-4] + "xxxx"
     with pytest.raises(ValueError):
         decode_jwt(tampered)
+
+
+# ---------------------------------------------------------------------------
+# decode_jwt_allow_expired
+# ---------------------------------------------------------------------------
+
+
+def test_decode_jwt_allow_expired_returns_expired_payload():
+    """decode_jwt_allow_expired decodes an expired token without raising."""
+    import jwt as _jwt
+    from oopsie.auth import decode_jwt_allow_expired
+    from oopsie.config import get_settings
+
+    settings = get_settings()
+    now = datetime.now(tz=UTC)
+    payload = {
+        "jti": str(uuid.uuid4()),
+        "sub": str(uuid.uuid4()),
+        "email": "expired@example.com",
+        "type": "access",
+        "iat": now - timedelta(hours=2),
+        "exp": now - timedelta(hours=1),
+    }
+    token = _jwt.encode(
+        payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+    )
+    result = decode_jwt_allow_expired(token)
+    assert result["email"] == "expired@example.com"
+    assert result["type"] == "access"
+
+
+def test_decode_jwt_allow_expired_raises_on_invalid_signature():
+    """decode_jwt_allow_expired still raises ValueError for tampered tokens."""
+    from oopsie.auth import decode_jwt_allow_expired
+
+    user_id = uuid.uuid4()
+    token = create_access_token(user_id, "a@b.com")
+    tampered = token[:-4] + "xxxx"
+    with pytest.raises(ValueError):
+        decode_jwt_allow_expired(tampered)
 
 
 # ---------------------------------------------------------------------------
@@ -662,3 +703,77 @@ async def test_auth_callback_accepts_multiple_invitations(
     assert len(memberships) == 2
     org_ids = {m.organization_id for m in memberships}
     assert org_ids == {org1.id, org2.id}
+
+
+# ---------------------------------------------------------------------------
+# rotate_tokens
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_rotate_tokens_happy_path(db_session: AsyncSession, factory):
+    """rotate_tokens returns a new access/refresh pair and revokes the old."""
+    from tests.factories import UserFactory
+
+    user = await factory(UserFactory)
+    old_refresh = create_refresh_token(user.id)
+
+    new_access, new_refresh = await rotate_tokens(db_session, old_refresh)
+
+    # New tokens are valid
+    access_payload = decode_jwt(new_access)
+    assert access_payload["sub"] == str(user.id)
+    assert access_payload["type"] == "access"
+
+    refresh_payload = decode_jwt(new_refresh)
+    assert refresh_payload["sub"] == str(user.id)
+    assert refresh_payload["type"] == "refresh"
+
+    # Old refresh token was revoked
+    with pytest.raises(ValueError, match="revoked"):
+        await decode_jwt_token(old_refresh, db_session)
+
+
+@pytest.mark.asyncio
+async def test_rotate_tokens_invalid_token(db_session: AsyncSession):
+    """rotate_tokens raises ValueError for a garbage token."""
+    with pytest.raises(ValueError):
+        await rotate_tokens(db_session, "not-a-real-token")
+
+
+@pytest.mark.asyncio
+async def test_rotate_tokens_wrong_type(db_session: AsyncSession, factory):
+    """rotate_tokens raises ValueError when given an access token."""
+    from tests.factories import UserFactory
+
+    user = await factory(UserFactory)
+    access_token = create_access_token(user.id, user.email)
+
+    with pytest.raises(ValueError, match="Invalid token type"):
+        await rotate_tokens(db_session, access_token)
+
+
+@pytest.mark.asyncio
+async def test_rotate_tokens_revoked_token(db_session: AsyncSession, factory):
+    """rotate_tokens raises ValueError for an already-revoked refresh token."""
+    from tests.factories import UserFactory
+
+    user = await factory(UserFactory)
+    refresh_token = create_refresh_token(user.id)
+    payload = decode_jwt(refresh_token)
+    expires_at = datetime.fromtimestamp(payload["exp"], tz=UTC)
+    await revoke_token(db_session, payload["jti"], expires_at)
+
+    with pytest.raises(ValueError, match="revoked"):
+        await rotate_tokens(db_session, refresh_token)
+
+
+@pytest.mark.asyncio
+async def test_rotate_tokens_deleted_user(db_session: AsyncSession):
+    """rotate_tokens raises ValueError when the user no longer exists."""
+    # Create a refresh token for a non-existent user
+    fake_user_id = uuid.uuid4()
+    refresh_token = create_refresh_token(fake_user_id)
+
+    with pytest.raises(ValueError, match="User not found"):
+        await rotate_tokens(db_session, refresh_token)

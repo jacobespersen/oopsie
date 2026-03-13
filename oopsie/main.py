@@ -10,6 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from oopsie.api.errors import router as errors_router
+from oopsie.auth_middleware import TokenRefreshMiddleware
 from oopsie.auth_routes import router as auth_router
 from oopsie.config import get_settings
 from oopsie.logging import RequestLoggingMiddleware, setup_logging
@@ -52,6 +53,12 @@ app = FastAPI(
 _session_secret = _settings.jwt_secret_key or secrets.token_urlsafe(32)
 app.add_middleware(SessionMiddleware, secret_key=_session_secret)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# TokenRefreshMiddleware sits between SessionMiddleware and
+# RequestLoggingMiddleware so refreshed cookies appear in responses
+# before the request is logged.
+
+app.add_middleware(TokenRefreshMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 

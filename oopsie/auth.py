@@ -21,6 +21,14 @@ from oopsie.logging import logger
 from oopsie.models.revoked_token import RevokedToken
 from oopsie.models.user import User
 
+# Shared cookie options for auth tokens (httponly, samesite, path).
+# Used by auth_routes.py and auth_middleware.py.
+AUTH_COOKIE_OPTS: dict[str, Any] = {
+    "httponly": True,
+    "samesite": "lax",
+    "path": "/",
+}
+
 
 @lru_cache(maxsize=1)
 def _build_google_client() -> Any:
@@ -88,6 +96,55 @@ def decode_jwt(token: str) -> dict[str, Any]:
         raise ValueError("Token has expired")
     except jwt.InvalidTokenError as exc:
         raise ValueError(f"Invalid token: {exc}")
+
+
+def decode_jwt_allow_expired(token: str) -> dict[str, Any]:
+    """Decode a JWT token without verifying expiry.
+
+    Used by the token refresh middleware to read claims from expired
+    access tokens. Signature is still verified — only expiry is skipped.
+    Raises ValueError on invalid/tampered tokens.
+    """
+    settings = get_settings()
+    try:
+        return jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+            options={"verify_exp": False},
+        )
+    except jwt.InvalidTokenError as exc:
+        raise ValueError(f"Invalid token: {exc}")
+
+
+async def rotate_tokens(session: AsyncSession, refresh_token: str) -> tuple[str, str]:
+    """Validate refresh token, revoke it, and issue a new token pair.
+
+    Returns (new_access_token, new_refresh_token).
+    Raises ValueError if the refresh token is invalid, revoked,
+    wrong type, or the user no longer exists.
+    """
+    payload = await decode_jwt_token(refresh_token, session)
+
+    if payload.get("type") != "refresh":
+        raise ValueError("Invalid token type")
+
+    # Revoke old refresh token
+    exp = payload.get("exp")
+    expires_at = datetime.fromtimestamp(exp, tz=UTC) if exp else datetime.now(tz=UTC)
+    await revoke_token(session, payload["jti"], expires_at)
+
+    # Look up user for the new access token
+    user_id = uuid.UUID(payload["sub"])
+    result = await session.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise ValueError("User not found")
+
+    new_access = create_access_token(user.id, user.email)
+    new_refresh = create_refresh_token(user.id)
+    logger.info("token_rotation_success", user_id=str(user.id))
+    return new_access, new_refresh
 
 
 async def decode_jwt_token(token: str, session: AsyncSession) -> dict[str, Any]:

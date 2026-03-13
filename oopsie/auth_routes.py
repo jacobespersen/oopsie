@@ -1,15 +1,13 @@
 """Authentication routes: login, callback, logout, refresh."""
 
-import uuid
 from datetime import UTC, datetime
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.auth import (
+    AUTH_COOKIE_OPTS,
     create_access_token,
     create_refresh_token,
     decode_jwt_token,
@@ -17,20 +15,14 @@ from oopsie.auth import (
     get_user_default_redirect,
     resolve_or_register_user,
     revoke_token,
+    rotate_tokens,
 )
 from oopsie.config import get_settings
 from oopsie.deps import get_session
 from oopsie.logging import logger
-from oopsie.models.user import User
 from oopsie.web import templates
 
 router = APIRouter(prefix="/auth")
-
-_COOKIE_OPTS: dict[str, Any] = {
-    "httponly": True,
-    "samesite": "lax",
-    "path": "/",
-}
 
 
 def _set_auth_cookies(
@@ -38,10 +30,13 @@ def _set_auth_cookies(
 ) -> None:
     settings = get_settings()
     response.set_cookie(
-        "access_token", access_token, **_COOKIE_OPTS, secure=settings.cookie_secure
+        "access_token", access_token, **AUTH_COOKIE_OPTS, secure=settings.cookie_secure
     )
     response.set_cookie(
-        "refresh_token", refresh_token, **_COOKIE_OPTS, secure=settings.cookie_secure
+        "refresh_token",
+        refresh_token,
+        **AUTH_COOKIE_OPTS,
+        secure=settings.cookie_secure,
     )
 
 
@@ -114,26 +109,9 @@ async def refresh_token_endpoint(
         raise HTTPException(status_code=401, detail="No refresh token")
 
     try:
-        payload = await decode_jwt_token(refresh_token, session)
+        new_access, new_refresh = await rotate_tokens(session, refresh_token)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc))
-
-    if payload.get("type") != "refresh":
-        raise HTTPException(status_code=401, detail="Invalid token type")
-
-    exp = payload.get("exp")
-    expires_at = datetime.fromtimestamp(exp, tz=UTC) if exp else datetime.now(tz=UTC)
-    await revoke_token(session, payload["jti"], expires_at)
-
-    result = await session.execute(
-        select(User).where(User.id == uuid.UUID(payload["sub"]))
-    )
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-
-    new_access = create_access_token(user.id, user.email)
-    new_refresh = create_refresh_token(user.id)
 
     response = Response(content='{"status":"ok"}', media_type="application/json")
     _set_auth_cookies(response, new_access, new_refresh)

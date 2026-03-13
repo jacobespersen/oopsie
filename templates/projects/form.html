@@ -60,6 +60,23 @@
     </div>
   </div>
 
+  <div class="form-group">
+    <div class="form-group-header"><label for="anthropic_api_key">Anthropic API Key</label></div>
+    <div class="form-group-body">
+      <input class="form-control" type="password" id="anthropic_api_key" name="anthropic_api_key"
+             placeholder="{{ anthropic_key_masked if anthropic_key_masked else 'sk-ant-...' }}"
+             value="">
+      <p class="note">Overrides the organization default. Leave blank to keep current value.
+      {% if anthropic_key_masked %}<br>Current: <code>{{ anthropic_key_masked }}</code>{% endif %}
+      </p>
+      {% if project and anthropic_key_masked %}
+      <label class="d-block mt-1">
+        <input type="checkbox" name="clear_anthropic_key" value="1"> Clear project key (use org default)
+      </label>
+      {% endif %}
+    </div>
+  </div>
+
   <div class="d-flex flex-wrap gap-2 mt-3">
     <button type="submit" class="btn btn-primary" {% if not project and not repos %}disabled{% endif %}>{{ 'Update' if project else 'Create' }}</button>
     {% if project %}<a href="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors" class="btn">View Errors</a>{% endif %}

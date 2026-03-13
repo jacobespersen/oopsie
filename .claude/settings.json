@@ -28,7 +28,6 @@
     "deny": [
       "Bash(rm *)",
       "Bash(rm -*)",
-      "Bash(git push*)",
       "Bash(git reset --hard*)",
       "Read(**/.env*)",
       "Edit(**/.env*)",

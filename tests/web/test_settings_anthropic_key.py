@@ -1,7 +1,6 @@
 """Tests for Anthropic API key management on org settings page."""
 
 import httpx
-from oopsie.auth import create_access_token
 from oopsie.deps import get_session
 from oopsie.main import app
 from oopsie.models.membership import MemberRole
@@ -9,6 +8,7 @@ from oopsie.services.anthropic_key_service import (
     get_anthropic_api_key,
     set_anthropic_api_key,
 )
+from oopsie.session import create_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.conftest import TEST_ENCRYPTION_KEY
@@ -78,7 +78,7 @@ class TestOrgSettingsAnthropicKey:
         assert key == "sk-ant-keep-me"
 
     async def test_member_cannot_set_org_key(
-        self, organization, db_session: AsyncSession
+        self, organization, db_session: AsyncSession, fake_redis
     ):
         """Regular members are rejected from the anthropic-key endpoint."""
         member_user = UserFactory.build()
@@ -92,7 +92,7 @@ class TestOrgSettingsAnthropicKey:
         db_session.add(membership)
         await db_session.flush()
 
-        token = create_access_token(member_user.id, member_user.email)
+        session_token = await create_session(member_user.id)
 
         async def override_get_session():
             yield db_session
@@ -102,7 +102,7 @@ class TestOrgSettingsAnthropicKey:
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app),
                 base_url="http://test",
-                cookies={"access_token": token},
+                cookies={"session_id": session_token},
             ) as client:
                 resp = await client.post(
                     f"/orgs/{organization.slug}/settings/anthropic-key",

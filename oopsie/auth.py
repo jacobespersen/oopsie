@@ -1,7 +1,6 @@
-"""JWT creation/decoding and Google OAuth helpers."""
+"""Google OAuth helpers and invitation-gated registration."""
 
 import uuid
-from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
@@ -11,23 +10,13 @@ if TYPE_CHECKING:
     from oopsie.models.invitation import Invitation
     from oopsie.models.membership import Membership
 
-import jwt
 from authlib.integrations.starlette_client import OAuth
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.config import get_settings
 from oopsie.logging import logger
-from oopsie.models.revoked_token import RevokedToken
 from oopsie.models.user import User
-
-# Shared cookie options for auth tokens (httponly, samesite, path).
-# Used by auth_routes.py and auth_middleware.py.
-AUTH_COOKIE_OPTS: dict[str, Any] = {
-    "httponly": True,
-    "samesite": "lax",
-    "path": "/",
-}
 
 
 @lru_cache(maxsize=1)
@@ -50,122 +39,6 @@ def _build_google_client() -> Any:
 def get_google_oauth_client() -> Any:
     """Return the Google OAuth client (cached after first call)."""
     return _build_google_client()
-
-
-def create_access_token(user_id: uuid.UUID, email: str) -> str:
-    """Encode a short-lived JWT access token."""
-    settings = get_settings()
-    now = datetime.now(tz=UTC)
-    payload = {
-        "jti": str(uuid.uuid4()),
-        "sub": str(user_id),
-        "email": email,
-        "type": "access",
-        "iat": now,
-        "exp": now + timedelta(minutes=settings.jwt_access_expiry_minutes),
-    }
-    return jwt.encode(
-        payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
-    )
-
-
-def create_refresh_token(user_id: uuid.UUID) -> str:
-    """Encode a long-lived JWT refresh token."""
-    settings = get_settings()
-    now = datetime.now(tz=UTC)
-    payload = {
-        "jti": str(uuid.uuid4()),
-        "sub": str(user_id),
-        "type": "refresh",
-        "iat": now,
-        "exp": now + timedelta(minutes=settings.jwt_refresh_expiry_minutes),
-    }
-    return jwt.encode(
-        payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
-    )
-
-
-def decode_jwt(token: str) -> dict[str, Any]:
-    """Decode a JWT token without DB checks. Raises ValueError on invalid input."""
-    settings = get_settings()
-    try:
-        return jwt.decode(
-            token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
-        )
-    except jwt.ExpiredSignatureError:
-        raise ValueError("Token has expired")
-    except jwt.InvalidTokenError as exc:
-        raise ValueError(f"Invalid token: {exc}")
-
-
-def decode_jwt_allow_expired(token: str) -> dict[str, Any]:
-    """Decode a JWT token without verifying expiry.
-
-    Used by the token refresh middleware to read claims from expired
-    access tokens. Signature is still verified — only expiry is skipped.
-    Raises ValueError on invalid/tampered tokens.
-    """
-    settings = get_settings()
-    try:
-        return jwt.decode(
-            token,
-            settings.jwt_secret_key,
-            algorithms=[settings.jwt_algorithm],
-            options={"verify_exp": False},
-        )
-    except jwt.InvalidTokenError as exc:
-        raise ValueError(f"Invalid token: {exc}")
-
-
-async def rotate_tokens(session: AsyncSession, refresh_token: str) -> tuple[str, str]:
-    """Validate refresh token, revoke it, and issue a new token pair.
-
-    Returns (new_access_token, new_refresh_token).
-    Raises ValueError if the refresh token is invalid, revoked,
-    wrong type, or the user no longer exists.
-    """
-    payload = await decode_jwt_token(refresh_token, session)
-
-    if payload.get("type") != "refresh":
-        raise ValueError("Invalid token type")
-
-    # Revoke old refresh token
-    exp = payload.get("exp")
-    expires_at = datetime.fromtimestamp(exp, tz=UTC) if exp else datetime.now(tz=UTC)
-    await revoke_token(session, payload["jti"], expires_at)
-
-    # Look up user for the new access token
-    user_id = uuid.UUID(payload["sub"])
-    result = await session.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise ValueError("User not found")
-
-    new_access = create_access_token(user.id, user.email)
-    new_refresh = create_refresh_token(user.id)
-    logger.info("token_rotation_success", user_id=str(user.id))
-    return new_access, new_refresh
-
-
-async def decode_jwt_token(token: str, session: AsyncSession) -> dict[str, Any]:
-    """Decode JWT and verify it has not been revoked."""
-    payload = decode_jwt(token)
-    jti = payload.get("jti")
-    if jti:
-        result = await session.execute(
-            select(RevokedToken).where(RevokedToken.jti == jti)
-        )
-        if result.scalar_one_or_none():
-            raise ValueError("Token has been revoked")
-    return payload
-
-
-async def revoke_token(session: AsyncSession, jti: str, expires_at: datetime) -> None:
-    """Add a token JTI to the deny list."""
-    revoked = RevokedToken(jti=jti, expires_at=expires_at)
-    session.add(revoked)
-    await session.flush()
-    logger.info("token_revoked", jti=jti)
 
 
 async def upsert_user(

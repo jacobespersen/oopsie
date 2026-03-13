@@ -3,9 +3,9 @@
 import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
-from oopsie.auth import create_access_token
 from oopsie.deps import get_session
 from oopsie.models.membership import MemberRole
+from oopsie.session import create_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -71,7 +71,7 @@ async def test_get_current_membership_raises_403_when_not_member(
 
 @pytest.mark.asyncio
 async def test_require_role_allows_sufficient_role(
-    db_session: AsyncSession, factory, api_client
+    db_session: AsyncSession, factory, api_client, fake_redis
 ):
     """RequireRole allows access when user has the required role or higher."""
     from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
@@ -85,7 +85,7 @@ async def test_require_role_allows_sufficient_role(
         role=MemberRole.admin,
     )
 
-    access_token = create_access_token(user.id, user.email)
+    session_token = await create_session(user.id)
     app = _make_app(MemberRole.member, db_session)
 
     async with AsyncClient(
@@ -93,14 +93,14 @@ async def test_require_role_allows_sufficient_role(
     ) as client:
         resp = await client.get(
             "/protected/my-org",
-            cookies={"access_token": access_token},
+            cookies={"session_id": session_token},
         )
     assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_require_role_denies_insufficient_role(
-    db_session: AsyncSession, factory, api_client
+    db_session: AsyncSession, factory, api_client, fake_redis
 ):
     """RequireRole returns 403 when user has insufficient role."""
     from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
@@ -114,7 +114,7 @@ async def test_require_role_denies_insufficient_role(
         role=MemberRole.member,
     )
 
-    access_token = create_access_token(user.id, user.email)
+    session_token = await create_session(user.id)
     app = _make_app(MemberRole.owner, db_session)
 
     async with AsyncClient(
@@ -122,6 +122,6 @@ async def test_require_role_denies_insufficient_role(
     ) as client:
         resp = await client.get(
             "/protected/my-org2",
-            cookies={"access_token": access_token},
+            cookies={"session_id": session_token},
         )
     assert resp.status_code == 403

@@ -1,18 +1,18 @@
 """Dependency injection (db session, auth)."""
 
-import uuid
-
 from fastapi import Depends, HTTPException, Request
+
+# Keep HTTPBearer only for API key auth (get_project_from_api_key)
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.auth import decode_jwt_token
 from oopsie.database import get_session
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership, role_rank
 from oopsie.models.project import Project
 from oopsie.models.user import User
+from oopsie.session import extend_session, get_session_user_id
 from oopsie.utils.encryption import hash_api_key
 
 _bearer_scheme = HTTPBearer(auto_error=False)
@@ -47,36 +47,26 @@ async def get_current_user(
     request: Request,
     session: AsyncSession = Depends(get_session),
 ) -> User:
-    """Extract JWT from cookie or Authorization header and return the current user.
+    """Extract session_id from cookie and return the current user.
 
-    Raises 401 if missing, invalid, expired, or revoked.
+    Raises 401 if missing, invalid, or expired.
     """
-    token = request.cookies.get("access_token")
-    if not token:
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            token = auth_header[7:]
+    token = request.cookies.get("session_id")
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    try:
-        payload = await decode_jwt_token(token, session)
-    except ValueError as exc:
-        raise HTTPException(status_code=401, detail=str(exc))
+    user_id = await get_session_user_id(token)
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
-    if payload.get("type") != "access":
-        raise HTTPException(status_code=401, detail="Invalid token type")
-
-    user_id_str = payload.get("sub")
-    if not user_id_str:
-        raise HTTPException(status_code=401, detail="Invalid token payload")
-
-    result = await session.execute(
-        select(User).where(User.id == uuid.UUID(user_id_str))
-    )
+    result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+
+    # Reset sliding window TTL so active users stay logged in
+    await extend_session(token)
+
     return user
 
 

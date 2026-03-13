@@ -8,7 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Auth flow migrated from JWT tokens to Redis-backed sessions. Login now creates a server-side session with a 7-day sliding window TTL instead of issuing JWT access/refresh token pairs. The `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_ACCESS_EXPIRY_MINUTES`, and `JWT_REFRESH_EXPIRY_MINUTES` environment variables are no longer used.
 - Anthropic API key is now stored encrypted per-organization and per-project instead of as a global environment variable. Projects inherit the org key unless overridden. The `ANTHROPIC_API_KEY` environment variable is no longer used.
+
+### Removed
+- JWT-based authentication (access/refresh tokens, token rotation, token revocation)
+- `TokenRefreshMiddleware` — no longer needed with server-side sessions
+- `RevokedToken` model and `revoked_tokens` database table
+- `pyjwt[crypto]` dependency
+- `/auth/refresh` endpoint
+- Bearer token header fallback for web auth (API key auth via Bearer header is unchanged)
 
 ### Fixed
 - Fix pipeline now skips gracefully when no Anthropic API key is configured instead of crashing the worker

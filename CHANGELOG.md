@@ -8,20 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
-- Web authentication migrated from JWT tokens to Redis-backed server-side sessions with 7-day sliding window TTL; instant session revocation on logout replaces the unbounded revoked_tokens table
-- Auth flow migrated from JWT tokens to Redis-backed sessions. Login now creates a server-side session with a 7-day sliding window TTL instead of issuing JWT access/refresh token pairs. The `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_ACCESS_EXPIRY_MINUTES`, and `JWT_REFRESH_EXPIRY_MINUTES` environment variables are no longer used.
+- Web authentication migrated from JWT tokens to Redis-backed server-side sessions with 7-day sliding window TTL; instant session revocation on logout replaces the unbounded `revoked_tokens` table
 - Anthropic API key is now stored encrypted per-organization and per-project instead of as a global environment variable. Projects inherit the org key unless overridden. The `ANTHROPIC_API_KEY` environment variable is no longer used.
 
 ### Removed
-- JWT token refresh middleware (TokenRefreshMiddleware) and POST /auth/refresh endpoint
-- JWT_SECRET_KEY environment variable (no longer required)
-- revoked_tokens database table (replaced by Redis session expiry)
-- PyJWT dependency
-- JWT-based authentication (access/refresh tokens, token rotation, token revocation)
-- `TokenRefreshMiddleware` — no longer needed with server-side sessions
+- JWT-based authentication (access/refresh tokens, token rotation, token revocation) — replaced by Redis sessions
+- `TokenRefreshMiddleware` and `POST /auth/refresh` endpoint
 - `RevokedToken` model and `revoked_tokens` database table
 - `pyjwt[crypto]` dependency
-- `/auth/refresh` endpoint
+- `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_ACCESS_EXPIRY_MINUTES`, `JWT_REFRESH_EXPIRY_MINUTES` environment variables
 - Bearer token header fallback for web auth (API key auth via Bearer header is unchanged)
 
 ### Fixed
@@ -30,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings page raises 404 instead of silently swallowing missing organization
 
 ### Added
-- Server-side token refresh middleware — users stay logged in for up to 7 days of inactivity instead of being logged out after 60 minutes (#21)
 - Audit logging for Anthropic key set/clear operations
 - Fix pipeline now authenticates git operations with GitHub App installation access tokens; pipeline skips gracefully when no active installation exists for the project's org (PIPE-01)
 - GitHub App installation flow: "Connect GitHub" redirect and OAuth callback per org (INST-01, INST-02)
@@ -50,6 +44,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub token encryption at rest (Fernet)
 - API key management with hash-based storage
 - Structured JSON logging with structlog
-
-### Changed
-- Extracted shared cookie constants (`AUTH_COOKIE_OPTS`) from `auth_routes.py` to `auth.py` for DRY reuse

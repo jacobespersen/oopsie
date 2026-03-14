@@ -84,7 +84,14 @@ async def auth_callback(
     else:
         redirect_url = "/auth/login?error=no_organization"
 
-    response: Response = RedirectResponse(url=redirect_url, status_code=303)
+    # Return a "Signing you in..." transition page instead of a bare 303
+    # redirect. The page shows immediate visual feedback and redirects
+    # client-side, eliminating the blank-page flash during the OAuth dance.
+    response = templates.TemplateResponse(
+        request=request,
+        name="auth/signing_in.html",
+        context={"redirect_url": redirect_url},
+    )
     _set_session_cookie(response, session_token)
     logger.info("user_logged_in", user_id=str(user.id), email=user.email)
     return response

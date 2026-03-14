@@ -114,8 +114,8 @@ async def test_auth_callback_success(
     with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
-    assert resp.status_code == 303
-    assert resp.headers["location"] == f"/orgs/{org.slug}/projects"
+    assert resp.status_code == 200
+    assert f"/orgs/{org.slug}/projects" in resp.text
     assert "session_id" in resp.cookies
 
 
@@ -293,8 +293,8 @@ async def test_auth_callback_new_user_with_invitation_succeeds(
     with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
-    assert resp.status_code == 303
-    assert resp.headers["location"] == f"/orgs/{org.slug}/projects"
+    assert resp.status_code == 200
+    assert f"/orgs/{org.slug}/projects" in resp.text
     assert "session_id" in resp.cookies
 
     memberships = (await db_session.execute(select(Membership))).scalars().all()
@@ -345,8 +345,8 @@ async def test_auth_callback_existing_user_bypasses_invitation(
     with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
-    assert resp.status_code == 303
-    assert resp.headers["location"] == f"/orgs/{org.slug}/projects"
+    assert resp.status_code == 200
+    assert f"/orgs/{org.slug}/projects" in resp.text
 
 
 @pytest.mark.asyncio
@@ -381,7 +381,7 @@ async def test_auth_callback_accepts_multiple_invitations(
     with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
-    assert resp.status_code == 303
+    assert resp.status_code == 200
     assert "session_id" in resp.cookies
 
     memberships = (await db_session.execute(select(Membership))).scalars().all()
@@ -470,5 +470,5 @@ async def test_auth_callback_existing_user_no_memberships_redirects_to_error(
     with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
-    assert resp.status_code == 303
-    assert "no_organization" in resp.headers["location"]
+    assert resp.status_code == 200
+    assert "no_organization" in resp.text

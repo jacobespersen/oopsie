@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Public landing page at `/` with signup request form for new organization onboarding (#17)
+- `SignupRequest` model with partial unique index (one pending request per email, resubmission allowed after rejection)
+- `OrgCreationInvitation` model — created when a platform admin approves a signup request, consumed on OAuth login
+- Platform admin dashboard at `/admin/signup-requests` for reviewing, approving, and rejecting signup requests
+- `is_platform_admin` flag on User model, auto-set during OAuth login when email matches `ADMIN_EMAIL`
+- `require_platform_admin` FastAPI dependency for gating admin-only routes
+- `slugify` and `generate_unique_slug` utilities extracted to `oopsie/utils/slug.py` with slug collision handling
+- Auth flow (`resolve_or_register_user`) now handles org-creation invitations: creates org + OWNER membership on login
+- Admin navigation link in site header (visible only to platform admins)
+
 ### Changed
 - Web authentication migrated from JWT tokens to Redis-backed server-side sessions with 7-day sliding window TTL; instant session revocation on logout replaces the unbounded `revoked_tokens` table
 - Anthropic API key is now stored encrypted per-organization and per-project instead of as a global environment variable. Projects inherit the org key unless overridden. The `ANTHROPIC_API_KEY` environment variable is no longer used.

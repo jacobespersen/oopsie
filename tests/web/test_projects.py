@@ -277,11 +277,11 @@ async def test_web_regenerate_api_key(
 
 
 @pytest.mark.asyncio
-async def test_root_redirects_to_login(api_client):
-    """GET / redirects to /auth/login."""
-    response = await api_client.get("/", follow_redirects=False)
-    assert response.status_code == 307
-    assert response.headers["location"] == "/auth/login"
+async def test_root_shows_landing_page(api_client):
+    """GET / shows the public landing page."""
+    response = await api_client.get("/")
+    assert response.status_code == 200
+    assert "Oopsie" in response.text
 
 
 # ---------------------------------------------------------------------------

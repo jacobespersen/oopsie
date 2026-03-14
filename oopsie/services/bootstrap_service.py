@@ -5,8 +5,6 @@ default organization and an OWNER invitation so the first admin can sign up
 via Google OAuth without a manual database insert.
 """
 
-import re
-
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,15 +12,7 @@ from oopsie.logging import logger
 from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole
 from oopsie.models.organization import Organization
-
-
-def _slugify(name: str) -> str:
-    """Convert an organization name to a URL-safe slug."""
-    slug = name.lower().strip()
-    slug = re.sub(r"[^\w\s-]", "", slug)
-    slug = re.sub(r"[\s_-]+", "-", slug)
-    slug = slug.strip("-")
-    return slug or "default"
+from oopsie.utils.slug import slugify
 
 
 async def bootstrap_if_needed(
@@ -45,7 +35,7 @@ async def bootstrap_if_needed(
         return
 
     # Create the seed organization from the configured ORG_NAME.
-    slug = _slugify(org_name)
+    slug = slugify(org_name)
     org = Organization(name=org_name, slug=slug)
     session.add(org)
     await session.flush()

@@ -4,7 +4,6 @@ import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -16,8 +15,10 @@ from oopsie.logging import RequestLoggingMiddleware, setup_logging
 from oopsie.queue import close_arq_pool
 from oopsie.services.bootstrap_service import bootstrap_if_needed
 from oopsie.session import close_redis
+from oopsie.web.admin import router as admin_router
 from oopsie.web.errors import router as web_errors_router
 from oopsie.web.github import router as github_router
+from oopsie.web.landing import router as landing_router
 from oopsie.web.members import router as web_members_router
 from oopsie.web.projects import router as web_projects_router
 from oopsie.web.settings import router as web_settings_router
@@ -65,12 +66,8 @@ app.include_router(web_projects_router, tags=["web"])
 app.include_router(web_errors_router, tags=["web"])
 app.include_router(web_members_router, tags=["web"])
 app.include_router(web_settings_router, tags=["web"])
-
-
-@app.get("/")
-def root():
-    """Redirect to projects UI."""
-    return RedirectResponse(url="/auth/login")
+app.include_router(admin_router, tags=["admin"])
+app.include_router(landing_router, tags=["web"])
 
 
 @app.get("/health")

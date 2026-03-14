@@ -6,8 +6,10 @@ from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
 from oopsie.models.github_installation import GithubInstallation, InstallationStatus
 from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole, Membership
+from oopsie.models.org_creation_invitation import OrgCreationInvitation
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
+from oopsie.models.signup_request import SignupRequest, SignupRequestStatus
 from oopsie.models.user import User
 from oopsie.utils.encryption import hash_api_key
 
@@ -92,3 +94,26 @@ class GithubInstallationFactory(factory.Factory):
     github_account_login = None
     status = InstallationStatus.ACTIVE
     # organization_id must be supplied by the caller
+
+
+class SignupRequestFactory(factory.Factory):
+    class Meta:
+        model = SignupRequest
+
+    name = factory.Sequence(lambda n: f"Requester {n}")
+    email = factory.Sequence(lambda n: f"requester-{n}@example.com")
+    org_name = factory.Sequence(lambda n: f"Org Request {n}")
+    reason = "I want to use Oopsie for my team."
+    status = SignupRequestStatus.pending
+    reviewed_by_id = None
+    reviewed_at = None
+    # No FK dependencies required
+
+
+class OrgCreationInvitationFactory(factory.Factory):
+    class Meta:
+        model = OrgCreationInvitation
+
+    email = factory.Sequence(lambda n: f"org-invite-{n}@example.com")
+    org_name = factory.Sequence(lambda n: f"New Org {n}")
+    # signup_request_id and invited_by_id must be supplied by caller

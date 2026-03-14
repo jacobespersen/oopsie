@@ -7,8 +7,10 @@ from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
 from oopsie.models.github_installation import GithubInstallation, InstallationStatus
 from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole, Membership
+from oopsie.models.org_creation_invitation import OrgCreationInvitation
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
+from oopsie.models.signup_request import SignupRequest, SignupRequestStatus
 from oopsie.models.user import User
 
 __all__ = [
@@ -23,7 +25,10 @@ __all__ = [
     "Invitation",
     "MemberRole",
     "Membership",
+    "OrgCreationInvitation",
     "Organization",
     "Project",
+    "SignupRequest",
+    "SignupRequestStatus",
     "User",
 ]

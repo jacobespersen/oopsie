@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Signup Requests — Oopsie Admin{% endblock %}
+
+{% block content %}
+<div class="Subhead">
+  <h1 class="Subhead-heading">Signup Requests</h1>
+</div>
+
+<div class="tabnav mb-4">
+  <nav class="tabnav-tabs" aria-label="Status filter">
+    <a class="tabnav-tab{% if current_status == SignupRequestStatus.pending %} selected{% endif %}"
+       href="/admin/signup-requests?status=pending">
+      Pending
+    </a>
+    <a class="tabnav-tab{% if current_status == SignupRequestStatus.approved %} selected{% endif %}"
+       href="/admin/signup-requests?status=approved">
+      Approved
+    </a>
+    <a class="tabnav-tab{% if current_status == SignupRequestStatus.rejected %} selected{% endif %}"
+       href="/admin/signup-requests?status=rejected">
+      Rejected
+    </a>
+  </nav>
+</div>
+
+{% if signup_requests %}
+<div class="Box">
+  {% for req in signup_requests %}
+  <div class="Box-row d-flex flex-items-start flex-justify-between">
+    <div class="flex-1">
+      <strong>{{ req.name }}</strong>
+      <span class="color-fg-muted ml-2">{{ req.email }}</span>
+      <div class="mt-1">
+        <span class="Label Label--secondary">{{ req.org_name }}</span>
+      </div>
+      <p class="color-fg-muted mt-1 mb-0 f6">{{ req.reason }}</p>
+      <p class="color-fg-muted mt-1 mb-0 f6">
+        Submitted {{ req.created_at.strftime('%Y-%m-%d %H:%M') }}
+        {% if req.reviewed_by %}
+          — Reviewed by {{ req.reviewed_by.name }} on {{ req.reviewed_at.strftime('%Y-%m-%d %H:%M') }}
+        {% endif %}
+      </p>
+    </div>
+    {% if current_status == SignupRequestStatus.pending %}
+    <div class="d-flex gap-2 ml-3">
+      <form method="post" action="/admin/signup-requests/{{ req.id }}/approve">
+        <button type="submit" class="btn btn-primary btn-sm">Approve</button>
+      </form>
+      <form method="post" action="/admin/signup-requests/{{ req.id }}/reject">
+        <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="blankslate">
+  <p>No {{ current_status.value }} signup requests.</p>
+</div>
+{% endif %}
+{% endblock %}

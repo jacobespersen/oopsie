@@ -388,3 +388,87 @@ async def test_auth_callback_accepts_multiple_invitations(
     assert len(memberships) == 2
     org_ids = {m.organization_id for m in memberships}
     assert org_ids == {org1.id, org2.id}
+
+
+# ---------------------------------------------------------------------------
+# resolve_or_register_user: existing user skips invitation lookup
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_resolve_existing_user_skips_invitation_lookup(
+    db_session: AsyncSession, factory
+):
+    """Existing user login skips invitation query and returns user with memberships."""
+    from oopsie.auth import resolve_or_register_user
+
+    from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
+
+    org = await factory(OrganizationFactory)
+    user = await factory(UserFactory, google_sub="google-skip-inv")
+    await factory(MembershipFactory, organization_id=org.id, user_id=user.id)
+
+    google_info = {
+        "sub": "google-skip-inv",
+        "email": user.email,
+        "name": user.name,
+    }
+    returned_user, new_memberships = await resolve_or_register_user(
+        db_session, google_info
+    )
+    assert returned_user.id == user.id
+    # Existing users return no new memberships (invitations not checked)
+    assert new_memberships == []
+    # Memberships should be eagerly loaded on the user
+    assert len(returned_user.memberships) == 1
+    assert returned_user.memberships[0].organization.slug == org.slug
+
+
+@pytest.mark.asyncio
+async def test_resolve_existing_user_no_memberships_returns_empty(
+    db_session: AsyncSession, factory
+):
+    """Existing user with no memberships returns empty list."""
+    from oopsie.auth import resolve_or_register_user
+
+    from tests.factories import UserFactory
+
+    user = await factory(UserFactory, google_sub="google-no-mem")
+
+    google_info = {
+        "sub": "google-no-mem",
+        "email": user.email,
+        "name": user.name,
+    }
+    returned_user, new_memberships = await resolve_or_register_user(
+        db_session, google_info
+    )
+    assert returned_user.id == user.id
+    assert new_memberships == []
+    assert len(returned_user.memberships) == 0
+
+
+@pytest.mark.asyncio
+async def test_auth_callback_existing_user_no_memberships_redirects_to_error(
+    api_client, db_session: AsyncSession, factory, fake_redis
+):
+    """Existing user with no memberships redirects to login with error."""
+    from tests.factories import UserFactory
+
+    await factory(UserFactory, google_sub="google-no-mem-cb")
+
+    mock_google = AsyncMock()
+    mock_google.authorize_access_token = AsyncMock(
+        return_value={
+            "userinfo": {
+                "sub": "google-no-mem-cb",
+                "email": "nomem@example.com",
+                "name": "No Membership User",
+            }
+        }
+    )
+    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+        resp = await api_client.get("/auth/callback", follow_redirects=False)
+
+    assert resp.status_code == 303
+    assert "no_organization" in resp.headers["location"]

@@ -1,6 +1,5 @@
 """Google OAuth helpers and invitation-gated registration."""
 
-import uuid
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
@@ -120,19 +119,32 @@ async def resolve_or_register_user(
 
     Returns the user and a list of new Memberships from accepted invitations.
     Raises ValueError with a redirect hint if the user is new and has no invitation.
+
+    For existing users, skips the invitation lookup entirely (saves a DB round-trip).
+    Eagerly loads memberships + organizations so callers can derive redirect URLs
+    without an additional query.
     """
+    from oopsie.models.membership import Membership
+
     google_sub = google_user_info["sub"]
-    result = await session.execute(select(User).where(User.google_sub == google_sub))
-    existing = result.scalar_one_or_none()
+    result = await session.execute(
+        select(User)
+        .options(joinedload(User.memberships).joinedload(Membership.organization))
+        .where(User.google_sub == google_sub)
+    )
+    existing = result.unique().scalar_one_or_none()
 
-    # Check for pending invitations (both new and existing users)
+    if existing is not None:
+        # Returning user — skip invitation lookup, just update profile fields
+        user = await upsert_user(session, google_user_info, existing=existing)
+        return user, []
+
+    # New user — check for pending invitations (required for registration)
     invitations = await get_pending_invitations(session, google_user_info["email"])
-
-    if existing is None and not invitations:
-        # New user with no invitation — reject registration
+    if not invitations:
         raise ValueError("no_invitation")
 
-    user = await upsert_user(session, google_user_info, existing=existing)
+    user = await upsert_user(session, google_user_info)
 
     memberships: list[Membership] = []
     for invitation in invitations:
@@ -140,22 +152,3 @@ async def resolve_or_register_user(
         memberships.append(membership)
 
     return user, memberships
-
-
-async def get_user_default_redirect(session: AsyncSession, user_id: uuid.UUID) -> str:
-    """Look up the user's first org membership and return a redirect URL.
-
-    Falls back to the login page with an error if the user has no organization.
-    """
-    from oopsie.models.membership import Membership
-
-    mem_result = await session.execute(
-        select(Membership)
-        .options(joinedload(Membership.organization))
-        .where(Membership.user_id == user_id)
-        .limit(1)
-    )
-    mem = mem_result.scalar_one_or_none()
-    if mem and mem.organization:
-        return f"/orgs/{mem.organization.slug}/projects"
-    return "/auth/login?error=no_organization"

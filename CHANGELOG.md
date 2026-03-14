@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Web authentication migrated from JWT tokens to Redis-backed server-side sessions with 7-day sliding window TTL; instant session revocation on logout replaces the unbounded `revoked_tokens` table
 - Anthropic API key is now stored encrypted per-organization and per-project instead of as a global environment variable. Projects inherit the org key unless overridden. The `ANTHROPIC_API_KEY` environment variable is no longer used.
+- Login flow optimized from 7 DB round-trips to 4: existing users skip invitation lookup, memberships eagerly loaded with user query, org-scoped pages use single combined user+membership query via `get_authenticated_membership`
+- DB connection pool tuned for Neon Postgres (pool_pre_ping, LIFO reuse, 5-min recycle)
 
 ### Removed
 - JWT-based authentication (access/refresh tokens, token rotation, token revocation) — replaced by Redis sessions

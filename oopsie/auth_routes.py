@@ -4,11 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.auth import (
-    get_google_oauth_client,
-    get_user_default_redirect,
-    resolve_or_register_user,
-)
+from oopsie.auth import get_google_oauth_client, resolve_or_register_user
 from oopsie.config import get_settings
 from oopsie.deps import get_session
 from oopsie.logging import logger
@@ -60,9 +56,9 @@ async def auth_callback(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Handle Google OAuth callback: exchange code, upsert user, create session."""
-    # Exchange the authorization code for user info
     google = get_google_oauth_client()
     token = await google.authorize_access_token(request)
+
     user_info = token.get("userinfo")
     if not user_info:
         raise HTTPException(
@@ -71,15 +67,23 @@ async def auth_callback(
 
     # Register or authenticate the user (invitation-gated for new users)
     try:
-        user, _memberships = await resolve_or_register_user(session, user_info)
+        user, new_memberships = await resolve_or_register_user(session, user_info)
     except ValueError:
         return RedirectResponse(url="/auth/login?error=no_invitation", status_code=303)
 
     # Create a Redis session
     session_token = await create_session(user.id)
 
-    # Redirect to the user's default org
-    redirect_url = await get_user_default_redirect(session, user.id)
+    # Derive redirect URL from eagerly-loaded memberships.
+    # For new users, new_memberships contains just-accepted invitations.
+    # For returning users, user.memberships was loaded via joinedload.
+    all_memberships = new_memberships or list(user.memberships)
+    if all_memberships:
+        org_slug = all_memberships[0].organization.slug
+        redirect_url = f"/orgs/{org_slug}/projects"
+    else:
+        redirect_url = "/auth/login?error=no_organization"
+
     response: Response = RedirectResponse(url=redirect_url, status_code=303)
     _set_session_cookie(response, session_token)
     logger.info("user_logged_in", user_id=str(user.id), email=user.email)

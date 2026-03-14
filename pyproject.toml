@@ -26,7 +26,6 @@ dependencies = [
     "redis[hiredis]",
     "httpx",
     "authlib",
-    "pyjwt[crypto]",
     "githubkit[auth-app]",
     "itsdangerous",
 ]
@@ -43,6 +42,7 @@ dev = [
     "pip-audit",
     "pre-commit",
     "honcho",
+    "fakeredis[lua]",
 ]
 
 [tool.setuptools.packages.find]

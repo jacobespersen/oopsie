@@ -9,7 +9,6 @@ from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
-from oopsie.models.revoked_token import RevokedToken
 from oopsie.models.user import User
 
 __all__ = [
@@ -26,6 +25,5 @@ __all__ = [
     "Membership",
     "Organization",
     "Project",
-    "RevokedToken",
     "User",
 ]

@@ -8,7 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Web authentication migrated from JWT tokens to Redis-backed server-side sessions with 7-day sliding window TTL; instant session revocation on logout replaces the unbounded `revoked_tokens` table
 - Anthropic API key is now stored encrypted per-organization and per-project instead of as a global environment variable. Projects inherit the org key unless overridden. The `ANTHROPIC_API_KEY` environment variable is no longer used.
+- Login flow optimized from 7 DB round-trips to 4: existing users skip invitation lookup, memberships eagerly loaded with user query, org-scoped pages use single combined user+membership query via `get_authenticated_membership`
+- DB connection pool uses LIFO reuse to reduce Neon cold starts
+- OAuth callback returns a "Signing you in..." transition page instead of a blank redirect, with loading state on the sign-in button for immediate visual feedback
+
+### Removed
+- JWT-based authentication (access/refresh tokens, token rotation, token revocation) — replaced by Redis sessions
+- `TokenRefreshMiddleware` and `POST /auth/refresh` endpoint
+- `RevokedToken` model and `revoked_tokens` database table
+- `pyjwt[crypto]` dependency
+- `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_ACCESS_EXPIRY_MINUTES`, `JWT_REFRESH_EXPIRY_MINUTES` environment variables
+- Bearer token header fallback for web auth (API key auth via Bearer header is unchanged)
 
 ### Fixed
 - Fix pipeline now skips gracefully when no Anthropic API key is configured instead of crashing the worker
@@ -16,7 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings page raises 404 instead of silently swallowing missing organization
 
 ### Added
-- Server-side token refresh middleware — users stay logged in for up to 7 days of inactivity instead of being logged out after 60 minutes (#21)
 - Audit logging for Anthropic key set/clear operations
 - Fix pipeline now authenticates git operations with GitHub App installation access tokens; pipeline skips gracefully when no active installation exists for the project's org (PIPE-01)
 - GitHub App installation flow: "Connect GitHub" redirect and OAuth callback per org (INST-01, INST-02)
@@ -36,6 +47,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub token encryption at rest (Fernet)
 - API key management with hash-based storage
 - Structured JSON logging with structlog
-
-### Changed
-- Extracted shared cookie constants (`AUTH_COOKIE_OPTS`) from `auth_routes.py` to `auth.py` for DRY reuse

@@ -12,7 +12,6 @@ from oopsie.models import (  # noqa: F401
     FixAttempt,
     GithubInstallation,
     Project,
-    RevokedToken,
     User,
 )
 from oopsie.models.base import Base

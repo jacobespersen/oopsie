@@ -28,6 +28,7 @@ dependencies = [
     "authlib",
     "githubkit[auth-app]",
     "itsdangerous",
+    "claude-agent-sdk",
 ]
 
 [project.optional-dependencies]

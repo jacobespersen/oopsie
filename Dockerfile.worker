@@ -3,6 +3,8 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     curl \
+    bubblewrap \
+    socat \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g @anthropic-ai/claude-code \
@@ -13,6 +15,10 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir -e "."
 COPY . .
 
-RUN mkdir -p /tmp/oopsie-clones
+RUN useradd --create-home --shell /bin/bash worker \
+    && mkdir -p /tmp/oopsie-clones \
+    && chown worker:worker /tmp/oopsie-clones /app
+
+USER worker
 
 CMD ["arq", "oopsie.worker.settings.WorkerSettings"]

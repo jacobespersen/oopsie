@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Web authentication migrated from JWT tokens to Redis-backed server-side sessions with 7-day sliding window TTL; instant session revocation on logout replaces the unbounded `revoked_tokens` table
 - Anthropic API key is now stored encrypted per-organization and per-project instead of as a global environment variable. Projects inherit the org key unless overridden. The `ANTHROPIC_API_KEY` environment variable is no longer used.
+- Replace Claude Code CLI subprocess with `claude-agent-sdk` Python SDK for cleaner process management and error handling
+
+### Security
+- Worker Docker container now runs as non-root `worker` user instead of root
 - Login flow optimized from 7 DB round-trips to 4: existing users skip invitation lookup, memberships eagerly loaded with user query, org-scoped pages use single combined user+membership query via `get_authenticated_membership`
 - DB connection pool uses LIFO reuse to reduce Neon cold starts
 - OAuth callback returns a "Signing you in..." transition page instead of a blank redirect, with loading state on the sign-in button for immediate visual feedback
@@ -23,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bearer token header fallback for web auth (API key auth via Bearer header is unchanged)
 
 ### Fixed
+- Fix pipeline clears `CLAUDECODE` env var before spawning Claude Code SDK to prevent nested-session detection failures
+- Claude Code SDK stderr is now captured and logged for better diagnostics on CLI failures
 - Fix pipeline now skips gracefully when no Anthropic API key is configured instead of crashing the worker
 - Corrupted or re-keyed encrypted Anthropic keys no longer cause 500 errors (returns None with structured error log)
 - Settings page raises 404 instead of silently swallowing missing organization

@@ -17,6 +17,7 @@ dependencies = [
     "sqlalchemy",
     "asyncpg",
     "alembic",
+    "pydantic[email]",
     "pydantic-settings",
     "cryptography",
     "greenlet",

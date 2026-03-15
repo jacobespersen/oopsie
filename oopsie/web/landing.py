@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel, EmailStr, Field, ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +13,25 @@ from oopsie.services.signup_request_service import create_signup_request
 from oopsie.web import templates
 
 router = APIRouter()
+
+
+class SignupRequestForm(BaseModel):
+    """Validation schema for the signup request form."""
+
+    name: str = Field(max_length=255)
+    email: EmailStr
+    org_name: str = Field(max_length=255)
+    reason: str = Field(max_length=2000)
+
+
+def _extract_field_errors(exc: ValidationError) -> dict[str, str]:
+    """Extract a {field_name: message} dict from a Pydantic ValidationError."""
+    errors: dict[str, str] = {}
+    for err in exc.errors():
+        # loc is a tuple like ("name",); use the first element as field name
+        field = str(err["loc"][0]) if err["loc"] else "unknown"
+        errors[field] = err["msg"]
+    return errors
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -39,6 +59,26 @@ async def submit_signup_request(
     """Handle signup request form submission."""
     error = None
     success = False
+    field_errors: dict[str, str] = {}
+
+    # Validate form data against the Pydantic model before processing
+    try:
+        SignupRequestForm(name=name, email=email, org_name=org_name, reason=reason)
+    except ValidationError as exc:
+        field_errors = _extract_field_errors(exc)
+        return templates.TemplateResponse(
+            request=request,
+            name="landing.html",
+            context={
+                "user": None,
+                "field_errors": field_errors,
+                "form_name": name,
+                "form_email": email,
+                "form_org_name": org_name,
+                "form_reason": reason,
+            },
+        )
+
     try:
         await create_signup_request(
             session, name=name, email=email, org_name=org_name, reason=reason

@@ -11,13 +11,8 @@ os.environ.setdefault("ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6m
 # instead of duplicating the value.
 TEST_ENCRYPTION_KEY = "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
 
-os.environ.setdefault(
-    "JWT_SECRET_KEY", "test-jwt-secret-key-for-tests-only-not-secure!!"
-)
-
 import httpx  # noqa: E402
 import pytest_asyncio  # noqa: E402
-from oopsie.auth import create_access_token  # noqa: E402
 from oopsie.config import Settings  # noqa: E402
 from oopsie.deps import get_session  # noqa: E402
 from oopsie.main import app  # noqa: E402
@@ -25,11 +20,11 @@ from oopsie.models import (  # noqa: E402, F401
     Error,
     FixAttempt,
     Project,
-    RevokedToken,
     User,
 )
 from oopsie.models.base import Base  # noqa: E402
 from oopsie.models.membership import MemberRole  # noqa: E402
+from oopsie.session import create_session  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
 
 from tests.factories import (  # noqa: E402
@@ -147,20 +142,22 @@ async def current_user(db_session: AsyncSession, organization) -> User:
 
 
 @pytest_asyncio.fixture
-async def authenticated_client(db_session: AsyncSession, current_user: User):
-    """HTTP client with a valid JWT access token cookie for current_user."""
+async def authenticated_client(
+    db_session: AsyncSession, current_user: User, fake_redis
+):
+    """HTTP client with a valid session cookie for current_user."""
 
     async def override_get_session():
         yield db_session
 
     app.dependency_overrides[get_session] = override_get_session
-    token = create_access_token(current_user.id, current_user.email)
+    session_token = await create_session(current_user.id)
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(
             transport=transport,
             base_url="http://test",
-            cookies={"access_token": token},
+            cookies={"session_id": session_token},
         ) as client:
             yield client
     finally:
@@ -226,3 +223,19 @@ async def db_session() -> AsyncSession:
     finally:
         await connection.close()
         await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def fake_redis(monkeypatch):
+    """Provide a fakeredis instance and patch oopsie.session.get_redis to use it."""
+    import fakeredis.aioredis as fake_aioredis
+    import oopsie.session
+
+    fake = fake_aioredis.FakeRedis()
+
+    async def _get_fake_redis():
+        return fake
+
+    monkeypatch.setattr(oopsie.session, "get_redis", _get_fake_redis)
+    yield fake
+    await fake.aclose()

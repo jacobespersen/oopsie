@@ -33,10 +33,6 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     admin_email: str = ""
     org_name: str = "Default"
-    jwt_secret_key: str = ""
-    jwt_algorithm: str = "HS256"
-    jwt_access_expiry_minutes: int = 60
-    jwt_refresh_expiry_minutes: int = 60 * 24 * 7
     cookie_secure: bool = False
 
     github_app_id: str = ""
@@ -84,20 +80,6 @@ class Settings(BaseSettings):
                     "'from cryptography.fernet import Fernet; "
                     "print(Fernet.generate_key().decode())'"
                 ) from exc
-        return self
-
-    @model_validator(mode="after")
-    def _validate_jwt_secret(self) -> "Settings":
-        if self.google_client_id and not self.jwt_secret_key:
-            raise ValueError(
-                "JWT_SECRET_KEY is required when Google OAuth is configured."
-            )
-        if self.jwt_secret_key and len(self.jwt_secret_key) < 32:
-            raise ValueError(
-                "JWT_SECRET_KEY must be at least 32 characters. "
-                "Generate one with: python -c 'import secrets; "
-                "print(secrets.token_urlsafe(64))'"
-            )
         return self
 
     @model_validator(mode="after")

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en" data-color-mode="light" data-light-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signing in — Oopsie</title>
+  <link rel="stylesheet" href="https://unpkg.com/@primer/css@21/dist/primer.css">
+</head>
+<body>
+  <div class="d-flex flex-column flex-items-center flex-justify-center" style="min-height: 100vh;">
+    <div class="text-center">
+      <span class="AnimatedEllipsis f2 color-fg-muted">Signing you in</span>
+      <p class="color-fg-subtle f5 mt-2">You'll be redirected shortly.</p>
+    </div>
+  </div>
+  <script>window.location.replace("{{ redirect_url }}");</script>
+</body>
+</html>

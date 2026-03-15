@@ -81,8 +81,10 @@ async def get_optional_user(
     """Like get_current_user but returns None instead of raising 401."""
     try:
         return await get_current_user(request, session)
-    except HTTPException:
-        return None
+    except HTTPException as exc:
+        if exc.status_code == 401:
+            return None
+        raise
 
 
 async def get_authenticated_membership(

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `get_optional_user` now only catches 401 errors; other HTTP errors (500, etc.) propagate instead of being silently swallowed
+- Invalid `status` query param on `/admin/signup-requests` now returns 400 instead of silently defaulting to "pending"
+- `generate_unique_slug` loop is now bounded to `max_attempts=100` with warning logs on each collision retry and `RuntimeError` on exhaustion
+- Admin approve/reject error handlers now log warnings with request ID and error details for `LookupError` and `ValueError` cases
+
 ### Added
 - Public landing page at `/` with signup request form for new organization onboarding (#17)
 - `SignupRequest` model with partial unique index (one pending request per email, resubmission allowed after rejection)

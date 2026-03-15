@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.database import get_session
 from oopsie.deps import require_platform_admin
+from oopsie.logging import logger
 from oopsie.models.signup_request import SignupRequestStatus
 from oopsie.models.user import User
 from oopsie.services.signup_request_service import (
@@ -31,7 +32,11 @@ async def signup_requests_page(
     try:
         filter_status = SignupRequestStatus(status)
     except ValueError:
-        filter_status = SignupRequestStatus.pending
+        valid = [s.value for s in SignupRequestStatus]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status '{status}'. Must be one of: {valid}",
+        )
 
     requests_list = await list_signup_requests(session, status=filter_status)
 
@@ -61,8 +66,18 @@ async def approve_request(
             reviewer_id=current_user.id,
         )
     except LookupError as exc:
+        logger.warning(
+            "approve_request_not_found",
+            request_id=str(request_id),
+            error=str(exc),
+        )
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError as exc:
+        logger.warning(
+            "approve_request_conflict",
+            request_id=str(request_id),
+            error=str(exc),
+        )
         raise HTTPException(status_code=409, detail=str(exc))
 
     return RedirectResponse(
@@ -84,8 +99,18 @@ async def reject_request(
             reviewer_id=current_user.id,
         )
     except LookupError as exc:
+        logger.warning(
+            "reject_request_not_found",
+            request_id=str(request_id),
+            error=str(exc),
+        )
         raise HTTPException(status_code=404, detail=str(exc))
     except ValueError as exc:
+        logger.warning(
+            "reject_request_conflict",
+            request_id=str(request_id),
+            error=str(exc),
+        )
         raise HTTPException(status_code=409, detail=str(exc))
 
     return RedirectResponse(

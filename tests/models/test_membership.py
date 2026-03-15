@@ -51,6 +51,28 @@ async def test_membership_unique_per_org(db_session):
 
 
 @pytest.mark.asyncio
+async def test_single_org_unique_constraint(db_session):
+    """uq_membership_user prevents a user from joining multiple organizations."""
+    user = User(email="multi@example.com", name="Multi", google_sub="google-multi")
+    org1 = Organization(name="Org One", slug="org-one")
+    org2 = Organization(name="Org Two", slug="org-two")
+    db_session.add_all([user, org1, org2])
+    await db_session.flush()
+
+    db_session.add(
+        Membership(organization_id=org1.id, user_id=user.id, role=MemberRole.member)
+    )
+    await db_session.flush()
+
+    # Second membership in a DIFFERENT org should violate the unique constraint
+    db_session.add(
+        Membership(organization_id=org2.id, user_id=user.id, role=MemberRole.member)
+    )
+    with pytest.raises(IntegrityError):
+        await db_session.flush()
+
+
+@pytest.mark.asyncio
 async def test_member_role_values(db_session):
     """MemberRole enum has the expected values."""
     assert MemberRole.owner.value == "owner"

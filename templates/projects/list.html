@@ -31,7 +31,7 @@
           <a href="/orgs/{{ org_slug }}/projects/{{ p.id }}/api-key" class="btn btn-sm">API Key</a>
           <a href="/orgs/{{ org_slug }}/projects/{{ p.id }}/edit" class="btn btn-sm">Edit</a>
           <form action="/orgs/{{ org_slug }}/projects/{{ p.id }}/delete" method="post" style="display:inline;">
-            <input type="hidden" name="csrftoken" value="{{ request.cookies.get('csrftoken', '') }}">
+
             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Delete this project?');">Delete</button>
           </form>
         </td>

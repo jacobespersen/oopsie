@@ -15,12 +15,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.config import get_settings
+from oopsie.exceptions import NoInvitationError
 from oopsie.logging import logger
 from oopsie.models.user import User
-
-
-class NoInvitationError(Exception):
-    """Raised when a new user attempts to register without a pending invitation."""
 
 
 @lru_cache(maxsize=1)

@@ -45,11 +45,11 @@
     {% if current_status == SignupRequestStatus.pending %}
     <div class="d-flex gap-2 ml-3">
       <form method="post" action="/admin/signup-requests/{{ req.id }}/approve">
-        <input type="hidden" name="csrftoken" value="{{ request.cookies.get('csrftoken', '') }}">
+
         <button type="submit" class="btn btn-primary btn-sm">Approve</button>
       </form>
       <form method="post" action="/admin/signup-requests/{{ req.id }}/reject">
-        <input type="hidden" name="csrftoken" value="{{ request.cookies.get('csrftoken', '') }}">
+
         <button type="submit" class="btn btn-danger btn-sm">Reject</button>
       </form>
     </div>

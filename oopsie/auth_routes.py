@@ -4,13 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.auth import (
-    NoInvitationError,
-    get_google_oauth_client,
-    resolve_or_register_user,
-)
+from oopsie.auth import get_google_oauth_client, resolve_or_register_user
 from oopsie.config import get_settings
 from oopsie.deps import get_session
+from oopsie.exceptions import NoInvitationError
 from oopsie.logging import logger
 from oopsie.session import create_session, delete_session, get_session_user_id
 from oopsie.web import templates

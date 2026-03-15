@@ -7,14 +7,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.requests import Request
-from starlette_csrf import CSRFMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from oopsie.api.errors import router as errors_router
 from oopsie.auth_routes import router as auth_router
 from oopsie.config import get_settings
-from oopsie.logging import RequestLoggingMiddleware, setup_logging
+from oopsie.logging import setup_logging
+from oopsie.middleware.csrf import FormCSRFMiddleware
+from oopsie.middleware.request_logging import RequestLoggingMiddleware
 from oopsie.queue import close_arq_pool
 from oopsie.services.bootstrap_service import bootstrap_if_needed
 from oopsie.session import close_redis
@@ -25,35 +25,6 @@ from oopsie.web.landing import router as landing_router
 from oopsie.web.members import router as web_members_router
 from oopsie.web.projects import router as web_projects_router
 from oopsie.web.settings import router as web_settings_router
-
-
-class FormCSRFMiddleware(CSRFMiddleware):
-    """CSRFMiddleware extended to accept tokens from form fields.
-
-    The upstream starlette-csrf only checks the ``x-csrftoken`` header.
-    HTML forms cannot set custom headers, so this subclass also looks for
-    the token in URL-encoded form bodies under the ``csrftoken`` field name.
-    """
-
-    async def _get_submitted_csrf_token(self, request: Request) -> str | None:
-        # Check header first (API / fetch callers)
-        header_token = request.headers.get(self.header_name)
-        if header_token:
-            return header_token
-
-        # Fall back to form body for regular HTML form submissions
-        content_type = request.headers.get("content-type", "")
-        if "application/x-www-form-urlencoded" in content_type:
-            form = await request.form()
-            token = form.get(self.cookie_name)
-            # Close the form to release the request body stream so
-            # downstream handlers can read it again.
-            await form.close()
-            if token and isinstance(token, str):
-                return token
-
-        return None
-
 
 _settings = get_settings()
 setup_logging(_settings.log_level, _settings.log_format)

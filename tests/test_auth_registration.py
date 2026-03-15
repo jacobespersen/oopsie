@@ -1,7 +1,8 @@
 """Tests for resolve_or_register_user with org-creation invitations."""
 
 import pytest
-from oopsie.auth import NoInvitationError, resolve_or_register_user
+from oopsie.auth import resolve_or_register_user
+from oopsie.exceptions import NoInvitationError
 from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole
 from oopsie.models.org_creation_invitation import OrgCreationInvitation

@@ -33,7 +33,6 @@
     </div>
     <div class="Header-item">
       <form method="post" action="/auth/logout" style="margin: 0;">
-        <input type="hidden" name="csrftoken" value="{{ request.cookies.get('csrftoken', '') }}">
         <button type="submit" class="Header-link btn-link f6" style="background: none; border: none; cursor: pointer; color: inherit;">
           Sign out
         </button>
@@ -49,5 +48,22 @@
       Run into a problem? Report it on <a href="https://github.com/jacobespersen/oopsie/issues">GitHub</a>.
     </p>
   </footer>
+  <script>
+    // Auto-inject CSRF token from cookie into all forms so individual
+    // templates don't need to include a hidden csrftoken input manually.
+    (function() {
+      var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
+      if (!m) return;
+      var token = decodeURIComponent(m[1]);
+      document.querySelectorAll('form').forEach(function(form) {
+        if (form.querySelector('input[name="csrftoken"]')) return;
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'csrftoken';
+        input.value = token;
+        form.appendChild(input);
+      });
+    })();
+  </script>
 </body>
 </html>

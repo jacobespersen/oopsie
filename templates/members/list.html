@@ -27,7 +27,7 @@
         <td class="px-3 py-2 d-flex flex-gap-1">
           {% if m.id != current_membership.id %}
           <form action="/orgs/{{ org_slug }}/members/{{ m.id }}/role" method="post" class="d-flex flex-gap-1">
-            <input type="hidden" name="csrftoken" value="{{ request.cookies.get('csrftoken', '') }}">
+
             <select name="role" class="form-select form-select-sm">
               {% for r in MemberRole %}
               <option value="{{ r.value }}" {% if r == m.role %}selected{% endif %}>{{ r.value | capitalize }}</option>
@@ -36,7 +36,7 @@
             <button type="submit" class="btn btn-sm">Update</button>
           </form>
           <form action="/orgs/{{ org_slug }}/members/{{ m.id }}/remove" method="post" style="display:inline;">
-            <input type="hidden" name="csrftoken" value="{{ request.cookies.get('csrftoken', '') }}">
+
             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Remove this member?');">Remove</button>
           </form>
           {% else %}
@@ -70,7 +70,7 @@
         <td class="px-3 py-2">{{ inv.role.value | capitalize }}</td>
         <td class="px-3 py-2">
           <form action="/orgs/{{ org_slug }}/members/invitations/{{ inv.id }}/revoke" method="post" style="display:inline;">
-            <input type="hidden" name="csrftoken" value="{{ request.cookies.get('csrftoken', '') }}">
+
             <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Revoke this invitation?');">Revoke</button>
           </form>
         </td>
@@ -87,7 +87,6 @@
 <h2 class="f4 mb-2">Invite a Member</h2>
 <div class="Box p-3" style="max-width:480px;">
   <form action="/orgs/{{ org_slug }}/members/invite" method="post">
-    <input type="hidden" name="csrftoken" value="{{ request.cookies.get('csrftoken', '') }}">
     <div class="form-group mb-3">
       <label class="form-label" for="email">Email address</label>
       <input id="email" name="email" type="email" class="form-control width-full" placeholder="user@example.com" required>

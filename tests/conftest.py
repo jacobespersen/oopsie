@@ -162,7 +162,7 @@ async def current_user(db_session: AsyncSession, organization) -> User:
 
 @pytest_asyncio.fixture
 async def authenticated_client(
-    db_session: AsyncSession, current_user: User, fake_redis
+    db_session: AsyncSession, current_user: User, organization, fake_redis
 ):
     """HTTP client with a valid session cookie and CSRF token for current_user.
 
@@ -175,7 +175,7 @@ async def authenticated_client(
         yield db_session
 
     app.dependency_overrides[get_session] = override_get_session
-    session_token = await create_session(current_user.id)
+    session_token = await create_session(current_user.id, org_slug=organization.slug)
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(

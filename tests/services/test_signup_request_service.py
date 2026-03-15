@@ -111,15 +111,17 @@ async def test_list_signup_requests_all(db_session, factory):
 @pytest.mark.asyncio
 async def test_list_signup_requests_ordered_newest_first(db_session, factory):
     """list_signup_requests returns newest first (by created_at desc)."""
-    sr1 = await factory(SignupRequestFactory, name="First")
-    sr2 = await factory(SignupRequestFactory, name="Second")
+    earlier = datetime(2026, 1, 1, tzinfo=UTC)
+    later = datetime(2026, 1, 2, tzinfo=UTC)
+
+    sr1 = await factory(SignupRequestFactory, name="First", created_at=earlier)
+    sr2 = await factory(SignupRequestFactory, name="Second", created_at=later)
 
     results = await list_signup_requests(db_session)
     assert len(results) == 2
-    # Both are returned; exact order within same timestamp is DB-dependent
-    returned_ids = {r.id for r in results}
-    assert sr1.id in returned_ids
-    assert sr2.id in returned_ids
+    # sr2 was created after sr1, so it should come first (DESC order)
+    assert results[0].id == sr2.id
+    assert results[1].id == sr1.id
 
 
 @pytest.mark.asyncio

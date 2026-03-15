@@ -180,3 +180,117 @@ async def test_slug_collision_handled(db_session, factory):
     )
     org = result.scalar_one()
     assert org.slug == "collision-org-2"
+
+
+async def test_existing_admin_user_fast_return_path(db_session, factory, monkeypatch):
+    """Existing admin-email user without org-creation invitations takes fast path."""
+    from oopsie.config import Settings, get_settings
+
+    from tests.factories import MembershipFactory
+
+    org = await factory(OrganizationFactory)
+    existing = await factory(
+        UserFactory, email="admin@example.com", google_sub="admin-sub-fast"
+    )
+    await factory(
+        MembershipFactory,
+        user_id=existing.id,
+        organization_id=org.id,
+        role=MemberRole.owner,
+    )
+
+    original_settings = get_settings()
+    monkeypatch.setattr(
+        "oopsie.auth.get_settings",
+        lambda: Settings(
+            database_url=original_settings.database_url,
+            redis_url=original_settings.redis_url,
+            admin_email="admin@example.com",
+        ),
+    )
+
+    user, memberships = await resolve_or_register_user(
+        db_session, _google_info("admin@example.com", sub="admin-sub-fast")
+    )
+    assert user.id == existing.id
+    assert user.is_platform_admin is True
+    # Fast path: no new memberships returned
+    assert memberships == []
+
+
+async def test_new_user_with_both_invitation_types(db_session, factory):
+    """New user with both a regular invitation AND an org-creation invitation."""
+    org = await factory(OrganizationFactory)
+    admin = await factory(UserFactory)
+
+    # Regular invitation to existing org
+    invitation = Invitation(
+        organization_id=org.id,
+        email="both@example.com",
+        role=MemberRole.member,
+        invited_by_id=admin.id,
+    )
+    db_session.add(invitation)
+    await db_session.flush()
+
+    # Org-creation invitation
+    sr = await factory(SignupRequestFactory, email="both@example.com")
+    await factory(
+        OrgCreationInvitationFactory,
+        email="both@example.com",
+        org_name="Both Org",
+        signup_request_id=sr.id,
+        invited_by_id=admin.id,
+    )
+
+    user, memberships = await resolve_or_register_user(
+        db_session, _google_info("both@example.com", sub="both-sub")
+    )
+    assert len(memberships) == 2
+    roles = {m.role for m in memberships}
+    assert MemberRole.member in roles
+    assert MemberRole.owner in roles
+
+
+async def test_case_insensitive_admin_email(db_session, factory, monkeypatch):
+    """Admin email matching is case-insensitive."""
+    from oopsie.config import Settings, get_settings
+
+    org = await factory(OrganizationFactory)
+    invitation = Invitation(
+        organization_id=org.id,
+        email="Admin@Example.COM",
+        role=MemberRole.member,
+        invited_by_id=None,
+    )
+    db_session.add(invitation)
+    await db_session.flush()
+
+    original_settings = get_settings()
+    monkeypatch.setattr(
+        "oopsie.auth.get_settings",
+        lambda: Settings(
+            database_url=original_settings.database_url,
+            redis_url=original_settings.redis_url,
+            admin_email="admin@example.com",
+        ),
+    )
+
+    user, _ = await resolve_or_register_user(
+        db_session, _google_info("Admin@Example.COM", sub="case-sub")
+    )
+    assert user.is_platform_admin is True
+
+
+async def test_non_no_invitation_error_propagates(db_session, monkeypatch):
+    """Non-NoInvitationError exceptions propagate from resolve_or_register_user."""
+
+    async def _raise_runtime(*args, **kwargs):
+        raise RuntimeError("something unexpected")
+
+    monkeypatch.setattr(
+        "oopsie.auth.get_pending_org_creation_invitations", _raise_runtime
+    )
+
+    with pytest.raises(RuntimeError, match="something unexpected"):
+        await resolve_or_register_user(db_session, _google_info("error@example.com"))

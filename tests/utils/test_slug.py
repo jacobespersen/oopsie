@@ -52,3 +52,14 @@ async def test_generate_unique_slug_multiple_collisions(db_session, factory):
     await factory(OrganizationFactory, slug="my-company-2")
     slug = await generate_unique_slug(db_session, "My Company")
     assert slug == "my-company-3"
+
+
+async def test_generate_unique_slug_max_attempts_exhausted(db_session, factory):
+    """generate_unique_slug raises RuntimeError after max_attempts."""
+    # Create slugs for all candidates: "my-company", "my-company-2", "my-company-3"
+    await factory(OrganizationFactory, slug="my-company")
+    await factory(OrganizationFactory, slug="my-company-2")
+    await factory(OrganizationFactory, slug="my-company-3")
+
+    with pytest.raises(RuntimeError, match="Failed to generate unique slug"):
+        await generate_unique_slug(db_session, "My Company", max_attempts=3)

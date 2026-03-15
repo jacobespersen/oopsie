@@ -27,8 +27,9 @@ from oopsie.models import (  # noqa: E402, F401
     User,
 )
 from oopsie.models.base import Base  # noqa: E402
-from oopsie.models.membership import MemberRole  # noqa: E402
+from oopsie.models.membership import MemberRole, Membership  # noqa: E402
 from oopsie.session import create_session  # noqa: E402
+from sqlalchemy import update  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
 
 from tests.factories import (  # noqa: E402
@@ -39,6 +40,25 @@ from tests.factories import (  # noqa: E402
 
 _settings = Settings()
 _test_url = _settings.get_test_database_url()
+
+
+async def set_membership_role(
+    db_session: AsyncSession, user_id, organization_id, role: MemberRole
+) -> None:
+    """Update the existing membership role for a user in an org.
+
+    Test helper — used by web tests that need to change the role created by
+    the current_user fixture.
+    """
+    await db_session.execute(
+        update(Membership)
+        .where(
+            Membership.user_id == user_id,
+            Membership.organization_id == organization_id,
+        )
+        .values(role=role)
+    )
+    await db_session.flush()
 
 
 def _create_test_database_sync() -> bool:

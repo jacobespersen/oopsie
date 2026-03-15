@@ -1,23 +1,9 @@
 """Tests for /orgs/{org_slug}/members web routes."""
 
 import pytest
-from oopsie.models.membership import MemberRole, Membership
-from sqlalchemy import update
+from oopsie.models.membership import MemberRole
 
-
-async def _set_membership_role(
-    db_session, user_id, organization_id, role: MemberRole
-) -> None:
-    """Update the existing membership role for current_user in the org."""
-    await db_session.execute(
-        update(Membership)
-        .where(
-            Membership.user_id == user_id,
-            Membership.organization_id == organization_id,
-        )
-        .values(role=role)
-    )
-    await db_session.flush()
+from tests.conftest import set_membership_role
 
 
 @pytest.mark.asyncio
@@ -38,7 +24,7 @@ async def test_invite_member_403_for_member_role(
     authenticated_client, current_user, organization, db_session
 ):
     """POST /orgs/{slug}/members/invite returns 403 for MEMBER-role user."""
-    await _set_membership_role(
+    await set_membership_role(
         db_session, current_user.id, organization.id, MemberRole.member
     )
 
@@ -87,7 +73,7 @@ async def test_update_member_role_redirects(
     from tests.factories import MembershipFactory, UserFactory
 
     # Actor must be OWNER to promote MEMBER -> ADMIN
-    await _set_membership_role(
+    await set_membership_role(
         db_session, current_user.id, organization.id, MemberRole.owner
     )
 

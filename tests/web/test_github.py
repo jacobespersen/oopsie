@@ -5,23 +5,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from githubkit.webhooks import sign as webhook_sign
 from oopsie.models.github_installation import GithubInstallation, InstallationStatus
-from oopsie.models.membership import MemberRole, Membership
-from sqlalchemy import select, update
+from oopsie.models.membership import MemberRole
+from sqlalchemy import select
 
-
-async def _set_membership_role(
-    db_session, user_id, organization_id, role: MemberRole
-) -> None:
-    """Update the existing membership role for current_user in the org."""
-    await db_session.execute(
-        update(Membership)
-        .where(
-            Membership.user_id == user_id,
-            Membership.organization_id == organization_id,
-        )
-        .values(role=role)
-    )
-    await db_session.flush()
+from tests.conftest import set_membership_role
 
 
 @pytest.mark.asyncio
@@ -56,7 +43,7 @@ async def test_install_redirect_403_non_admin(
     authenticated_client, current_user, organization, db_session
 ):
     """GET /orgs/{slug}/github/install by a member (not admin) -> 403."""
-    await _set_membership_role(
+    await set_membership_role(
         db_session, current_user.id, organization.id, MemberRole.member
     )
 
@@ -314,7 +301,7 @@ async def test_settings_page_200_no_installation(
     authenticated_client, current_user, organization, db_session
 ):
     """GET /orgs/{slug}/settings by member -> 200, 'Not connected' in response."""
-    await _set_membership_role(
+    await set_membership_role(
         db_session, current_user.id, organization.id, MemberRole.member
     )
 
@@ -333,7 +320,7 @@ async def test_settings_page_shows_active_installation(
     """
     from tests.factories import GithubInstallationFactory
 
-    await _set_membership_role(
+    await set_membership_role(
         db_session, current_user.id, organization.id, MemberRole.member
     )
     await factory(
@@ -353,7 +340,7 @@ async def test_settings_page_shows_members(
     authenticated_client, current_user, organization, db_session
 ):
     """GET /orgs/{slug}/settings -> 200, member email in response text."""
-    await _set_membership_role(
+    await set_membership_role(
         db_session, current_user.id, organization.id, MemberRole.member
     )
 

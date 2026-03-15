@@ -15,12 +15,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # SignupRequest status enum
-    signuprequeststatus = sa.Enum(
-        "pending", "approved", "rejected", name="signuprequeststatus"
-    )
-    signuprequeststatus.create(op.get_bind(), checkfirst=True)
-
     op.create_table(
         "signup_requests",
         sa.Column("id", sa.Uuid(), nullable=False),

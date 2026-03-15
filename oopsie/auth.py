@@ -19,6 +19,10 @@ from oopsie.logging import logger
 from oopsie.models.user import User
 
 
+class NoInvitationError(Exception):
+    """Raised when a new user attempts to register without a pending invitation."""
+
+
 @lru_cache(maxsize=1)
 def _build_google_client() -> Any:
     """Create and cache the authlib Google OAuth client."""
@@ -162,6 +166,7 @@ async def accept_org_creation_invitation(
     session.add(membership)
 
     invitation_id = invitation.id
+    org_name = invitation.org_name
     await session.delete(invitation)
     await session.flush()
 
@@ -170,7 +175,7 @@ async def accept_org_creation_invitation(
         invitation_id=str(invitation_id),
         user_id=str(user.id),
         org_id=str(org.id),
-        org_name=invitation.org_name,
+        org_name=org_name,
     )
     return membership
 
@@ -181,7 +186,7 @@ async def resolve_or_register_user(
     """Authenticate a Google OAuth user, handling invitation-gated registration.
 
     Returns the user and a list of new Memberships from accepted invitations.
-    Raises ValueError with a redirect hint if the user is new and has no invitation.
+    Raises NoInvitationError if the user is new and has no invitation.
 
     Handles both membership invitations and org-creation invitations.
     Sets is_platform_admin when email matches ADMIN_EMAIL.
@@ -218,7 +223,7 @@ async def resolve_or_register_user(
 
     if existing is None and not invitations and not org_creation_invitations:
         # New user with no invitation of either type — reject registration
-        raise ValueError("no_invitation")
+        raise NoInvitationError("no_invitation")
 
     user = await upsert_user(session, google_user_info, existing=existing)
     _set_platform_admin_if_needed(user, email)

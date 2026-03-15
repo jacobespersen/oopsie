@@ -1,7 +1,7 @@
 """Tests for resolve_or_register_user with org-creation invitations."""
 
 import pytest
-from oopsie.auth import resolve_or_register_user
+from oopsie.auth import NoInvitationError, resolve_or_register_user
 from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole
 from oopsie.models.org_creation_invitation import OrgCreationInvitation
@@ -84,7 +84,7 @@ async def test_existing_user_picks_up_org_creation_invitation(db_session, factor
 @pytest.mark.asyncio
 async def test_new_user_no_invitations_rejected(db_session):
     """New user with no invitations of either type is rejected."""
-    with pytest.raises(ValueError, match="no_invitation"):
+    with pytest.raises(NoInvitationError, match="no_invitation"):
         await resolve_or_register_user(db_session, _google_info("nobody@example.com"))
 
 

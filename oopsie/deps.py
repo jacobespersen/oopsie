@@ -203,7 +203,7 @@ async def require_platform_admin(
 ) -> User:
     """Gate access to platform admin features.
 
-    Reuses get_current_user for JWT verification, then checks
+    Reuses get_current_user for session verification, then checks
     the is_platform_admin flag. Returns 403 for non-admins.
     """
     if not current_user.is_platform_admin:

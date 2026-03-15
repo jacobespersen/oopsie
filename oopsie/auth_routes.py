@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.auth import get_google_oauth_client, resolve_or_register_user
+from oopsie.auth import (
+    NoInvitationError,
+    get_google_oauth_client,
+    resolve_or_register_user,
+)
 from oopsie.config import get_settings
 from oopsie.deps import get_session
 from oopsie.logging import logger
@@ -68,7 +72,7 @@ async def auth_callback(
     # Register or authenticate the user (invitation-gated for new users)
     try:
         user, new_memberships = await resolve_or_register_user(session, user_info)
-    except ValueError:
+    except NoInvitationError:
         return RedirectResponse(url="/auth/login?error=no_invitation", status_code=303)
 
     # Create a Redis session

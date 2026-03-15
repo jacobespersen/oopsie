@@ -100,6 +100,14 @@ async def run_claude_code(
         cwd=repo_dir,
         env=sdk_env,
         stderr=_make_stderr_collector(stderr_lines),
+        # OS-level sandbox restricts writes to cwd only (Seatbelt on macOS,
+        # bubblewrap on Linux). Prevents Claude from modifying files outside
+        # the cloned repo directory.
+        sandbox={
+            "enabled": True,
+            "autoAllowBashIfSandboxed": True,
+            "allowUnsandboxedCommands": False,
+        },
     )
 
     parts: list[str] = []

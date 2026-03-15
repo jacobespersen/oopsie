@@ -130,6 +130,17 @@ class TestRunClaudeCode:
             opts = mock_query.call_args[1]["options"]
             assert opts.env.get("CLAUDE_CODE_SSE_PORT") == ""
 
+    async def test_sandbox_enabled(self):
+        """Sandbox restricts writes to cwd to prevent host filesystem damage."""
+        with patch(
+            _QUERY, return_value=_mock_query_yielding([_text_message("ok")])
+        ) as mock_query:
+            await run_claude_code("/repo", "E", "m", None, "key", 300)
+            opts = mock_query.call_args[1]["options"]
+            assert opts.sandbox["enabled"] is True
+            assert opts.sandbox["autoAllowBashIfSandboxed"] is True
+            assert opts.sandbox["allowUnsandboxedCommands"] is False
+
     async def test_cli_not_found_raises(self):
         with patch(_QUERY, side_effect=CLINotFoundError("not found")):
             with pytest.raises(ClaudeCodeError, match="CLI not found"):

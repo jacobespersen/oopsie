@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Worker Docker container now runs as non-root `worker` user instead of root
 
 ### Fixed
+- Fix pipeline clears `CLAUDECODE` env var before spawning Claude Code SDK to prevent nested-session detection failures
+- Claude Code SDK stderr is now captured and logged for better diagnostics on CLI failures
 - Fix pipeline now skips gracefully when no Anthropic API key is configured instead of crashing the worker
 - Corrupted or re-keyed encrypted Anthropic keys no longer cause 500 errors (returns None with structured error log)
 - Settings page raises 404 instead of silently swallowing missing organization

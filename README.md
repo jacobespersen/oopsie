@@ -219,6 +219,7 @@ tests/             — Test suite (pytest, factory-boy)
 |---|---|---|
 | `DATABASE_URL` | Yes | Async PostgreSQL URL (`postgresql+asyncpg://...`) |
 | `REDIS_URL` | Yes | Redis connection URL |
+| `SIGNING_SECRET` | Yes | Secret for signing cookies and CSRF tokens. Generate with: `python -c 'import secrets; print(secrets.token_urlsafe(32))'` |
 | `ENCRYPTION_KEY` | Yes | Fernet key for encrypting GitHub tokens |
 | `JWT_SECRET_KEY` | Yes | At least 32-char secret for signing JWTs |
 | `GOOGLE_CLIENT_ID` | Yes | Google OAuth 2.0 client ID |

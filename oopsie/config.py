@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     database_url: str
     test_database_url: str | None = None
+    signing_secret: str
     encryption_key: str = ""
     log_level: str = "INFO"
     log_format: str = "json"

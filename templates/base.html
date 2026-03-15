@@ -55,6 +55,13 @@
       var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
       if (!m) return;
       var token = decodeURIComponent(m[1]);
+      // Signed tokens from itsdangerous contain a "." separator.
+      // If the cookie is unsigned/stale, delete it so the middleware
+      // sets a fresh signed one on the next response.
+      if (token.indexOf('.') === -1) {
+        document.cookie = 'csrftoken=; path=/; max-age=0';
+        return;
+      }
       document.querySelectorAll('form').forEach(function(form) {
         if (form.querySelector('input[name="csrftoken"]')) return;
         var input = document.createElement('input');

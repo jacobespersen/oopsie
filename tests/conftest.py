@@ -6,6 +6,7 @@ import warnings
 # Must be set before Settings is imported (it reads env vars at import time).
 # These are dummy keys for tests only — never use them outside of tests.
 os.environ.setdefault("ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U=")
+os.environ.setdefault("SIGNING_SECRET", "test-signing-secret-not-for-production")
 
 # Matches the ENCRYPTION_KEY env var set above. Import this constant in tests
 # instead of duplicating the value.

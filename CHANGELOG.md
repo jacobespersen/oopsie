@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Single org per user** — each user is now restricted to exactly one organization membership, enforced by a unique constraint on `memberships.user_id` (migration 011)
+- Invitation service rejects invitations when the target email already belongs to an organization or has a pending invitation of any type
+- Signup request service rejects requests and approvals when the email already has a membership
+- `resolve_or_register_user` now accepts at most one invitation (org-creation first, then regular); remaining invitations are deleted
+- Redis sessions now store `org_slug` alongside `user_id` (hash-based storage), making it available to templates without a DB query
+- Added `OrgSlugMiddleware` to set `request.state.org_slug` from the session cookie and a Jinja2 context processor to inject it into all templates
+
 ### Fixed
 - Detached ORM object bug in `accept_org_creation_invitation` logging after invitation deletion
 - Auth callback now catches only `NoInvitationError` instead of bare `ValueError`, allowing other exceptions to propagate

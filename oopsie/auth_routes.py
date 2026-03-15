@@ -68,22 +68,21 @@ async def auth_callback(
 
     # Register or authenticate the user (invitation-gated for new users)
     try:
-        user, new_memberships = await resolve_or_register_user(session, user_info)
+        user, new_membership = await resolve_or_register_user(session, user_info)
     except NoInvitationError:
         return RedirectResponse(url="/auth/login?error=no_invitation", status_code=303)
 
-    # Create a Redis session
-    session_token = await create_session(user.id)
-
-    # Derive redirect URL from eagerly-loaded memberships.
-    # For new users, new_memberships contains just-accepted invitations.
-    # For returning users, user.memberships was loaded via joinedload.
-    all_memberships = new_memberships or list(user.memberships)
-    if all_memberships:
-        org_slug = all_memberships[0].organization.slug
+    # Derive org_slug from the new membership or existing memberships.
+    membership = new_membership or (user.memberships[0] if user.memberships else None)
+    if membership:
+        org_slug = membership.organization.slug
         redirect_url = f"/orgs/{org_slug}/projects"
     else:
+        org_slug = None
         redirect_url = "/auth/login?error=no_organization"
+
+    # Create a Redis session with org_slug for template context
+    session_token = await create_session(user.id, org_slug=org_slug)
 
     # Return a "Signing you in..." transition page instead of a bare 303
     # redirect. The page shows immediate visual feedback and redirects

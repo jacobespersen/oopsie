@@ -8,6 +8,7 @@ from oopsie.session import (
     create_session,
     delete_session,
     extend_session,
+    get_session_org_slug,
     get_session_user_id,
 )
 
@@ -26,9 +27,18 @@ async def test_create_session_stores_user_id_in_redis(fake_redis):
     user_id = uuid.uuid4()
     token = await create_session(user_id)
 
-    stored = await fake_redis.get(f"session:{token}")
+    stored = await fake_redis.hget(f"session:{token}", "user_id")
     assert stored is not None
     assert stored.decode() == str(user_id)
+
+
+@pytest.mark.asyncio
+async def test_create_session_stores_org_slug(fake_redis):
+    user_id = uuid.uuid4()
+    token = await create_session(user_id, org_slug="my-org")
+
+    stored = await fake_redis.hget(f"session:{token}", "org_slug")
+    assert stored == b"my-org"
 
 
 @pytest.mark.asyncio
@@ -73,6 +83,24 @@ async def test_get_session_user_id_after_delete(fake_redis):
     await delete_session(token)
 
     result = await get_session_user_id(token)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_session_org_slug_returns_slug(fake_redis):
+    user_id = uuid.uuid4()
+    token = await create_session(user_id, org_slug="my-org")
+
+    result = await get_session_org_slug(token)
+    assert result == "my-org"
+
+
+@pytest.mark.asyncio
+async def test_get_session_org_slug_missing(fake_redis):
+    user_id = uuid.uuid4()
+    token = await create_session(user_id)
+
+    result = await get_session_org_slug(token)
     assert result is None
 
 

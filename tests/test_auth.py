@@ -148,15 +148,15 @@ async def test_logout_deletes_session_from_redis(authenticated_client, fake_redi
     session_token = authenticated_client.cookies.get("session_id")
     assert session_token is not None
 
-    # Verify the session exists before logout
-    value = await fake_redis.get(f"session:{session_token}")
+    # Verify the session exists before logout (stored as a Redis hash)
+    value = await fake_redis.hget(f"session:{session_token}", "user_id")
     assert value is not None
 
     resp = await authenticated_client.post("/auth/logout", follow_redirects=False)
     assert resp.status_code == 303
 
     # Session should be gone from Redis
-    value = await fake_redis.get(f"session:{session_token}")
+    value = await fake_redis.hget(f"session:{session_token}", "user_id")
     assert value is None
 
 
@@ -208,22 +208,6 @@ async def test_get_pending_invitations_not_found(db_session: AsyncSession):
 
     results = await get_pending_invitations(db_session, "unknown@example.com")
     assert results == []
-
-
-@pytest.mark.asyncio
-async def test_get_pending_invitations_multiple_orgs(db_session: AsyncSession, factory):
-    """get_pending_invitations returns invitations from multiple orgs."""
-    from oopsie.auth import get_pending_invitations
-
-    from tests.factories import InvitationFactory, OrganizationFactory
-
-    org1 = await factory(OrganizationFactory, slug="org-a")
-    org2 = await factory(OrganizationFactory, slug="org-b")
-    await factory(InvitationFactory, organization_id=org1.id, email="multi@example.com")
-    await factory(InvitationFactory, organization_id=org2.id, email="multi@example.com")
-
-    results = await get_pending_invitations(db_session, "multi@example.com")
-    assert len(results) == 2
 
 
 @pytest.mark.asyncio
@@ -350,31 +334,33 @@ async def test_auth_callback_existing_user_bypasses_invitation(
 
 
 @pytest.mark.asyncio
-async def test_auth_callback_accepts_multiple_invitations(
+async def test_auth_callback_only_accepts_first_invitation(
     api_client, db_session: AsyncSession, factory, fake_redis
 ):
-    """New user with invitations from two orgs gets memberships in both."""
+    """New user with invitations from two orgs gets only one membership;
+    the other invitation is deleted (single-org model)."""
+    from oopsie.models.invitation import Invitation
     from oopsie.models.membership import Membership
     from sqlalchemy import select
 
     from tests.factories import InvitationFactory, OrganizationFactory
 
-    org1 = await factory(OrganizationFactory, slug="multi-org-a")
-    org2 = await factory(OrganizationFactory, slug="multi-org-b")
+    org1 = await factory(OrganizationFactory, slug="single-org-a")
+    org2 = await factory(OrganizationFactory, slug="single-org-b")
     await factory(
-        InvitationFactory, organization_id=org1.id, email="multi-inv@example.com"
+        InvitationFactory, organization_id=org1.id, email="single-inv@example.com"
     )
     await factory(
-        InvitationFactory, organization_id=org2.id, email="multi-inv@example.com"
+        InvitationFactory, organization_id=org2.id, email="single-inv@example.com"
     )
 
     mock_google = AsyncMock()
     mock_google.authorize_access_token = AsyncMock(
         return_value={
             "userinfo": {
-                "sub": "google-multi-inv-sub",
-                "email": "multi-inv@example.com",
-                "name": "Multi Org User",
+                "sub": "google-single-inv-sub",
+                "email": "single-inv@example.com",
+                "name": "Single Org User",
             }
         }
     )
@@ -384,10 +370,13 @@ async def test_auth_callback_accepts_multiple_invitations(
     assert resp.status_code == 200
     assert "session_id" in resp.cookies
 
+    # Only one membership should be created (single-org enforcement)
     memberships = (await db_session.execute(select(Membership))).scalars().all()
-    assert len(memberships) == 2
-    org_ids = {m.organization_id for m in memberships}
-    assert org_ids == {org1.id, org2.id}
+    assert len(memberships) == 1
+
+    # The other invitation should have been deleted
+    remaining = (await db_session.execute(select(Invitation))).scalars().all()
+    assert len(remaining) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -413,12 +402,12 @@ async def test_resolve_existing_user_skips_invitation_lookup(
         "email": user.email,
         "name": user.name,
     }
-    returned_user, new_memberships = await resolve_or_register_user(
+    returned_user, new_membership = await resolve_or_register_user(
         db_session, google_info
     )
     assert returned_user.id == user.id
-    # Existing users return no new memberships (invitations not checked)
-    assert new_memberships == []
+    # Existing users return no new membership (invitations not checked)
+    assert new_membership is None
     # Memberships should be eagerly loaded on the user
     assert len(returned_user.memberships) == 1
     assert returned_user.memberships[0].organization.slug == org.slug
@@ -428,7 +417,7 @@ async def test_resolve_existing_user_skips_invitation_lookup(
 async def test_resolve_existing_user_no_memberships_returns_empty(
     db_session: AsyncSession, factory
 ):
-    """Existing user with no memberships returns empty list."""
+    """Existing user with no memberships returns None."""
     from oopsie.auth import resolve_or_register_user
 
     from tests.factories import UserFactory
@@ -440,11 +429,11 @@ async def test_resolve_existing_user_no_memberships_returns_empty(
         "email": user.email,
         "name": user.name,
     }
-    returned_user, new_memberships = await resolve_or_register_user(
+    returned_user, new_membership = await resolve_or_register_user(
         db_session, google_info
     )
     assert returned_user.id == user.id
-    assert new_memberships == []
+    assert new_membership is None
     assert len(returned_user.memberships) == 0
 
 
@@ -472,3 +461,38 @@ async def test_auth_callback_existing_user_no_memberships_redirects_to_error(
 
     assert resp.status_code == 200
     assert "no_organization" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_auth_callback_stores_org_slug_in_session(
+    api_client, db_session: AsyncSession, factory, fake_redis
+):
+    """After login, the Redis session hash contains org_slug for the user's org."""
+    from tests.factories import InvitationFactory, OrganizationFactory
+
+    org = await factory(OrganizationFactory, slug="session-org")
+    await factory(
+        InvitationFactory, organization_id=org.id, email="session-test@example.com"
+    )
+
+    mock_google = AsyncMock()
+    mock_google.authorize_access_token = AsyncMock(
+        return_value={
+            "userinfo": {
+                "sub": "google-session-test-sub",
+                "email": "session-test@example.com",
+                "name": "Session Test User",
+            }
+        }
+    )
+    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+        resp = await api_client.get("/auth/callback", follow_redirects=False)
+
+    assert resp.status_code == 200
+    session_token = resp.cookies["session_id"]
+
+    # Verify org_slug is stored in the Redis session hash
+    stored_slug = await fake_redis.hget(f"session:{session_token}", "org_slug")
+    assert stored_slug is not None
+    slug_value = stored_slug if isinstance(stored_slug, str) else stored_slug.decode()
+    assert slug_value == "session-org"

@@ -13,6 +13,7 @@ from oopsie.api.errors import router as errors_router
 from oopsie.auth_routes import router as auth_router
 from oopsie.config import get_settings
 from oopsie.logging import setup_logging
+from oopsie.middleware.org_slug import OrgSlugMiddleware
 from oopsie.middleware.request_logging import RequestLoggingMiddleware
 from oopsie.queue import close_arq_pool
 from oopsie.services.bootstrap_service import bootstrap_if_needed
@@ -70,6 +71,7 @@ app.add_middleware(
     ],
 )
 
+app.add_middleware(OrgSlugMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 

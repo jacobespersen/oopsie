@@ -4,6 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
+from oopsie.models.membership import MemberRole
 from oopsie.models.org_creation_invitation import OrgCreationInvitation
 from oopsie.models.signup_request import SignupRequestStatus
 from oopsie.services.signup_request_service import (
@@ -14,7 +15,12 @@ from oopsie.services.signup_request_service import (
 )
 from sqlalchemy import select
 
-from tests.factories import SignupRequestFactory, UserFactory
+from tests.factories import (
+    MembershipFactory,
+    OrganizationFactory,
+    SignupRequestFactory,
+    UserFactory,
+)
 
 # Reviewed fields required by the CHECK constraint for non-pending requests
 _REVIEWED_AT = datetime(2026, 1, 1, tzinfo=UTC)
@@ -221,6 +227,61 @@ async def test_reject_already_rejected_raises(db_session, factory):
     )
     with pytest.raises(ValueError, match="already rejected"):
         await reject_signup_request(
+            db_session,
+            signup_request_id=sr.id,
+            reviewer_id=reviewer.id,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Single-org-per-user enforcement
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_create_signup_request_rejects_existing_member(db_session, factory):
+    """create_signup_request raises ValueError when the email belongs to a user
+    who already has a membership in any organization."""
+
+    org = await factory(OrganizationFactory)
+    user = await factory(UserFactory, email="existing-member@example.com")
+    await factory(
+        MembershipFactory,
+        organization_id=org.id,
+        user_id=user.id,
+        role=MemberRole.member,
+    )
+
+    with pytest.raises(ValueError, match="already belongs to an organization"):
+        await create_signup_request(
+            db_session,
+            name="Existing Member",
+            email="existing-member@example.com",
+            org_name="Another Org",
+            reason="Testing",
+        )
+
+
+@pytest.mark.asyncio
+async def test_approve_signup_request_rejects_existing_member(db_session, factory):
+    """approve_signup_request raises ValueError if the user gained a membership
+    between signup request creation and approval."""
+
+    sr = await factory(SignupRequestFactory, email="late-member@example.com")
+    reviewer = await factory(UserFactory)
+
+    # Simulate user gaining membership after submitting signup request
+    org = await factory(OrganizationFactory)
+    user = await factory(UserFactory, email="late-member@example.com")
+    await factory(
+        MembershipFactory,
+        organization_id=org.id,
+        user_id=user.id,
+        role=MemberRole.member,
+    )
+
+    with pytest.raises(ValueError, match="already belongs to an organization"):
+        await approve_signup_request(
             db_session,
             signup_request_id=sr.id,
             reviewer_id=reviewer.id,

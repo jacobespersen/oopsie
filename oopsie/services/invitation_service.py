@@ -7,8 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.logging import logger
 from oopsie.models.invitation import Invitation
-from oopsie.models.membership import MemberRole, Membership, role_rank
-from oopsie.models.user import User
+from oopsie.models.membership import MemberRole, role_rank
+from oopsie.models.org_creation_invitation import OrgCreationInvitation
+from oopsie.services.membership_service import has_membership_by_email
 
 
 async def create_invitation(
@@ -22,25 +23,36 @@ async def create_invitation(
     """Create or update an invitation for an email address.
 
     If an invitation already exists for this org+email, updates its role.
-    Raises ValueError if the email already belongs to an org member.
+    Raises ValueError if the email already belongs to an org member (any org),
+    or if the user already has a pending invitation of any type.
     Raises PermissionError if the inviter tries to grant a role above their own.
     """
     # Enforce: inviter can only grant roles at or below their own rank
     if inviter_role is not None and role_rank(role) > role_rank(inviter_role):
         raise PermissionError("Cannot invite with a role higher than your own.")
-    # Prevent inviting someone who is already a member
-    existing_member = await session.scalar(
-        select(Membership)
-        .join(User, User.id == Membership.user_id)
-        .where(
-            Membership.organization_id == organization_id,
-            User.email == email,
+
+    # Single-org enforcement: reject if user already belongs to any organization
+    if await has_membership_by_email(session, email):
+        raise ValueError(f"{email} already belongs to an organization")
+
+    # Single-org enforcement: reject if user has a pending invitation elsewhere
+    existing_other_invitation = await session.scalar(
+        select(Invitation).where(
+            Invitation.email == email,
+            Invitation.organization_id != organization_id,
         )
     )
-    if existing_member:
-        raise ValueError(f"{email} is already a member of this organization")
+    if existing_other_invitation:
+        raise ValueError(f"{email} already has a pending invitation")
 
-    # Check for an existing invitation — update rather than duplicate
+    # Single-org enforcement: reject if user has a pending org-creation invitation
+    existing_org_creation = await session.scalar(
+        select(OrgCreationInvitation).where(OrgCreationInvitation.email == email)
+    )
+    if existing_org_creation:
+        raise ValueError(f"{email} already has a pending invitation")
+
+    # Check for an existing invitation in this org — update rather than duplicate
     existing = await session.scalar(
         select(Invitation).where(
             Invitation.organization_id == organization_id,

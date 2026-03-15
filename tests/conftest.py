@@ -12,6 +12,9 @@ os.environ.setdefault("SIGNING_SECRET", "test-signing-secret-not-for-production"
 # instead of duplicating the value.
 TEST_ENCRYPTION_KEY = "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
 
+import asyncio  # noqa: E402
+from urllib.parse import urlparse, urlunparse  # noqa: E402
+
 import httpx  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from oopsie.config import Settings  # noqa: E402
@@ -43,9 +46,6 @@ def _create_test_database_sync() -> bool:
 
     Returns True on success.
     """
-    import asyncio
-    from urllib.parse import urlparse, urlunparse
-
     parsed = urlparse(_test_url)
     db_name = (parsed.path or "/").strip("/").split("/")[-1] or "oopsie_test"
     admin_path = "/postgres"
@@ -90,8 +90,6 @@ async def _ensure_test_database_exists() -> bool:
 
     Returns True if created or exists, False on failure.
     """
-    import asyncio
-
     result = await asyncio.get_event_loop().run_in_executor(
         None, _create_test_database_sync
     )

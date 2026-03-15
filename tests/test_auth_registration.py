@@ -10,6 +10,7 @@ from oopsie.models.organization import Organization
 from sqlalchemy import select
 
 from tests.factories import (
+    InvitationFactory,
     OrganizationFactory,
     OrgCreationInvitationFactory,
     SignupRequestFactory,
@@ -34,13 +35,13 @@ async def test_new_user_with_org_creation_invitation(db_session, factory):
         invited_by_id=admin.id,
     )
 
-    user, memberships = await resolve_or_register_user(
+    user, membership = await resolve_or_register_user(
         db_session, _google_info("new@example.com")
     )
 
     assert user.email == "new@example.com"
-    assert len(memberships) == 1
-    assert memberships[0].role == MemberRole.owner
+    assert membership is not None
+    assert membership.role == MemberRole.owner
 
     # Verify org was created
     result = await db_session.execute(
@@ -72,14 +73,14 @@ async def test_existing_user_picks_up_org_creation_invitation(db_session, factor
         invited_by_id=admin.id,
     )
 
-    user, memberships = await resolve_or_register_user(
+    user, membership = await resolve_or_register_user(
         db_session,
         _google_info("existing@example.com", sub=existing.google_sub),
     )
 
     assert user.id == existing.id
-    assert len(memberships) == 1
-    assert memberships[0].role == MemberRole.owner
+    assert membership is not None
+    assert membership.role == MemberRole.owner
 
 
 @pytest.mark.asyncio
@@ -171,9 +172,10 @@ async def test_slug_collision_handled(db_session, factory):
         invited_by_id=admin.id,
     )
 
-    user, memberships = await resolve_or_register_user(
+    user, membership = await resolve_or_register_user(
         db_session, _google_info("collision@example.com")
     )
+    assert membership is not None
 
     # Verify slug has -2 suffix
     result = await db_session.execute(
@@ -210,31 +212,30 @@ async def test_existing_admin_user_fast_return_path(db_session, factory, monkeyp
         ),
     )
 
-    user, memberships = await resolve_or_register_user(
+    user, membership = await resolve_or_register_user(
         db_session, _google_info("admin@example.com", sub="admin-sub-fast")
     )
     assert user.id == existing.id
     assert user.is_platform_admin is True
-    # Fast path: no new memberships returned
-    assert memberships == []
+    # Fast path: no new membership returned
+    assert membership is None
 
 
-async def test_new_user_with_both_invitation_types(db_session, factory):
-    """New user with both a regular invitation AND an org-creation invitation."""
+async def test_new_user_org_creation_deletes_regular_invitations(db_session, factory):
+    """Org-creation invite accepted; regular invitations deleted."""
     org = await factory(OrganizationFactory)
     admin = await factory(UserFactory)
 
     # Regular invitation to existing org
-    invitation = Invitation(
+    await factory(
+        InvitationFactory,
         organization_id=org.id,
         email="both@example.com",
         role=MemberRole.member,
         invited_by_id=admin.id,
     )
-    db_session.add(invitation)
-    await db_session.flush()
 
-    # Org-creation invitation
+    # Org-creation invitation (takes priority)
     sr = await factory(SignupRequestFactory, email="both@example.com")
     await factory(
         OrgCreationInvitationFactory,
@@ -244,13 +245,27 @@ async def test_new_user_with_both_invitation_types(db_session, factory):
         invited_by_id=admin.id,
     )
 
-    user, memberships = await resolve_or_register_user(
+    user, membership = await resolve_or_register_user(
         db_session, _google_info("both@example.com", sub="both-sub")
     )
-    assert len(memberships) == 2
-    roles = {m.role for m in memberships}
-    assert MemberRole.member in roles
-    assert MemberRole.owner in roles
+
+    # Only 1 membership created (from org-creation)
+    assert membership is not None
+    assert membership.role == MemberRole.owner
+
+    # Regular invitation was deleted
+    inv_result = await db_session.execute(
+        select(Invitation).where(Invitation.email == "both@example.com")
+    )
+    assert inv_result.scalar_one_or_none() is None
+
+    # Org-creation invitation was deleted
+    oci_result = await db_session.execute(
+        select(OrgCreationInvitation).where(
+            OrgCreationInvitation.email == "both@example.com"
+        )
+    )
+    assert oci_result.scalar_one_or_none() is None
 
 
 async def test_case_insensitive_admin_email(db_session, factory, monkeypatch):

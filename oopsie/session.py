@@ -2,6 +2,9 @@
 
 Stores user sessions as Redis hashes: session:{token} → {user_id, org_slug}.
 Separate from the arq pool in queue.py — this uses plain redis.asyncio.
+
+Known limitation: org_slug is set at login and never refreshed. If an org
+slug changes, sessions serve stale URLs until they expire (up to 7 days).
 """
 
 import secrets

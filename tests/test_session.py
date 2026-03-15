@@ -141,3 +141,58 @@ async def test_delete_session_removes_key(fake_redis):
 async def test_delete_session_nonexistent_token(fake_redis):
     # Should not raise — DEL on a missing key is a no-op
     await delete_session("nonexistent-token")
+
+
+@pytest.mark.asyncio
+async def test_get_session_user_id_evicts_pre_hash_string_key(fake_redis):
+    """Pre-hash-migration string key is evicted and returns None."""
+    await fake_redis.set("session:old-token", str(uuid.uuid4()))
+
+    result = await get_session_user_id("old-token")
+    assert result is None
+
+    # Key should have been deleted
+    assert await fake_redis.exists("session:old-token") == 0
+
+
+@pytest.mark.asyncio
+async def test_get_session_org_slug_evicts_pre_hash_string_key(fake_redis):
+    """Pre-hash-migration string key is evicted and returns None."""
+    await fake_redis.set("session:old-token", str(uuid.uuid4()))
+
+    result = await get_session_org_slug("old-token")
+    assert result is None
+
+    assert await fake_redis.exists("session:old-token") == 0
+
+
+@pytest.mark.asyncio
+async def test_get_session_user_id_reraises_non_wrongtype_error(
+    fake_redis, monkeypatch
+):
+    """Non-WRONGTYPE ResponseError is re-raised, not swallowed."""
+    import redis.exceptions
+
+    async def _boom(*args, **kwargs):
+        raise redis.exceptions.ResponseError("OOM command not allowed")
+
+    monkeypatch.setattr(fake_redis, "hget", _boom)
+
+    with pytest.raises(redis.exceptions.ResponseError, match="OOM"):
+        await get_session_user_id("any-token")
+
+
+@pytest.mark.asyncio
+async def test_get_session_org_slug_reraises_non_wrongtype_error(
+    fake_redis, monkeypatch
+):
+    """Non-WRONGTYPE ResponseError is re-raised, not swallowed."""
+    import redis.exceptions
+
+    async def _boom(*args, **kwargs):
+        raise redis.exceptions.ResponseError("OOM command not allowed")
+
+    monkeypatch.setattr(fake_redis, "hget", _boom)
+
+    with pytest.raises(redis.exceptions.ResponseError, match="OOM"):
+        await get_session_org_slug("any-token")

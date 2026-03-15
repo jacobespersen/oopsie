@@ -52,16 +52,30 @@ async def create_session(user_id: UUID, org_slug: str | None = None) -> str:
     return token
 
 
+async def _handle_wrongtype_error(
+    r: aioredis.Redis, key: str, error: redis.exceptions.ResponseError
+) -> None:
+    """Handle WRONGTYPE errors from pre-hash-migration string keys.
+
+    Re-raises the error if it's not a WRONGTYPE error (e.g. OOM, read-only).
+    """
+    if "WRONGTYPE" not in str(error):
+        raise
+    logger.warning("session_key_evicted", key=key, reason="pre_hash_migration")
+    try:
+        await r.delete(key)
+    except redis.exceptions.RedisError:
+        logger.error("session_key_eviction_failed", key=key)
+
+
 async def get_session_user_id(token: str) -> UUID | None:
     """Look up the user ID for a session token. Returns None if missing/expired."""
     r = await get_redis()
+    key = f"session:{token}"
     try:
-        value: bytes | None = await r.hget(  # type: ignore[misc]
-            f"session:{token}", "user_id"
-        )
-    except redis.exceptions.ResponseError:
-        # Stale session stored as string (pre-hash migration) — evict it
-        await r.delete(f"session:{token}")
+        value: bytes | None = await r.hget(key, "user_id")  # type: ignore[misc]
+    except redis.exceptions.ResponseError as e:
+        await _handle_wrongtype_error(r, key, e)
         return None
     if value is None:
         return None
@@ -72,13 +86,11 @@ async def get_session_user_id(token: str) -> UUID | None:
 async def get_session_org_slug(token: str) -> str | None:
     """Look up the org_slug for a session token. Returns None if missing/expired."""
     r = await get_redis()
+    key = f"session:{token}"
     try:
-        value: bytes | None = await r.hget(  # type: ignore[misc]
-            f"session:{token}", "org_slug"
-        )
-    except redis.exceptions.ResponseError:
-        # Stale session stored as string (pre-hash migration) — evict it
-        await r.delete(f"session:{token}")
+        value: bytes | None = await r.hget(key, "org_slug")  # type: ignore[misc]
+    except redis.exceptions.ResponseError as e:
+        await _handle_wrongtype_error(r, key, e)
         return None
     if value is None:
         return None

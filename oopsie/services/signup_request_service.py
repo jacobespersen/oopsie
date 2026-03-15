@@ -80,8 +80,12 @@ async def approve_signup_request(
     Raises LookupError if not found.
     Raises ValueError if not in pending status.
     """
+    # Lock the row to prevent concurrent approve/reject races — second caller
+    # waits for the first transaction to commit, then fails the status check.
     result = await session.execute(
-        select(SignupRequest).where(SignupRequest.id == signup_request_id)
+        select(SignupRequest)
+        .where(SignupRequest.id == signup_request_id)
+        .with_for_update()
     )
     signup_request = result.scalar_one_or_none()
     if signup_request is None:
@@ -124,8 +128,12 @@ async def reject_signup_request(
     Raises LookupError if not found.
     Raises ValueError if not in pending status.
     """
+    # Lock the row to prevent concurrent approve/reject races — second caller
+    # waits for the first transaction to commit, then fails the status check.
     result = await session.execute(
-        select(SignupRequest).where(SignupRequest.id == signup_request_id)
+        select(SignupRequest)
+        .where(SignupRequest.id == signup_request_id)
+        .with_for_update()
     )
     signup_request = result.scalar_one_or_none()
     if signup_request is None:

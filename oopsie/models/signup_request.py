@@ -8,7 +8,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text
+from sqlalchemy import CheckConstraint, DateTime, Enum, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -30,6 +30,14 @@ class SignupRequest(Base):
             "email",
             unique=True,
             postgresql_where="status = 'pending'",
+        ),
+        # Ensure reviewed_by/reviewed_at are set iff status is not pending
+        CheckConstraint(
+            "(status = 'pending' AND reviewed_by_id IS NULL AND reviewed_at IS NULL) "
+            "OR "
+            "(status != 'pending' AND reviewed_by_id IS NOT NULL "
+            "AND reviewed_at IS NOT NULL)",
+            name="ck_signup_requests_review_fields_match_status",
         ),
     )
 

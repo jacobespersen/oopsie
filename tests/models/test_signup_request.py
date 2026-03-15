@@ -1,5 +1,7 @@
 """Tests for SignupRequest and OrgCreationInvitation models."""
 
+from datetime import UTC, datetime
+
 import pytest
 from oopsie.models.org_creation_invitation import OrgCreationInvitation
 from oopsie.models.signup_request import SignupRequest, SignupRequestStatus
@@ -9,6 +11,9 @@ from tests.factories import (
     SignupRequestFactory,
     UserFactory,
 )
+
+# Reviewed fields required by the CHECK constraint for non-pending requests
+_REVIEWED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 @pytest.mark.asyncio
@@ -36,6 +41,7 @@ async def test_signup_request_reviewed_by_relationship(db_session, factory):
     sr = await factory(
         SignupRequestFactory,
         reviewed_by_id=reviewer.id,
+        reviewed_at=_REVIEWED_AT,
         status=SignupRequestStatus.approved,
     )
     result = await db_session.execute(
@@ -86,10 +92,13 @@ async def test_org_creation_invitation_relationships(db_session, factory):
 async def test_partial_unique_index_allows_rejected_resubmission(db_session, factory):
     """After rejection, a new pending request for the same email is allowed."""
     email = "resubmit@example.com"
+    reviewer = await factory(UserFactory)
     await factory(
         SignupRequestFactory,
         email=email,
         status=SignupRequestStatus.rejected,
+        reviewed_by_id=reviewer.id,
+        reviewed_at=_REVIEWED_AT,
     )
     # Should not raise — partial unique index only covers pending
     sr2 = await factory(SignupRequestFactory, email=email)

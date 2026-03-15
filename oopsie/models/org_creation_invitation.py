@@ -8,7 +8,7 @@ invitation row is deleted (matching the existing Invitation pattern).
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,10 @@ from oopsie.models.base import Base
 
 class OrgCreationInvitation(Base):
     __tablename__ = "org_creation_invitations"
+    __table_args__ = (
+        # DB-level safety net: only one invitation per signup request
+        UniqueConstraint("signup_request_id"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         primary_key=True, default=uuid.uuid4, server_default=None

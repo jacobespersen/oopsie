@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.database import get_session
@@ -45,6 +46,11 @@ async def submit_signup_request(
         success = True
     except ValueError as exc:
         error = str(exc)
+    except IntegrityError:
+        # Race condition: concurrent submission passed the app-level check but
+        # hit the unique partial index on (email) WHERE status = 'pending'.
+        await session.rollback()
+        error = "A signup request for this email is already pending review."
 
     return templates.TemplateResponse(
         request=request,

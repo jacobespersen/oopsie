@@ -1,6 +1,7 @@
 """Tests for signup request service."""
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 from oopsie.models.org_creation_invitation import OrgCreationInvitation
@@ -14,6 +15,9 @@ from oopsie.services.signup_request_service import (
 from sqlalchemy import select
 
 from tests.factories import SignupRequestFactory, UserFactory
+
+# Reviewed fields required by the CHECK constraint for non-pending requests
+_REVIEWED_AT = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 @pytest.mark.asyncio
@@ -48,10 +52,13 @@ async def test_create_duplicate_pending_raises(db_session, factory):
 @pytest.mark.asyncio
 async def test_create_after_rejection_allowed(db_session, factory):
     """create_signup_request allows resubmission after rejection."""
+    reviewer = await factory(UserFactory)
     await factory(
         SignupRequestFactory,
         email="retry@example.com",
         status=SignupRequestStatus.rejected,
+        reviewed_by_id=reviewer.id,
+        reviewed_at=_REVIEWED_AT,
     )
     sr = await create_signup_request(
         db_session,
@@ -66,9 +73,20 @@ async def test_create_after_rejection_allowed(db_session, factory):
 @pytest.mark.asyncio
 async def test_list_signup_requests_filtered(db_session, factory):
     """list_signup_requests filters by status."""
+    reviewer = await factory(UserFactory)
     await factory(SignupRequestFactory, status=SignupRequestStatus.pending)
-    await factory(SignupRequestFactory, status=SignupRequestStatus.approved)
-    await factory(SignupRequestFactory, status=SignupRequestStatus.rejected)
+    await factory(
+        SignupRequestFactory,
+        status=SignupRequestStatus.approved,
+        reviewed_by_id=reviewer.id,
+        reviewed_at=_REVIEWED_AT,
+    )
+    await factory(
+        SignupRequestFactory,
+        status=SignupRequestStatus.rejected,
+        reviewed_by_id=reviewer.id,
+        reviewed_at=_REVIEWED_AT,
+    )
 
     pending = await list_signup_requests(db_session, status=SignupRequestStatus.pending)
     assert len(pending) == 1
@@ -77,8 +95,14 @@ async def test_list_signup_requests_filtered(db_session, factory):
 @pytest.mark.asyncio
 async def test_list_signup_requests_all(db_session, factory):
     """list_signup_requests returns all when no status filter."""
+    reviewer = await factory(UserFactory)
     await factory(SignupRequestFactory, status=SignupRequestStatus.pending)
-    await factory(SignupRequestFactory, status=SignupRequestStatus.approved)
+    await factory(
+        SignupRequestFactory,
+        status=SignupRequestStatus.approved,
+        reviewed_by_id=reviewer.id,
+        reviewed_at=_REVIEWED_AT,
+    )
 
     all_requests = await list_signup_requests(db_session)
     assert len(all_requests) == 2
@@ -141,7 +165,12 @@ async def test_approve_not_found_raises(db_session, factory):
 async def test_approve_already_approved_raises(db_session, factory):
     """approve_signup_request raises ValueError for non-pending request."""
     reviewer = await factory(UserFactory)
-    sr = await factory(SignupRequestFactory, status=SignupRequestStatus.approved)
+    sr = await factory(
+        SignupRequestFactory,
+        status=SignupRequestStatus.approved,
+        reviewed_by_id=reviewer.id,
+        reviewed_at=_REVIEWED_AT,
+    )
     with pytest.raises(ValueError, match="already approved"):
         await approve_signup_request(
             db_session,
@@ -182,7 +211,12 @@ async def test_reject_not_found_raises(db_session, factory):
 async def test_reject_already_rejected_raises(db_session, factory):
     """reject_signup_request raises ValueError for non-pending request."""
     reviewer = await factory(UserFactory)
-    sr = await factory(SignupRequestFactory, status=SignupRequestStatus.rejected)
+    sr = await factory(
+        SignupRequestFactory,
+        status=SignupRequestStatus.rejected,
+        reviewed_by_id=reviewer.id,
+        reviewed_at=_REVIEWED_AT,
+    )
     with pytest.raises(ValueError, match="already rejected"):
         await reject_signup_request(
             db_session,

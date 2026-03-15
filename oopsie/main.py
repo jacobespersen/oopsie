@@ -1,11 +1,14 @@
 """FastAPI app entry point."""
 
+import re
 import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.requests import Request
+from starlette_csrf import CSRFMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from oopsie.api.errors import router as errors_router
@@ -22,6 +25,35 @@ from oopsie.web.landing import router as landing_router
 from oopsie.web.members import router as web_members_router
 from oopsie.web.projects import router as web_projects_router
 from oopsie.web.settings import router as web_settings_router
+
+
+class FormCSRFMiddleware(CSRFMiddleware):
+    """CSRFMiddleware extended to accept tokens from form fields.
+
+    The upstream starlette-csrf only checks the ``x-csrftoken`` header.
+    HTML forms cannot set custom headers, so this subclass also looks for
+    the token in URL-encoded form bodies under the ``csrftoken`` field name.
+    """
+
+    async def _get_submitted_csrf_token(self, request: Request) -> str | None:
+        # Check header first (API / fetch callers)
+        header_token = request.headers.get(self.header_name)
+        if header_token:
+            return header_token
+
+        # Fall back to form body for regular HTML form submissions
+        content_type = request.headers.get("content-type", "")
+        if "application/x-www-form-urlencoded" in content_type:
+            form = await request.form()
+            token = form.get(self.cookie_name)
+            # Close the form to release the request body stream so
+            # downstream handlers can read it again.
+            await form.close()
+            if token and isinstance(token, str):
+                return token
+
+        return None
+
 
 _settings = get_settings()
 setup_logging(_settings.log_level, _settings.log_format)
@@ -55,6 +87,21 @@ app = FastAPI(
 _session_secret = secrets.token_urlsafe(32)
 app.add_middleware(SessionMiddleware, secret_key=_session_secret)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# CSRF double-submit cookie protection for all state-changing requests.
+# Exempt: API routes (use Bearer token auth), /signup-request (public,
+# unauthenticated), and /webhooks/github (verified via webhook signature).
+_csrf_secret = secrets.token_urlsafe(32)
+app.add_middleware(
+    FormCSRFMiddleware,
+    secret=_csrf_secret,
+    sensitive_cookies={"session_id"},
+    exempt_urls=[
+        re.compile(r"/api/.*"),
+        re.compile(r"/signup-request"),
+        re.compile(r"/webhooks/github"),
+    ],
+)
 
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])

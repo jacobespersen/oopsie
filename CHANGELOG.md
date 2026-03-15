@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `generate_unique_slug` loop is now bounded to `max_attempts=100` with warning logs on each collision retry and `RuntimeError` on exhaustion
 - Admin approve/reject error handlers now log warnings with request ID and error details for `LookupError` and `ValueError` cases
 
+### Security
+- CSRF double-submit cookie protection on all state-changing web requests via `starlette-csrf` middleware; API routes, `/signup-request`, and `/webhooks/github` are exempt
+
 ### Added
 - Public landing page at `/` with signup request form for new organization onboarding (#17)
 - `SignupRequest` model with partial unique index (one pending request per email, resubmission allowed after rejection)

@@ -8,10 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Detached ORM object bug in `accept_org_creation_invitation` logging after invitation deletion
+- Auth callback now catches only `NoInvitationError` instead of bare `ValueError`, allowing other exceptions to propagate
+- Stale docstring in `require_platform_admin` referencing JWT verification instead of session verification
 - `get_optional_user` now only catches 401 errors; other HTTP errors (500, etc.) propagate instead of being silently swallowed
 - Invalid `status` query param on `/admin/signup-requests` now returns 400 instead of silently defaulting to "pending"
 - `generate_unique_slug` loop is now bounded to `max_attempts=100` with warning logs on each collision retry and `RuntimeError` on exhaustion
 - Admin approve/reject error handlers now log warnings with request ID and error details for `LookupError` and `ValueError` cases
+- Row-level locking (`SELECT ... FOR UPDATE`) on approve/reject signup request to prevent race conditions
+- IntegrityError handling on signup form submission to gracefully handle concurrent duplicate requests
+
+### Added
+- `SignupRequestForm` Pydantic model for server-side input validation (field length limits, email format)
+- Frontend `maxlength` attributes on signup form inputs
+- `UniqueConstraint` on `OrgCreationInvitation.signup_request_id` preventing duplicate invitations per request
+- `CHECK` constraint on `SignupRequest` ensuring `reviewed_by_id`/`reviewed_at` consistency with status
+- Alembic migration 010 for new database constraints
 
 ### Security
 - CSRF double-submit cookie protection on all state-changing web requests via `starlette-csrf` middleware; API routes, `/signup-request`, and `/webhooks/github` are exempt

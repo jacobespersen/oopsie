@@ -5,6 +5,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from oopsie.exceptions import AlreadyHasOrganizationError, DuplicateInvitationError
 from oopsie.logging import logger
 from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole, role_rank
@@ -33,7 +34,7 @@ async def create_invitation(
 
     # Single-org enforcement: reject if user already belongs to any organization
     if await has_membership_by_email(session, email):
-        raise ValueError(f"{email} already belongs to an organization")
+        raise AlreadyHasOrganizationError(f"{email} already belongs to an organization")
 
     # Single-org enforcement: reject if user has a pending invitation elsewhere
     existing_other_invitation = await session.scalar(
@@ -43,14 +44,18 @@ async def create_invitation(
         )
     )
     if existing_other_invitation:
-        raise ValueError(f"{email} already has a pending invitation")
+        raise DuplicateInvitationError(
+            f"{email} already has a pending invitation to another organization"
+        )
 
     # Single-org enforcement: reject if user has a pending org-creation invitation
     existing_org_creation = await session.scalar(
         select(OrgCreationInvitation).where(OrgCreationInvitation.email == email)
     )
     if existing_org_creation:
-        raise ValueError(f"{email} already has a pending invitation")
+        raise DuplicateInvitationError(
+            f"{email} already has a pending org-creation invitation"
+        )
 
     # Check for an existing invitation in this org — update rather than duplicate
     existing = await session.scalar(

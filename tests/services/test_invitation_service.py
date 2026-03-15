@@ -3,6 +3,7 @@
 import uuid
 
 import pytest
+from oopsie.exceptions import AlreadyHasOrganizationError, DuplicateInvitationError
 from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole
 from oopsie.services.invitation_service import (
@@ -82,7 +83,7 @@ async def test_create_invitation_raises_for_existing_member(
         role=MemberRole.member,
     )
 
-    with pytest.raises(ValueError, match="already belongs to an organization"):
+    with pytest.raises(AlreadyHasOrganizationError, match="already belongs"):
         await create_invitation(
             db_session,
             organization_id=org.id,
@@ -96,8 +97,8 @@ async def test_create_invitation_raises_for_existing_member(
 async def test_create_invitation_rejects_member_of_other_org(
     db_session: AsyncSession, factory
 ):
-    """create_invitation raises ValueError when email belongs to a user who is
-    a member of a different organization."""
+    """create_invitation raises AlreadyHasOrganizationError when email belongs
+    to a user who is a member of a different organization."""
     org_a = await factory(OrganizationFactory, slug="org-a")
     org_b = await factory(OrganizationFactory, slug="org-b")
     user = await factory(UserFactory, email="cross-org@example.com")
@@ -108,7 +109,7 @@ async def test_create_invitation_rejects_member_of_other_org(
         role=MemberRole.member,
     )
 
-    with pytest.raises(ValueError, match="already belongs to an organization"):
+    with pytest.raises(AlreadyHasOrganizationError, match="already belongs"):
         await create_invitation(
             db_session,
             organization_id=org_b.id,
@@ -122,8 +123,8 @@ async def test_create_invitation_rejects_member_of_other_org(
 async def test_create_invitation_rejects_pending_invitation_in_other_org(
     db_session: AsyncSession, factory
 ):
-    """create_invitation raises ValueError when email already has a pending
-    invitation in a different organization."""
+    """create_invitation raises DuplicateInvitationError when email already has
+    a pending invitation in a different organization."""
     org_a = await factory(OrganizationFactory, slug="org-a")
     org_b = await factory(OrganizationFactory, slug="org-b")
     await factory(
@@ -132,7 +133,7 @@ async def test_create_invitation_rejects_pending_invitation_in_other_org(
         email="pending@example.com",
     )
 
-    with pytest.raises(ValueError, match="already has a pending invitation"):
+    with pytest.raises(DuplicateInvitationError, match="pending invitation"):
         await create_invitation(
             db_session,
             organization_id=org_b.id,
@@ -146,8 +147,8 @@ async def test_create_invitation_rejects_pending_invitation_in_other_org(
 async def test_create_invitation_rejects_pending_org_creation_invitation(
     db_session: AsyncSession, factory
 ):
-    """create_invitation raises ValueError when email already has a pending
-    OrgCreationInvitation."""
+    """create_invitation raises DuplicateInvitationError when email already has
+    a pending OrgCreationInvitation."""
     org = await factory(OrganizationFactory)
     reviewer = await factory(UserFactory)
     signup_request = await factory(SignupRequestFactory, email="orgcreator@example.com")
@@ -159,7 +160,7 @@ async def test_create_invitation_rejects_pending_org_creation_invitation(
         invited_by_id=reviewer.id,
     )
 
-    with pytest.raises(ValueError, match="already has a pending invitation"):
+    with pytest.raises(DuplicateInvitationError, match="pending org-creation"):
         await create_invitation(
             db_session,
             organization_id=org.id,

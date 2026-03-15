@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.database import get_session
 from oopsie.deps import get_optional_user
+from oopsie.exceptions import AlreadyHasOrganizationError
 from oopsie.models.user import User
 from oopsie.services.signup_request_service import create_signup_request
 from oopsie.web import templates
@@ -84,7 +85,7 @@ async def submit_signup_request(
             session, name=name, email=email, org_name=org_name, reason=reason
         )
         success = True
-    except ValueError as exc:
+    except (ValueError, AlreadyHasOrganizationError) as exc:
         error = str(exc)
     except IntegrityError:
         # Race condition: concurrent submission passed the app-level check but

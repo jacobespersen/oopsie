@@ -4,6 +4,7 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
+from oopsie.exceptions import AlreadyHasOrganizationError
 from oopsie.models.membership import MemberRole
 from oopsie.models.org_creation_invitation import OrgCreationInvitation
 from oopsie.models.signup_request import SignupRequestStatus
@@ -252,7 +253,7 @@ async def test_create_signup_request_rejects_existing_member(db_session, factory
         role=MemberRole.member,
     )
 
-    with pytest.raises(ValueError, match="already belongs to an organization"):
+    with pytest.raises(AlreadyHasOrganizationError, match="already belongs"):
         await create_signup_request(
             db_session,
             name="Existing Member",
@@ -264,8 +265,8 @@ async def test_create_signup_request_rejects_existing_member(db_session, factory
 
 @pytest.mark.asyncio
 async def test_approve_signup_request_rejects_existing_member(db_session, factory):
-    """approve_signup_request raises ValueError if the user gained a membership
-    between signup request creation and approval."""
+    """approve_signup_request raises AlreadyHasOrganizationError if the user
+    gained a membership between signup request creation and approval."""
 
     sr = await factory(SignupRequestFactory, email="late-member@example.com")
     reviewer = await factory(UserFactory)
@@ -280,7 +281,7 @@ async def test_approve_signup_request_rejects_existing_member(db_session, factor
         role=MemberRole.member,
     )
 
-    with pytest.raises(ValueError, match="already belongs to an organization"):
+    with pytest.raises(AlreadyHasOrganizationError, match="already belongs"):
         await approve_signup_request(
             db_session,
             signup_request_id=sr.id,

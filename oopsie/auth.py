@@ -84,7 +84,11 @@ async def get_pending_invitations(
     """Return all pending invitations for the given email."""
     from oopsie.models.invitation import Invitation
 
-    result = await session.execute(select(Invitation).where(Invitation.email == email))
+    result = await session.execute(
+        select(Invitation)
+        .options(joinedload(Invitation.organization))
+        .where(Invitation.email == email)
+    )
     return list(result.scalars().all())
 
 
@@ -100,6 +104,9 @@ async def accept_invitation(
         user_id=user.id,
         role=invitation.role,
     )
+    # Set the relationship directly so callers can access .organization
+    # without triggering a lazy load (which fails in async context).
+    membership.organization = invitation.organization
     session.add(membership)
     # Invitation is transient — delete now that it's fulfilled
     await session.delete(invitation)
@@ -149,6 +156,9 @@ async def accept_org_creation_invitation(
         user_id=user.id,
         role=MemberRole.owner,
     )
+    # Set the relationship directly so callers can access .organization
+    # without triggering a lazy load (which fails in async context).
+    membership.organization = org
     session.add(membership)
 
     invitation_id = invitation.id

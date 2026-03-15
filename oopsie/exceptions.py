@@ -27,3 +27,11 @@ class GitHubAppNotConfiguredError(OopsieServiceError):
 
 class AnthropicKeyNotConfiguredError(OopsieServiceError):
     """Raised when no Anthropic API key is configured for a project or its org."""
+
+
+class AlreadyHasOrganizationError(OopsieServiceError):
+    """Raised when a user already belongs to an organization."""
+
+
+class DuplicateInvitationError(OopsieServiceError):
+    """Raised when a user already has a pending invitation."""

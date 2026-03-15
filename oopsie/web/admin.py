@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.database import get_session
 from oopsie.deps import require_platform_admin
+from oopsie.exceptions import AlreadyHasOrganizationError
 from oopsie.logging import logger
 from oopsie.models.signup_request import SignupRequestStatus
 from oopsie.models.user import User
@@ -72,7 +73,7 @@ async def approve_request(
             error=str(exc),
         )
         raise HTTPException(status_code=404, detail=str(exc))
-    except ValueError as exc:
+    except (ValueError, AlreadyHasOrganizationError) as exc:
         logger.warning(
             "approve_request_conflict",
             request_id=str(request_id),

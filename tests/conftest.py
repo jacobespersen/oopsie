@@ -6,10 +6,14 @@ import warnings
 # Must be set before Settings is imported (it reads env vars at import time).
 # These are dummy keys for tests only — never use them outside of tests.
 os.environ.setdefault("ENCRYPTION_KEY", "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U=")
+os.environ.setdefault("SIGNING_SECRET", "test-signing-secret-not-for-production")
 
 # Matches the ENCRYPTION_KEY env var set above. Import this constant in tests
 # instead of duplicating the value.
 TEST_ENCRYPTION_KEY = "sH0fafIOlcxd9fb7s-lXn4sKh3Kh_sddG68RK6meO6U="
+
+import asyncio  # noqa: E402
+from urllib.parse import urlparse, urlunparse  # noqa: E402
 
 import httpx  # noqa: E402
 import pytest_asyncio  # noqa: E402
@@ -23,8 +27,9 @@ from oopsie.models import (  # noqa: E402, F401
     User,
 )
 from oopsie.models.base import Base  # noqa: E402
-from oopsie.models.membership import MemberRole  # noqa: E402
+from oopsie.models.membership import MemberRole, Membership  # noqa: E402
 from oopsie.session import create_session  # noqa: E402
+from sqlalchemy import update  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402
 
 from tests.factories import (  # noqa: E402
@@ -37,14 +42,30 @@ _settings = Settings()
 _test_url = _settings.get_test_database_url()
 
 
+async def set_membership_role(
+    db_session: AsyncSession, user_id, organization_id, role: MemberRole
+) -> None:
+    """Update the existing membership role for a user in an org.
+
+    Test helper — used by web tests that need to change the role created by
+    the current_user fixture.
+    """
+    await db_session.execute(
+        update(Membership)
+        .where(
+            Membership.user_id == user_id,
+            Membership.organization_id == organization_id,
+        )
+        .values(role=role)
+    )
+    await db_session.flush()
+
+
 def _create_test_database_sync() -> bool:
     """Create test database if it does not exist (sync).
 
     Returns True on success.
     """
-    import asyncio
-    from urllib.parse import urlparse, urlunparse
-
     parsed = urlparse(_test_url)
     db_name = (parsed.path or "/").strip("/").split("/")[-1] or "oopsie_test"
     admin_path = "/postgres"
@@ -89,8 +110,6 @@ async def _ensure_test_database_exists() -> bool:
 
     Returns True if created or exists, False on failure.
     """
-    import asyncio
-
     result = await asyncio.get_event_loop().run_in_executor(
         None, _create_test_database_sync
     )
@@ -143,7 +162,7 @@ async def current_user(db_session: AsyncSession, organization) -> User:
 
 @pytest_asyncio.fixture
 async def authenticated_client(
-    db_session: AsyncSession, current_user: User, fake_redis
+    db_session: AsyncSession, current_user: User, organization, fake_redis
 ):
     """HTTP client with a valid session cookie and CSRF token for current_user.
 
@@ -156,7 +175,7 @@ async def authenticated_client(
         yield db_session
 
     app.dependency_overrides[get_session] = override_get_session
-    session_token = await create_session(current_user.id)
+    session_token = await create_session(current_user.id, org_slug=organization.slug)
     try:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(

@@ -8,6 +8,20 @@ from sqlalchemy.orm import selectinload
 
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership, role_rank
+from oopsie.models.user import User
+
+
+async def has_membership_by_email(session: AsyncSession, email: str) -> bool:
+    """Check whether a user with the given email already belongs to any org."""
+    result = await session.scalar(
+        select(
+            select(Membership)
+            .join(User, User.id == Membership.user_id)
+            .where(User.email == email)
+            .exists()
+        )
+    )
+    return bool(result)
 
 
 async def list_members(

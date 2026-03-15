@@ -30,6 +30,7 @@ class Membership(Base):
     __tablename__ = "memberships"
     __table_args__ = (
         UniqueConstraint("organization_id", "user_id", name="uq_membership_org_user"),
+        UniqueConstraint("user_id", name="uq_membership_user"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

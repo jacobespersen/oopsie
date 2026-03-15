@@ -1,17 +1,32 @@
 """Tests for the invitation service (create, list, revoke)."""
 
+import uuid
+
 import pytest
+from oopsie.exceptions import AlreadyHasOrganizationError, DuplicateInvitationError
+from oopsie.models.invitation import Invitation
 from oopsie.models.membership import MemberRole
+from oopsie.services.invitation_service import (
+    create_invitation,
+    list_invitations,
+    revoke_invitation,
+)
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from tests.factories import (
+    InvitationFactory,
+    MembershipFactory,
+    OrganizationFactory,
+    OrgCreationInvitationFactory,
+    SignupRequestFactory,
+    UserFactory,
+)
 
 
 @pytest.mark.asyncio
 async def test_create_invitation_creates_pending(db_session: AsyncSession, factory):
     """create_invitation persists an invitation for the given org and email."""
-    from oopsie.services.invitation_service import create_invitation
-
-    from tests.factories import OrganizationFactory, UserFactory
-
     org = await factory(OrganizationFactory)
     inviter = await factory(UserFactory)
 
@@ -33,10 +48,6 @@ async def test_create_invitation_creates_pending(db_session: AsyncSession, facto
 @pytest.mark.asyncio
 async def test_create_invitation_updates_existing(db_session: AsyncSession, factory):
     """create_invitation updates role on an existing invite."""
-    from oopsie.services.invitation_service import create_invitation
-
-    from tests.factories import InvitationFactory, OrganizationFactory
-
     org = await factory(OrganizationFactory)
     original = await factory(
         InvitationFactory,
@@ -61,15 +72,8 @@ async def test_create_invitation_updates_existing(db_session: AsyncSession, fact
 async def test_create_invitation_raises_for_existing_member(
     db_session: AsyncSession, factory
 ):
-    """create_invitation raises ValueError when email is already an org member."""
-    from oopsie.services.invitation_service import create_invitation
-
-    from tests.factories import (
-        MembershipFactory,
-        OrganizationFactory,
-        UserFactory,
-    )
-
+    """create_invitation raises ValueError when email belongs to a user who is
+    already a member of any organization (single-org-per-user enforcement)."""
     org = await factory(OrganizationFactory)
     user = await factory(UserFactory, email="member@example.com")
     await factory(
@@ -79,7 +83,7 @@ async def test_create_invitation_raises_for_existing_member(
         role=MemberRole.member,
     )
 
-    with pytest.raises(ValueError, match="already a member"):
+    with pytest.raises(AlreadyHasOrganizationError, match="already belongs"):
         await create_invitation(
             db_session,
             organization_id=org.id,
@@ -90,14 +94,87 @@ async def test_create_invitation_raises_for_existing_member(
 
 
 @pytest.mark.asyncio
+async def test_create_invitation_rejects_member_of_other_org(
+    db_session: AsyncSession, factory
+):
+    """create_invitation raises AlreadyHasOrganizationError when email belongs
+    to a user who is a member of a different organization."""
+    org_a = await factory(OrganizationFactory, slug="org-a")
+    org_b = await factory(OrganizationFactory, slug="org-b")
+    user = await factory(UserFactory, email="cross-org@example.com")
+    await factory(
+        MembershipFactory,
+        organization_id=org_a.id,
+        user_id=user.id,
+        role=MemberRole.member,
+    )
+
+    with pytest.raises(AlreadyHasOrganizationError, match="already belongs"):
+        await create_invitation(
+            db_session,
+            organization_id=org_b.id,
+            email="cross-org@example.com",
+            role=MemberRole.member,
+            invited_by_id=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_invitation_rejects_pending_invitation_in_other_org(
+    db_session: AsyncSession, factory
+):
+    """create_invitation raises DuplicateInvitationError when email already has
+    a pending invitation in a different organization."""
+    org_a = await factory(OrganizationFactory, slug="org-a")
+    org_b = await factory(OrganizationFactory, slug="org-b")
+    await factory(
+        InvitationFactory,
+        organization_id=org_a.id,
+        email="pending@example.com",
+    )
+
+    with pytest.raises(DuplicateInvitationError, match="pending invitation"):
+        await create_invitation(
+            db_session,
+            organization_id=org_b.id,
+            email="pending@example.com",
+            role=MemberRole.member,
+            invited_by_id=None,
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_invitation_rejects_pending_org_creation_invitation(
+    db_session: AsyncSession, factory
+):
+    """create_invitation raises DuplicateInvitationError when email already has
+    a pending OrgCreationInvitation."""
+    org = await factory(OrganizationFactory)
+    reviewer = await factory(UserFactory)
+    signup_request = await factory(SignupRequestFactory, email="orgcreator@example.com")
+    await factory(
+        OrgCreationInvitationFactory,
+        email="orgcreator@example.com",
+        org_name="New Org",
+        signup_request_id=signup_request.id,
+        invited_by_id=reviewer.id,
+    )
+
+    with pytest.raises(DuplicateInvitationError, match="pending org-creation"):
+        await create_invitation(
+            db_session,
+            organization_id=org.id,
+            email="orgcreator@example.com",
+            role=MemberRole.member,
+            invited_by_id=None,
+        )
+
+
+@pytest.mark.asyncio
 async def test_list_invitations_returns_org_invitations(
     db_session: AsyncSession, factory
 ):
     """list_invitations returns invitations for the org."""
-    from oopsie.services.invitation_service import list_invitations
-
-    from tests.factories import InvitationFactory, OrganizationFactory
-
     org = await factory(OrganizationFactory)
     inv = await factory(
         InvitationFactory,
@@ -114,10 +191,6 @@ async def test_list_invitations_returns_org_invitations(
 @pytest.mark.asyncio
 async def test_list_invitations_excludes_other_orgs(db_session: AsyncSession, factory):
     """list_invitations does not return invitations from other organizations."""
-    from oopsie.services.invitation_service import list_invitations
-
-    from tests.factories import InvitationFactory, OrganizationFactory
-
     org1 = await factory(OrganizationFactory, slug="org1")
     org2 = await factory(OrganizationFactory, slug="org2")
     await factory(InvitationFactory, organization_id=org1.id, email="a@x.com")
@@ -132,12 +205,6 @@ async def test_list_invitations_excludes_other_orgs(db_session: AsyncSession, fa
 @pytest.mark.asyncio
 async def test_revoke_invitation_deletes(db_session: AsyncSession, factory):
     """revoke_invitation removes an invitation."""
-    from oopsie.models.invitation import Invitation
-    from oopsie.services.invitation_service import revoke_invitation
-    from sqlalchemy import select
-
-    from tests.factories import InvitationFactory, OrganizationFactory
-
     org = await factory(OrganizationFactory)
     inv = await factory(
         InvitationFactory,
@@ -158,12 +225,6 @@ async def test_revoke_invitation_raises_when_not_found(
     db_session: AsyncSession, factory
 ):
     """revoke_invitation raises LookupError when the invitation does not exist."""
-    import uuid
-
-    from oopsie.services.invitation_service import revoke_invitation
-
-    from tests.factories import OrganizationFactory
-
     org = await factory(OrganizationFactory)
 
     with pytest.raises(LookupError):
@@ -180,10 +241,6 @@ async def test_revoke_invitation_raises_when_not_found(
 @pytest.mark.asyncio
 async def test_admin_cannot_invite_with_owner_role(db_session: AsyncSession, factory):
     """ADMIN cannot create an invitation with OWNER role."""
-    from oopsie.services.invitation_service import create_invitation
-
-    from tests.factories import OrganizationFactory, UserFactory
-
     org = await factory(OrganizationFactory)
     inviter = await factory(UserFactory)
 
@@ -201,10 +258,6 @@ async def test_admin_cannot_invite_with_owner_role(db_session: AsyncSession, fac
 @pytest.mark.asyncio
 async def test_admin_can_invite_with_member_role(db_session: AsyncSession, factory):
     """ADMIN can invite with MEMBER role (below their rank)."""
-    from oopsie.services.invitation_service import create_invitation
-
-    from tests.factories import OrganizationFactory, UserFactory
-
     org = await factory(OrganizationFactory)
     inviter = await factory(UserFactory)
 
@@ -223,10 +276,6 @@ async def test_admin_can_invite_with_member_role(db_session: AsyncSession, facto
 @pytest.mark.asyncio
 async def test_admin_can_invite_with_admin_role(db_session: AsyncSession, factory):
     """ADMIN can invite with ADMIN role (equal to their rank)."""
-    from oopsie.services.invitation_service import create_invitation
-
-    from tests.factories import OrganizationFactory, UserFactory
-
     org = await factory(OrganizationFactory)
     inviter = await factory(UserFactory)
 
@@ -245,10 +294,6 @@ async def test_admin_can_invite_with_admin_role(db_session: AsyncSession, factor
 @pytest.mark.asyncio
 async def test_owner_can_invite_with_owner_role(db_session: AsyncSession, factory):
     """OWNER can invite with OWNER role."""
-    from oopsie.services.invitation_service import create_invitation
-
-    from tests.factories import OrganizationFactory, UserFactory
-
     org = await factory(OrganizationFactory)
     inviter = await factory(UserFactory)
 

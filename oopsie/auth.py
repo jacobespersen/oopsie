@@ -109,7 +109,7 @@ async def accept_invitation(
     # without triggering a lazy load (which fails in async context).
     membership.organization = invitation.organization
     session.add(membership)
-    # Invitation is transient — delete now that it's fulfilled
+    # Invitation is single-use — delete now that it's fulfilled
     await session.delete(invitation)
     await session.flush()
     logger.info(
@@ -179,13 +179,14 @@ async def accept_org_creation_invitation(
 
 async def resolve_or_register_user(
     session: AsyncSession, google_user_info: dict[str, Any]
-) -> tuple[User, "list[Membership]"]:
+) -> tuple[User, "Membership | None"]:
     """Authenticate a Google OAuth user, handling invitation-gated registration.
 
-    Returns the user and a list of new Memberships from accepted invitations.
+    Returns the user and a new Membership if one was created from an invitation.
     Raises NoInvitationError if the user is new and has no invitation.
 
-    Handles both membership invitations and org-creation invitations.
+    Single-org model: accepts at most one invitation (org-creation first, then
+    regular). Any remaining invitations are deleted since the user now has an org.
     Sets is_platform_admin when email matches ADMIN_EMAIL.
     Eagerly loads memberships + organizations so callers can derive redirect URLs
     without an additional query.
@@ -213,7 +214,7 @@ async def resolve_or_register_user(
         _set_platform_admin_if_needed(user, email)
         if user.is_platform_admin:
             await session.flush()
-        return user, []
+        return user, None
 
     # New user or existing user with org-creation invitations — check all invitations
     invitations = await get_pending_invitations(session, email)
@@ -227,17 +228,44 @@ async def resolve_or_register_user(
     if user.is_platform_admin:
         await session.flush()
 
-    memberships: list[Membership] = []
-    for invitation in invitations:
-        membership = await accept_invitation(session, invitation, user)
-        memberships.append(membership)
+    # Single-org: accept at most one invitation. Prioritize org-creation
+    # invitations (admin-approved) over regular invitations.
+    membership: Membership | None = None
+    if org_creation_invitations:
+        membership = await accept_org_creation_invitation(
+            session, org_creation_invitations[0], user
+        )
+        # Delete any remaining org-creation invitations
+        for extra in org_creation_invitations[1:]:
+            logger.info(
+                "leftover_invitation_deleted",
+                invitation_id=str(extra.id),
+                email=extra.email,
+                org_name=extra.org_name,
+                type="org_creation",
+            )
+            await session.delete(extra)
+    elif invitations:
+        membership = await accept_invitation(session, invitations[0], user)
 
-    # Accept any pending org-creation invitations (creates org + OWNER membership)
-    for org_invitation in org_creation_invitations:
-        membership = await accept_org_creation_invitation(session, org_invitation, user)
-        memberships.append(membership)
+    # Delete any un-accepted invitations — they're invalid now that the user
+    # has an org. If we accepted an org-creation invite, delete ALL regular
+    # invitations; otherwise delete the remaining regular invitations (first
+    # one was already accepted and deleted by accept_invitation).
+    leftover_invitations = invitations if org_creation_invitations else invitations[1:]
+    for leftover in leftover_invitations:
+        logger.info(
+            "leftover_invitation_deleted",
+            invitation_id=str(leftover.id),
+            email=leftover.email,
+            organization_id=str(leftover.organization_id),
+            type="regular",
+        )
+        await session.delete(leftover)
+    if leftover_invitations:
+        await session.flush()
 
-    return user, memberships
+    return user, membership
 
 
 def _set_platform_admin_if_needed(user: User, email: str) -> None:

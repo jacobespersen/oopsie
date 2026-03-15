@@ -12,12 +12,14 @@
     <div class="Header-item">
       <a href="/" class="Header-link f4 text-bold">Oopsie</a>
     </div>
+    {% if org_slug %}
     <div class="Header-item">
       <a href="/orgs/{{ org_slug }}/projects" class="Header-link">Projects</a>
     </div>
     <div class="Header-item">
       <a href="/orgs/{{ org_slug }}/settings" class="Header-link">Settings</a>
     </div>
+    {% endif %}
     {% if user and user.is_platform_admin %}
     <div class="Header-item">
       <a href="/admin/signup-requests" class="Header-link">Admin</a>
@@ -55,6 +57,13 @@
       var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
       if (!m) return;
       var token = decodeURIComponent(m[1]);
+      // Signed tokens from itsdangerous contain a "." separator.
+      // If the cookie is unsigned/stale, delete it so the middleware
+      // sets a fresh signed one on the next response.
+      if (token.indexOf('.') === -1) {
+        document.cookie = 'csrftoken=; path=/; max-age=0';
+        return;
+      }
       document.querySelectorAll('form').forEach(function(form) {
         if (form.querySelector('input[name="csrftoken"]')) return;
         var input = document.createElement('input');

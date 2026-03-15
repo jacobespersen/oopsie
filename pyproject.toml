@@ -30,7 +30,7 @@ dependencies = [
     "githubkit[auth-app]",
     "itsdangerous",
     "claude-agent-sdk",
-    "starlette-csrf",
+    "fastapi-csrf-jinja",
 ]
 
 [project.optional-dependencies]

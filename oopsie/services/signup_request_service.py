@@ -7,9 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from oopsie.exceptions import AlreadyHasOrganizationError
 from oopsie.logging import logger
 from oopsie.models.org_creation_invitation import OrgCreationInvitation
 from oopsie.models.signup_request import SignupRequest, SignupRequestStatus
+from oopsie.services.membership_service import has_membership_by_email
 
 
 async def create_signup_request(
@@ -22,8 +24,13 @@ async def create_signup_request(
 ) -> SignupRequest:
     """Create a new signup request.
 
-    Raises ValueError if a pending request already exists for this email.
+    Raises ValueError if a pending request already exists for this email,
+    or if the user already belongs to an organization.
     """
+    # Single-org enforcement: reject early if user already has a membership
+    if await has_membership_by_email(session, email):
+        raise AlreadyHasOrganizationError(f"{email} already belongs to an organization")
+
     existing = await session.execute(
         select(SignupRequest).where(
             SignupRequest.email == email,
@@ -93,6 +100,12 @@ async def approve_signup_request(
 
     if signup_request.status != SignupRequestStatus.pending:
         raise ValueError(f"Signup request is already {signup_request.status.value}.")
+
+    # Single-org enforcement: reject if user already has a membership
+    if await has_membership_by_email(session, signup_request.email):
+        raise AlreadyHasOrganizationError(
+            f"{signup_request.email} already belongs to an organization"
+        )
 
     signup_request.status = SignupRequestStatus.approved
     signup_request.reviewed_by_id = reviewer_id

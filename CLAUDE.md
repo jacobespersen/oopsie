@@ -87,7 +87,9 @@ alembic/           — DB migrations
 - **Comment non-obvious code** — add inline comments when logic isn't immediately self-evident, especially for complex business rules, multi-step flows, workarounds, and constraint rationale. Don't comment the obvious, but err on the side of clarity for anything a new reader would need to pause and reason about.
 - **Prefer composition over proliferation** — don't create a new module/file for every small piece of logic. Group related functionality together.
 - **Services encapsulate business logic** — keep endpoints thin, delegate to services.
+- **Packages before custom code** — before writing custom implementations for common problems, search for well-maintained packages or SDKs that solve the problem. A battle-tested library with community scrutiny is almost always better than a hand-rolled solution. Only write custom code when no suitable package exists or when the package clearly doesn't fit the use case.
 - **Reuse before creating** — always check existing utilities, helpers, and patterns before introducing new ones.
+- **Keep README current** — when adding or changing env vars, setup steps, CLI commands, architecture, or project structure, update README.md as part of the same change.
 - **Pydantic request/response models** — define explicit Pydantic schemas for API input and output. Don't return raw dicts or ORM objects from endpoints.
 - **Prevent N+1 queries** — use `selectinload()` / `joinedload()` for relationships accessed in loops or list endpoints. Never lazy-load inside iteration.
 - **Session-per-request, flush in services** — services call `session.flush()` to surface errors; the endpoint/middleware handles final commit via the session lifecycle. Don't call `session.commit()` in services.
@@ -112,6 +114,7 @@ alembic/           — DB migrations
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | yes | Async PostgreSQL URL |
+| `SIGNING_SECRET` | yes | Secret for signing cookies and CSRF tokens (`python -c 'import secrets; print(secrets.token_urlsafe(32))'`) |
 | `ENCRYPTION_KEY` | yes (for GitHub tokens) | Fernet key (`python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'`) |
 | `GOOGLE_CLIENT_ID` | for OAuth login | Google OAuth 2.0 client ID |
 | `GOOGLE_CLIENT_SECRET` | for OAuth login | Google OAuth 2.0 client secret |

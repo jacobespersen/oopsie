@@ -8,47 +8,29 @@ from oopsie.models.github_installation import GithubInstallation, InstallationSt
 from oopsie.models.membership import MemberRole
 from sqlalchemy import select
 
+from tests.conftest import set_membership_role
+
 
 @pytest.mark.asyncio
-async def test_install_redirect_303(authenticated_client, current_user, factory):
+async def test_install_redirect_303(authenticated_client, organization):
     """GET /orgs/{slug}/github/install by admin returns 303.
 
     Location header must contain github.com/apps/.
     """
-    from tests.factories import MembershipFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory, slug="gh-co")
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.admin,
-    )
-
+    # current_user is already admin in organization (via fixture)
     resp = await authenticated_client.get(
-        "/orgs/gh-co/github/install", follow_redirects=False
+        f"/orgs/{organization.slug}/github/install", follow_redirects=False
     )
     assert resp.status_code == 303
     assert "github.com/apps/" in resp.headers["location"]
 
 
 @pytest.mark.asyncio
-async def test_install_redirect_sets_session_state(
-    authenticated_client, current_user, factory
-):
+async def test_install_redirect_sets_session_state(authenticated_client, organization):
     """Session contains github_install_state after install redirect."""
-    from tests.factories import MembershipFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory, slug="gh-sess-co")
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.admin,
-    )
-
+    # current_user is already admin in organization (via fixture)
     resp = await authenticated_client.get(
-        "/orgs/gh-sess-co/github/install", follow_redirects=False
+        f"/orgs/{organization.slug}/github/install", follow_redirects=False
     )
     assert resp.status_code == 303
     # State should be embedded in the redirect URL
@@ -58,43 +40,29 @@ async def test_install_redirect_sets_session_state(
 
 @pytest.mark.asyncio
 async def test_install_redirect_403_non_admin(
-    authenticated_client, current_user, factory
+    authenticated_client, current_user, organization, db_session
 ):
-    """GET /orgs/{slug}/github/install by a member (not admin) → 403."""
-    from tests.factories import MembershipFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory, slug="gh-403-co")
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.member,
+    """GET /orgs/{slug}/github/install by a member (not admin) -> 403."""
+    await set_membership_role(
+        db_session, current_user.id, organization.id, MemberRole.member
     )
 
     resp = await authenticated_client.get(
-        "/orgs/gh-403-co/github/install", follow_redirects=False
+        f"/orgs/{organization.slug}/github/install", follow_redirects=False
     )
     assert resp.status_code == 403
 
 
 @pytest.mark.asyncio
 async def test_install_callback_creates_installation(
-    authenticated_client, current_user, factory, db_session
+    authenticated_client, organization, db_session
 ):
-    """GET /github/callback with valid state → 303, GithubInstallation created."""
-    from tests.factories import MembershipFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory, slug="cb-co")
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.admin,
-    )
+    """GET /github/callback with valid state -> 303, GithubInstallation created."""
+    # current_user is already admin in organization (via fixture)
 
     # Hit install redirect to store state in session
     redirect_resp = await authenticated_client.get(
-        "/orgs/cb-co/github/install", follow_redirects=False
+        f"/orgs/{organization.slug}/github/install", follow_redirects=False
     )
     assert redirect_resp.status_code == 303
 
@@ -116,11 +84,13 @@ async def test_install_callback_creates_installation(
         follow_redirects=False,
     )
     assert cb_resp.status_code == 303
-    assert "/orgs/cb-co/settings" in cb_resp.headers["location"]
+    assert f"/orgs/{organization.slug}/settings" in cb_resp.headers["location"]
 
     # Verify GithubInstallation was created
     result = await db_session.execute(
-        select(GithubInstallation).where(GithubInstallation.organization_id == org.id)
+        select(GithubInstallation).where(
+            GithubInstallation.organization_id == organization.id
+        )
     )
     installation = result.scalar_one_or_none()
     assert installation is not None
@@ -138,23 +108,13 @@ async def test_callback_requires_authentication(api_client):
 
 
 @pytest.mark.asyncio
-async def test_install_callback_state_mismatch(
-    authenticated_client, current_user, factory
-):
-    """GET /github/callback with wrong state → 400."""
-    from tests.factories import MembershipFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory, slug="cb-mismatch-co")
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.admin,
-    )
+async def test_install_callback_state_mismatch(authenticated_client, organization):
+    """GET /github/callback with wrong state -> 400."""
+    # current_user is already admin in organization (via fixture)
 
     # Hit install redirect to set session state
     await authenticated_client.get(
-        "/orgs/cb-mismatch-co/github/install", follow_redirects=False
+        f"/orgs/{organization.slug}/github/install", follow_redirects=False
     )
 
     # Call callback with wrong state
@@ -174,7 +134,7 @@ async def test_install_callback_state_mismatch(
 async def test_webhook_valid_signature_installation(
     authenticated_client, current_user, factory
 ):
-    """POST /webhooks/github with valid sig and installation event → 200."""
+    """POST /webhooks/github with valid sig and installation event -> 200."""
     secret = "test-webhook-secret"
     body = b'{"action": "created", "installation": {"id": 1}}'
     sig = webhook_sign(secret, body)
@@ -206,7 +166,7 @@ async def test_webhook_valid_signature_installation(
 async def test_webhook_valid_signature_pull_request(
     authenticated_client, current_user, factory
 ):
-    """POST /webhooks/github with valid sig and pull_request event → 200."""
+    """POST /webhooks/github with valid sig and pull_request event -> 200."""
     secret = "test-webhook-secret"
     body = b'{"action": "closed", "pull_request": {"merged": true}}'
     sig = webhook_sign(secret, body)
@@ -236,7 +196,7 @@ async def test_webhook_valid_signature_pull_request(
 
 @pytest.mark.asyncio
 async def test_webhook_invalid_signature(authenticated_client):
-    """POST /webhooks/github with bad sig → 403."""
+    """POST /webhooks/github with bad sig -> 403."""
     body = b'{"action": "created"}'
 
     with patch("oopsie.web.github.get_settings") as mock_settings:
@@ -256,7 +216,7 @@ async def test_webhook_invalid_signature(authenticated_client):
 
 @pytest.mark.asyncio
 async def test_webhook_missing_signature(authenticated_client):
-    """POST /webhooks/github with no X-Hub-Signature-256 → 403."""
+    """POST /webhooks/github with no X-Hub-Signature-256 -> 403."""
     body = b'{"action": "created"}'
 
     with patch("oopsie.web.github.get_settings") as mock_settings:
@@ -275,7 +235,7 @@ async def test_webhook_missing_signature(authenticated_client):
 
 @pytest.mark.asyncio
 async def test_webhook_unknown_event_returns_200(authenticated_client):
-    """POST /webhooks/github with valid sig and unknown event → 200."""
+    """POST /webhooks/github with valid sig and unknown event -> 200."""
     secret = "test-webhook-secret"
     body = b'{"ref": "refs/heads/main"}'
     sig = webhook_sign(secret, body)
@@ -338,80 +298,60 @@ async def test_webhook_returns_200_on_parse_error(authenticated_client):
 
 @pytest.mark.asyncio
 async def test_settings_page_200_no_installation(
-    authenticated_client, current_user, factory
+    authenticated_client, current_user, organization, db_session
 ):
-    """GET /orgs/{slug}/settings by member → 200, 'Not connected' in response."""
-    from tests.factories import MembershipFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory, slug="settings-co")
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.member,
+    """GET /orgs/{slug}/settings by member -> 200, 'Not connected' in response."""
+    await set_membership_role(
+        db_session, current_user.id, organization.id, MemberRole.member
     )
 
-    resp = await authenticated_client.get("/orgs/settings-co/settings")
+    resp = await authenticated_client.get(f"/orgs/{organization.slug}/settings")
     assert resp.status_code == 200
     assert "Not connected" in resp.text
 
 
 @pytest.mark.asyncio
 async def test_settings_page_shows_active_installation(
-    authenticated_client, current_user, factory
+    authenticated_client, current_user, organization, db_session, factory
 ):
     """GET /orgs/{slug}/settings with ACTIVE GithubInstallation returns 200.
 
     Response text must contain 'Connected'.
     """
-    from tests.factories import (
-        GithubInstallationFactory,
-        MembershipFactory,
-        OrganizationFactory,
-    )
+    from tests.factories import GithubInstallationFactory
 
-    org = await factory(OrganizationFactory, slug="settings-active-co")
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.member,
+    await set_membership_role(
+        db_session, current_user.id, organization.id, MemberRole.member
     )
     await factory(
         GithubInstallationFactory,
-        organization_id=org.id,
+        organization_id=organization.id,
         status=InstallationStatus.ACTIVE,
         github_account_login="my-gh-org",
     )
 
-    resp = await authenticated_client.get("/orgs/settings-active-co/settings")
+    resp = await authenticated_client.get(f"/orgs/{organization.slug}/settings")
     assert resp.status_code == 200
     assert "Connected" in resp.text
 
 
 @pytest.mark.asyncio
-async def test_settings_page_shows_members(authenticated_client, current_user, factory):
-    """GET /orgs/{slug}/settings → 200, member email in response text."""
-    from tests.factories import MembershipFactory, OrganizationFactory
-
-    org = await factory(OrganizationFactory, slug="settings-members-co")
-    await factory(
-        MembershipFactory,
-        organization_id=org.id,
-        user_id=current_user.id,
-        role=MemberRole.member,
+async def test_settings_page_shows_members(
+    authenticated_client, current_user, organization, db_session
+):
+    """GET /orgs/{slug}/settings -> 200, member email in response text."""
+    await set_membership_role(
+        db_session, current_user.id, organization.id, MemberRole.member
     )
 
-    resp = await authenticated_client.get("/orgs/settings-members-co/settings")
+    resp = await authenticated_client.get(f"/orgs/{organization.slug}/settings")
     assert resp.status_code == 200
     assert current_user.email in resp.text
 
 
 @pytest.mark.asyncio
-async def test_settings_page_403_non_member(
-    authenticated_client, current_user, factory
-):
-    """GET /orgs/{slug}/settings by non-member → 403."""
+async def test_settings_page_403_non_member(authenticated_client, factory):
+    """GET /orgs/{slug}/settings by non-member -> 403."""
     from tests.factories import OrganizationFactory
 
     await factory(OrganizationFactory, slug="settings-nonmember-co")

@@ -7,6 +7,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.deps import RequireRole, get_session
+from oopsie.exceptions import AlreadyHasOrganizationError, DuplicateInvitationError
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.services.invitation_service import create_invitation, revoke_invitation
 from oopsie.services.membership_service import remove_member, update_member_role
@@ -37,7 +38,7 @@ async def invite_member_action(
             invited_by_id=membership.user_id,
             inviter_role=membership.role,
         )
-    except ValueError as exc:
+    except (AlreadyHasOrganizationError, DuplicateInvitationError) as exc:
         raise HTTPException(status_code=409, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))

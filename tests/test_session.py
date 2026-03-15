@@ -8,6 +8,7 @@ from oopsie.session import (
     create_session,
     delete_session,
     extend_session,
+    get_session_org_slug,
     get_session_user_id,
 )
 
@@ -26,9 +27,18 @@ async def test_create_session_stores_user_id_in_redis(fake_redis):
     user_id = uuid.uuid4()
     token = await create_session(user_id)
 
-    stored = await fake_redis.get(f"session:{token}")
+    stored = await fake_redis.hget(f"session:{token}", "user_id")
     assert stored is not None
     assert stored.decode() == str(user_id)
+
+
+@pytest.mark.asyncio
+async def test_create_session_stores_org_slug(fake_redis):
+    user_id = uuid.uuid4()
+    token = await create_session(user_id, org_slug="my-org")
+
+    stored = await fake_redis.hget(f"session:{token}", "org_slug")
+    assert stored == b"my-org"
 
 
 @pytest.mark.asyncio
@@ -77,6 +87,24 @@ async def test_get_session_user_id_after_delete(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_get_session_org_slug_returns_slug(fake_redis):
+    user_id = uuid.uuid4()
+    token = await create_session(user_id, org_slug="my-org")
+
+    result = await get_session_org_slug(token)
+    assert result == "my-org"
+
+
+@pytest.mark.asyncio
+async def test_get_session_org_slug_missing(fake_redis):
+    user_id = uuid.uuid4()
+    token = await create_session(user_id)
+
+    result = await get_session_org_slug(token)
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_extend_session_resets_ttl(fake_redis):
     user_id = uuid.uuid4()
     token = await create_session(user_id)
@@ -113,3 +141,75 @@ async def test_delete_session_removes_key(fake_redis):
 async def test_delete_session_nonexistent_token(fake_redis):
     # Should not raise — DEL on a missing key is a no-op
     await delete_session("nonexistent-token")
+
+
+@pytest.mark.asyncio
+async def test_create_session_atomic_hset_and_expire(fake_redis):
+    """HSET and EXPIRE happen atomically via pipeline."""
+    user_id = uuid.uuid4()
+    token = await create_session(user_id, org_slug="test-org")
+
+    key = f"session:{token}"
+    # Both the hash data and TTL should be set
+    stored_user = await fake_redis.hget(key, "user_id")
+    stored_slug = await fake_redis.hget(key, "org_slug")
+    ttl = await fake_redis.ttl(key)
+
+    assert stored_user is not None
+    assert stored_slug == b"test-org"
+    assert ttl > 0
+
+
+@pytest.mark.asyncio
+async def test_get_session_user_id_evicts_pre_hash_string_key(fake_redis):
+    """Pre-hash-migration string key is evicted and returns None."""
+    await fake_redis.set("session:old-token", str(uuid.uuid4()))
+
+    result = await get_session_user_id("old-token")
+    assert result is None
+
+    # Key should have been deleted
+    assert await fake_redis.exists("session:old-token") == 0
+
+
+@pytest.mark.asyncio
+async def test_get_session_org_slug_evicts_pre_hash_string_key(fake_redis):
+    """Pre-hash-migration string key is evicted and returns None."""
+    await fake_redis.set("session:old-token", str(uuid.uuid4()))
+
+    result = await get_session_org_slug("old-token")
+    assert result is None
+
+    assert await fake_redis.exists("session:old-token") == 0
+
+
+@pytest.mark.asyncio
+async def test_get_session_user_id_reraises_non_wrongtype_error(
+    fake_redis, monkeypatch
+):
+    """Non-WRONGTYPE ResponseError is re-raised, not swallowed."""
+    import redis.exceptions
+
+    async def _boom(*args, **kwargs):
+        raise redis.exceptions.ResponseError("OOM command not allowed")
+
+    monkeypatch.setattr(fake_redis, "hget", _boom)
+
+    with pytest.raises(redis.exceptions.ResponseError, match="OOM"):
+        await get_session_user_id("any-token")
+
+
+@pytest.mark.asyncio
+async def test_get_session_org_slug_reraises_non_wrongtype_error(
+    fake_redis, monkeypatch
+):
+    """Non-WRONGTYPE ResponseError is re-raised, not swallowed."""
+    import redis.exceptions
+
+    async def _boom(*args, **kwargs):
+        raise redis.exceptions.ResponseError("OOM command not allowed")
+
+    monkeypatch.setattr(fake_redis, "hget", _boom)
+
+    with pytest.raises(redis.exceptions.ResponseError, match="OOM"):
+        await get_session_org_slug("any-token")

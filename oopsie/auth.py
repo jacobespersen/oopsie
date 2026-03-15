@@ -237,6 +237,13 @@ async def resolve_or_register_user(
         )
         # Delete any remaining org-creation invitations
         for extra in org_creation_invitations[1:]:
+            logger.info(
+                "leftover_invitation_deleted",
+                invitation_id=str(extra.id),
+                email=extra.email,
+                org_name=extra.org_name,
+                type="org_creation",
+            )
             await session.delete(extra)
     elif invitations:
         membership = await accept_invitation(session, invitations[0], user)
@@ -247,6 +254,13 @@ async def resolve_or_register_user(
     # one was already accepted and deleted by accept_invitation).
     leftover_invitations = invitations if org_creation_invitations else invitations[1:]
     for leftover in leftover_invitations:
+        logger.info(
+            "leftover_invitation_deleted",
+            invitation_id=str(leftover.id),
+            email=leftover.email,
+            organization_id=str(leftover.organization_id),
+            type="regular",
+        )
         await session.delete(leftover)
     if leftover_invitations:
         await session.flush()

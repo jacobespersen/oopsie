@@ -282,7 +282,11 @@ async def test_no_changes_marks_failed(db_session: AsyncSession, factory):
         )
         fa = result.scalar_one()
         assert fa.status == FixAttemptStatus.FAILED
-        assert fa.claude_output == "Claude produced no changes"
+        assert fa.claude_output == (
+            "Claude produced no changes.\n\n"
+            "Claude's response:\n"
+            "Looked but found nothing"
+        )
 
 
 @pytest.mark.asyncio

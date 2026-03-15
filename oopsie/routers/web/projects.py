@@ -9,10 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.config import get_settings
-from oopsie.deps import RequireRole, get_session
 from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.models.project import Project
+from oopsie.routers.dependencies import RequireRole, get_session
+from oopsie.routers.web import templates
 from oopsie.services.anthropic_key_service import (
     clear_anthropic_api_key,
     get_anthropic_api_key,
@@ -21,7 +22,6 @@ from oopsie.services.anthropic_key_service import (
 )
 from oopsie.services.github_installation_service import get_installation_repos
 from oopsie.utils.encryption import hash_api_key
-from oopsie.web import templates
 
 router = APIRouter()
 

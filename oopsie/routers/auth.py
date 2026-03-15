@@ -6,11 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.auth import get_google_oauth_client, resolve_or_register_user
 from oopsie.config import get_settings
-from oopsie.deps import get_session
 from oopsie.exceptions import NoInvitationError
 from oopsie.logging import logger
+from oopsie.routers.dependencies import get_session
+from oopsie.routers.web import templates
 from oopsie.session import create_session, delete_session, get_session_user_id
-from oopsie.web import templates
 
 router = APIRouter(prefix="/auth")
 

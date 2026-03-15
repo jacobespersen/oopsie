@@ -52,7 +52,7 @@ async def create_session(user_id: UUID, org_slug: str | None = None) -> str:
     if org_slug is not None:
         mapping["org_slug"] = org_slug
     async with r.pipeline(transaction=True) as pipe:
-        pipe.hset(key, mapping=mapping)  # type: ignore[misc]
+        pipe.hset(key, mapping=mapping)
         pipe.expire(key, SESSION_TTL_SECONDS)
         await pipe.execute()
     logger.info("session_created", user_id=str(user_id))

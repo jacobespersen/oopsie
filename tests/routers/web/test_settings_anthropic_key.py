@@ -1,9 +1,9 @@
 """Tests for Anthropic API key management on org settings page."""
 
 import httpx
-from oopsie.deps import get_session
 from oopsie.main import app
 from oopsie.models.membership import MemberRole
+from oopsie.routers.dependencies import get_session
 from oopsie.services.anthropic_key_service import (
     get_anthropic_api_key,
     set_anthropic_api_key,

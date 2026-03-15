@@ -5,15 +5,15 @@ import uuid
 import pytest
 from fastapi import Depends, FastAPI
 from httpx import ASGITransport, AsyncClient
-from oopsie.deps import get_session
 from oopsie.models.membership import MemberRole
+from oopsie.routers.dependencies import get_session
 from oopsie.session import create_session
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _make_app(required_role: MemberRole, db_session: AsyncSession) -> FastAPI:
     """Helper: create a minimal FastAPI app with a role-protected endpoint."""
-    from oopsie.deps import RequireRole
+    from oopsie.routers.dependencies import RequireRole
 
     test_app = FastAPI()
 
@@ -40,7 +40,8 @@ async def test_get_current_membership_returns_membership(
     db_session: AsyncSession, factory
 ):
     """get_current_membership returns the user's membership for the given org."""
-    from oopsie.deps import get_current_membership
+    from oopsie.routers.dependencies import get_current_membership
+
     from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
 
     org = await factory(OrganizationFactory, slug="test-org")
@@ -64,7 +65,8 @@ async def test_get_current_membership_raises_403_when_not_member(
 ):
     """get_current_membership raises 403 when user has no membership in the org."""
     from fastapi import HTTPException
-    from oopsie.deps import get_current_membership
+    from oopsie.routers.dependencies import get_current_membership
+
     from tests.factories import OrganizationFactory, UserFactory
 
     await factory(OrganizationFactory, slug="other-org")
@@ -87,7 +89,8 @@ async def test_get_authenticated_membership_valid(
     """Valid session + valid org returns membership with user and org populated."""
     from unittest.mock import MagicMock
 
-    from oopsie.deps import get_authenticated_membership
+    from oopsie.routers.dependencies import get_authenticated_membership
+
     from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
 
     org = await factory(OrganizationFactory, slug="auth-mem-org")
@@ -118,7 +121,7 @@ async def test_get_authenticated_membership_no_session_returns_401(
     from unittest.mock import MagicMock
 
     from fastapi import HTTPException
-    from oopsie.deps import get_authenticated_membership
+    from oopsie.routers.dependencies import get_authenticated_membership
 
     request = MagicMock()
     request.cookies = {}
@@ -136,7 +139,7 @@ async def test_get_authenticated_membership_invalid_session_returns_401(
     from unittest.mock import MagicMock
 
     from fastapi import HTTPException
-    from oopsie.deps import get_authenticated_membership
+    from oopsie.routers.dependencies import get_authenticated_membership
 
     request = MagicMock()
     request.cookies = {"session_id": "invalid-token"}
@@ -154,7 +157,8 @@ async def test_get_authenticated_membership_wrong_org_returns_403(
     from unittest.mock import MagicMock
 
     from fastapi import HTTPException
-    from oopsie.deps import get_authenticated_membership
+    from oopsie.routers.dependencies import get_authenticated_membership
+
     from tests.factories import MembershipFactory, OrganizationFactory, UserFactory
 
     org = await factory(OrganizationFactory, slug="right-org")
@@ -179,7 +183,7 @@ async def test_get_authenticated_membership_deleted_user_returns_401(
     from unittest.mock import MagicMock
 
     from fastapi import HTTPException
-    from oopsie.deps import get_authenticated_membership
+    from oopsie.routers.dependencies import get_authenticated_membership
 
     # Create session for a user ID that doesn't exist in DB
     fake_user_id = uuid.uuid4()

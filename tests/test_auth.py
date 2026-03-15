@@ -84,7 +84,7 @@ async def test_login_google_unconfigured(api_client):
 
     mock_cfg = MagicMock()
     mock_cfg.google_client_id = ""
-    with patch("oopsie.auth_routes.get_settings", return_value=mock_cfg):
+    with patch("oopsie.routers.auth.get_settings", return_value=mock_cfg):
         resp = await api_client.get("/auth/login/google", follow_redirects=False)
     assert resp.status_code == 501
 
@@ -111,7 +111,7 @@ async def test_auth_callback_success(
             }
         }
     )
-    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+    with patch("oopsie.routers.auth.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 200
@@ -124,7 +124,7 @@ async def test_auth_callback_missing_userinfo(api_client):
     """POST /auth/callback returns 400 when Google returns no userinfo."""
     mock_google = AsyncMock()
     mock_google.authorize_access_token = AsyncMock(return_value={})
-    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+    with patch("oopsie.routers.auth.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback")
 
     assert resp.status_code == 400
@@ -274,7 +274,7 @@ async def test_auth_callback_new_user_with_invitation_succeeds(
             }
         }
     )
-    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+    with patch("oopsie.routers.auth.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 200
@@ -298,7 +298,7 @@ async def test_auth_callback_new_user_without_invitation_redirects(api_client):
             }
         }
     )
-    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+    with patch("oopsie.routers.auth.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 303
@@ -326,7 +326,7 @@ async def test_auth_callback_existing_user_bypasses_invitation(
             }
         }
     )
-    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+    with patch("oopsie.routers.auth.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 200
@@ -364,7 +364,7 @@ async def test_auth_callback_only_accepts_first_invitation(
             }
         }
     )
-    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+    with patch("oopsie.routers.auth.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 200
@@ -456,7 +456,7 @@ async def test_auth_callback_existing_user_no_memberships_redirects_to_error(
             }
         }
     )
-    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+    with patch("oopsie.routers.auth.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 200
@@ -485,7 +485,7 @@ async def test_auth_callback_stores_org_slug_in_session(
             }
         }
     )
-    with patch("oopsie.auth_routes.get_google_oauth_client", return_value=mock_google):
+    with patch("oopsie.routers.auth.get_google_oauth_client", return_value=mock_google):
         resp = await api_client.get("/auth/callback", follow_redirects=False)
 
     assert resp.status_code == 200

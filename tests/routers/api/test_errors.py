@@ -5,6 +5,7 @@ from oopsie.models import Error, ErrorOccurrence
 from oopsie.utils.encryption import hash_api_key
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from tests.factories import OrganizationFactory, ProjectFactory
 
 _API_KEY = "test-api-key-123"

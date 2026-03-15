@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 
 import httpx
 import pytest
-from oopsie.deps import get_session
 from oopsie.main import app
 from oopsie.models.signup_request import SignupRequestStatus
+from oopsie.routers.dependencies import get_session
 from oopsie.session import create_session
 
 from tests.factories import SignupRequestFactory, UserFactory

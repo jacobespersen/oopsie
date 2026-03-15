@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from oopsie.config import Settings, get_settings
 from oopsie.database import worker_session
+from oopsie.exceptions import AnthropicKeyNotConfiguredError
 from oopsie.logging import logger
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.github_installation import InstallationStatus
@@ -23,7 +24,6 @@ from oopsie.services import (
     github_service,
 )
 from oopsie.services.anthropic_key_service import resolve_anthropic_api_key
-from oopsie.services.exceptions import AnthropicKeyNotConfiguredError
 
 
 @dataclass

@@ -3,7 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from oopsie.services.exceptions import (
+from oopsie.exceptions import (
     GitHubApiError,
     GitOperationError,
 )

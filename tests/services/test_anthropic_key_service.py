@@ -3,6 +3,7 @@
 from unittest.mock import patch
 
 import pytest
+from oopsie.exceptions import AnthropicKeyNotConfiguredError
 from oopsie.services.anthropic_key_service import (
     clear_anthropic_api_key,
     get_anthropic_api_key,
@@ -10,7 +11,6 @@ from oopsie.services.anthropic_key_service import (
     resolve_anthropic_api_key,
     set_anthropic_api_key,
 )
-from oopsie.services.exceptions import AnthropicKeyNotConfiguredError
 
 from tests.conftest import TEST_ENCRYPTION_KEY
 from tests.factories import OrganizationFactory, ProjectFactory

@@ -14,8 +14,8 @@ from claude_agent_sdk import (
     query,
 )
 
+from oopsie.exceptions import ClaudeCodeError
 from oopsie.logging import logger
-from oopsie.services.exceptions import ClaudeCodeError
 
 # Environment variables that interfere with standalone Claude Code sessions.
 # The SDK merges os.environ into the child process, so these must be explicitly

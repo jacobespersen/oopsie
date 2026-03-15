@@ -2,10 +2,10 @@
 
 from cryptography.fernet import InvalidToken
 
+from oopsie.exceptions import AnthropicKeyNotConfiguredError
 from oopsie.logging import logger
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
-from oopsie.services.exceptions import AnthropicKeyNotConfiguredError
 from oopsie.utils.encryption import decrypt_value, encrypt_value
 
 

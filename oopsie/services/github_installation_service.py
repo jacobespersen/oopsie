@@ -10,11 +10,11 @@ from githubkit.webhooks import parse as parse_webhook
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from oopsie.exceptions import GitHubApiError
 from oopsie.logging import logger
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
 from oopsie.models.github_installation import GithubInstallation, InstallationStatus
 from oopsie.services import github_app_service
-from oopsie.services.exceptions import GitHubApiError
 
 # Maps GitHub webhook action strings to InstallationStatus values.
 # Only these three actions modify DB state; others are logged and ignored.

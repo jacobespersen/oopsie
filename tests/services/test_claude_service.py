@@ -10,8 +10,8 @@ from claude_agent_sdk import (
     ResultMessage,
     TextBlock,
 )
+from oopsie.exceptions import ClaudeCodeError
 from oopsie.services.claude_service import _build_prompt, run_claude_code
-from oopsie.services.exceptions import ClaudeCodeError
 
 _QUERY = "oopsie.services.claude_service.query"
 

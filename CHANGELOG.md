@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Replaced `ValueError` with `AlreadyHasOrganizationError` and `DuplicateInvitationError` for distinct single-org guard failures
+- Used `exists()` subquery in `has_membership_by_email` for efficiency
+- Moved duplicated `_set_membership_role` test helper to `tests/conftest.py`
 - **Single org per user** — each user is now restricted to exactly one organization membership, enforced by a unique constraint on `memberships.user_id` (migration 011)
 - Invitation service rejects invitations when the target email already belongs to an organization or has a pending invitation of any type
 - Signup request service rejects requests and approvals when the email already has a membership
@@ -16,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `OrgSlugMiddleware` to set `request.state.org_slug` from the session cookie and a Jinja2 context processor to inject it into all templates
 
 ### Fixed
+- Narrowed `ResponseError` catch in session.py to only handle `WRONGTYPE` errors from pre-hash migration keys; other Redis errors now propagate correctly
+- OrgSlugMiddleware gracefully handles Redis failures instead of crashing all requests
+- Used Redis pipeline for atomic `HSET` + `EXPIRE` in `create_session` to prevent immortal session keys
+- Added audit logging for leftover invitation deletions during single-org registration
+- Added missing `@pytest.mark.asyncio` markers in auth registration tests
+- Fixed misleading "transient" comment in auth.py (changed to "single-use")
+- Passed `org_slug` in `authenticated_client` test fixture to match production behavior
 - Detached ORM object bug in `accept_org_creation_invitation` logging after invitation deletion
 - Auth callback now catches only `NoInvitationError` instead of bare `ValueError`, allowing other exceptions to propagate
 - Stale docstring in `require_platform_admin` referencing JWT verification instead of session verification
@@ -27,6 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IntegrityError handling on signup form submission to gracefully handle concurrent duplicate requests
 
 ### Added
+- Tests for OrgSlugMiddleware (including Redis failure resilience)
+- Tests for stale session key eviction (pre-hash migration `WRONGTYPE` handling)
+- DB-level unique constraint test for single-org enforcement (`uq_membership_user`)
 - `SignupRequestForm` Pydantic model for server-side input validation (field length limits, email format)
 - Frontend `maxlength` attributes on signup form inputs
 - `UniqueConstraint` on `OrgCreationInvitation.signup_request_id` preventing duplicate invitations per request

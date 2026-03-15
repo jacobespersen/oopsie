@@ -185,6 +185,7 @@ async def test_slug_collision_handled(db_session, factory):
     assert org.slug == "collision-org-2"
 
 
+@pytest.mark.asyncio
 async def test_existing_admin_user_fast_return_path(db_session, factory, monkeypatch):
     """Existing admin-email user without org-creation invitations takes fast path."""
     from oopsie.config import Settings, get_settings
@@ -221,6 +222,7 @@ async def test_existing_admin_user_fast_return_path(db_session, factory, monkeyp
     assert membership is None
 
 
+@pytest.mark.asyncio
 async def test_new_user_org_creation_deletes_regular_invitations(db_session, factory):
     """Org-creation invite accepted; regular invitations deleted."""
     org = await factory(OrganizationFactory)
@@ -268,6 +270,7 @@ async def test_new_user_org_creation_deletes_regular_invitations(db_session, fac
     assert oci_result.scalar_one_or_none() is None
 
 
+@pytest.mark.asyncio
 async def test_case_insensitive_admin_email(db_session, factory, monkeypatch):
     """Admin email matching is case-insensitive."""
     from oopsie.config import Settings, get_settings
@@ -298,6 +301,7 @@ async def test_case_insensitive_admin_email(db_session, factory, monkeypatch):
     assert user.is_platform_admin is True
 
 
+@pytest.mark.asyncio
 async def test_non_no_invitation_error_propagates(db_session, monkeypatch):
     """Non-NoInvitationError exceptions propagate from resolve_or_register_user."""
 

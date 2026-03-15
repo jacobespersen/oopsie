@@ -129,7 +129,7 @@ async def _run_fix(clone_dir: str, ctx: _JobContext, settings: Settings) -> str:
     await github_service.clone_repo(ctx.repo_url, token, ctx.default_branch, clone_dir)
     await github_service.create_branch(clone_dir, ctx.branch_name)
 
-    await claude_service.run_claude_code(
+    claude_output = await claude_service.run_claude_code(
         clone_dir,
         ctx.error_class,
         ctx.message,
@@ -139,7 +139,14 @@ async def _run_fix(clone_dir: str, ctx: _JobContext, settings: Settings) -> str:
     )
 
     if not await github_service.has_changes(clone_dir):
-        raise ValueError("Claude produced no changes")
+        logger.warning(
+            "claude_no_changes",
+            claude_output=claude_output,
+            error_id=str(ctx.fix_attempt_id),
+        )
+        raise ValueError(
+            f"Claude produced no changes.\n\nClaude's response:\n{claude_output}"
+        )
 
     commit_msg = f"fix: resolve {ctx.error_class} — {ctx.message[:60]}"
     await github_service.commit_and_push(

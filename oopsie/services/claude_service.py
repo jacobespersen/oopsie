@@ -37,17 +37,28 @@ _API_ERROR_LABELS = {
 }
 
 
+_SYSTEM_PROMPT = (
+    "You are an automated bug-fixing agent. You are working inside a git "
+    "repository cloned into your current working directory. IMPORTANT: Only "
+    "read and edit files within the current working directory. Use relative "
+    "paths or paths rooted in your cwd. Never use absolute paths from stack "
+    "traces or other sources — those refer to a different machine."
+)
+
+
 def _build_prompt(error_class: str, message: str, stack_trace: str | None) -> str:
     """Build a prompt instructing Claude to fix the bug."""
     parts = [
-        "You are debugging an application. An error has been reported:",
+        "An error has been reported in this repository:",
         f"\nError class: {error_class}",
         f"Message: {message}",
     ]
     if stack_trace:
         parts.append(f"\nStack trace:\n```\n{stack_trace}\n```")
     parts.append(
-        "\nFind the root cause in this codebase and fix it. "
+        "\nFind the root cause in this codebase and fix it by editing the "
+        "source files directly. You must use your tools to read the relevant "
+        "files, then write or edit them to apply the fix. "
         "Make minimal, focused changes. Do not add unrelated improvements."
     )
     return "\n".join(parts)
@@ -97,6 +108,7 @@ async def run_claude_code(
     stderr_lines: list[str] = []
     options = ClaudeAgentOptions(
         permission_mode="bypassPermissions",
+        system_prompt=_SYSTEM_PROMPT,
         cwd=repo_dir,
         env=sdk_env,
         stderr=_make_stderr_collector(stderr_lines),

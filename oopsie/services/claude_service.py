@@ -98,7 +98,6 @@ async def run_claude_code(
     options = ClaudeAgentOptions(
         permission_mode="bypassPermissions",
         cwd=repo_dir,
-        max_turns=1,
         env=sdk_env,
         stderr=_make_stderr_collector(stderr_lines),
     )

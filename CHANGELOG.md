@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- Consolidated endpoint definitions under `oopsie/routers/` — moved `api/`, `web/`, `auth_routes.py`, and `deps.py` into a single `routers/` package following FastAPI conventions (#16)
 - Replaced `ValueError` with `AlreadyHasOrganizationError` and `DuplicateInvitationError` for distinct single-org guard failures
 - Used `exists()` subquery in `has_membership_by_email` for efficiency
 - Moved duplicated `_set_membership_role` test helper to `tests/conftest.py`

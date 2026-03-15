@@ -109,7 +109,7 @@ async def accept_invitation(
     # without triggering a lazy load (which fails in async context).
     membership.organization = invitation.organization
     session.add(membership)
-    # Invitation is transient — delete now that it's fulfilled
+    # Invitation is single-use — delete now that it's fulfilled
     await session.delete(invitation)
     await session.flush()
     logger.info(

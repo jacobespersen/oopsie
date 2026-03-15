@@ -12,12 +12,14 @@
     <div class="Header-item">
       <a href="/" class="Header-link f4 text-bold">Oopsie</a>
     </div>
+    {% if org_slug %}
     <div class="Header-item">
       <a href="/orgs/{{ org_slug }}/projects" class="Header-link">Projects</a>
     </div>
     <div class="Header-item">
       <a href="/orgs/{{ org_slug }}/settings" class="Header-link">Settings</a>
     </div>
+    {% endif %}
     {% if user and user.is_platform_admin %}
     <div class="Header-item">
       <a href="/admin/signup-requests" class="Header-link">Admin</a>

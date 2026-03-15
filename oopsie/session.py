@@ -39,6 +39,8 @@ async def create_session(user_id: UUID, org_slug: str | None = None) -> str:
     """Create a new session for the given user, returning the session token.
 
     Optionally stores org_slug so it can be retrieved without a DB query.
+    Uses a Redis pipeline so HSET + EXPIRE are atomic — if the process
+    crashes between them, we don't leave an immortal session key.
     """
     token = secrets.token_urlsafe(32)
     r = await get_redis()
@@ -46,8 +48,10 @@ async def create_session(user_id: UUID, org_slug: str | None = None) -> str:
     mapping: dict[str, str] = {"user_id": str(user_id)}
     if org_slug is not None:
         mapping["org_slug"] = org_slug
-    await r.hset(key, mapping=mapping)  # type: ignore[misc]
-    await r.expire(key, SESSION_TTL_SECONDS)
+    async with r.pipeline(transaction=True) as pipe:
+        pipe.hset(key, mapping=mapping)  # type: ignore[misc]
+        pipe.expire(key, SESSION_TTL_SECONDS)
+        await pipe.execute()
     logger.info("session_created", user_id=str(user_id))
     return token
 

@@ -144,6 +144,23 @@ async def test_delete_session_nonexistent_token(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_create_session_atomic_hset_and_expire(fake_redis):
+    """HSET and EXPIRE happen atomically via pipeline."""
+    user_id = uuid.uuid4()
+    token = await create_session(user_id, org_slug="test-org")
+
+    key = f"session:{token}"
+    # Both the hash data and TTL should be set
+    stored_user = await fake_redis.hget(key, "user_id")
+    stored_slug = await fake_redis.hget(key, "org_slug")
+    ttl = await fake_redis.ttl(key)
+
+    assert stored_user is not None
+    assert stored_slug == b"test-org"
+    assert ttl > 0
+
+
+@pytest.mark.asyncio
 async def test_get_session_user_id_evicts_pre_hash_string_key(fake_redis):
     """Pre-hash-migration string key is evicted and returns None."""
     await fake_redis.set("session:old-token", str(uuid.uuid4()))

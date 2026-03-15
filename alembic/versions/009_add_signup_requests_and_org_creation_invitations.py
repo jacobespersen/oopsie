@@ -7,7 +7,6 @@ Create Date: 2026-03-14
 
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql  # noqa: F401
 
 revision = "009"
 down_revision = "2f23da1ebac2"
@@ -16,10 +15,11 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Create the enum type via raw SQL to avoid SA double-create issues
-    op.execute(
-        "CREATE TYPE signuprequeststatus AS ENUM ('pending', 'approved', 'rejected')"
+    # SignupRequest status enum
+    signuprequeststatus = sa.Enum(
+        "pending", "approved", "rejected", name="signuprequeststatus"
     )
+    signuprequeststatus.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
         "signup_requests",
@@ -30,13 +30,7 @@ def upgrade() -> None:
         sa.Column("reason", sa.Text(), nullable=False),
         sa.Column(
             "status",
-            postgresql.ENUM(
-                "pending",
-                "approved",
-                "rejected",
-                name="signuprequeststatus",
-                create_type=False,
-            ),
+            sa.Enum("pending", "approved", "rejected", name="signuprequeststatus"),
             server_default="pending",
             nullable=False,
         ),

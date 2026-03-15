@@ -1,4 +1,8 @@
-"""Custom exception hierarchy for Oopsie services."""
+"""Application-wide exception classes."""
+
+
+class NoInvitationError(Exception):
+    """Raised when a new user attempts to register without a pending invitation."""
 
 
 class OopsieServiceError(Exception):

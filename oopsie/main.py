@@ -1,10 +1,10 @@
 """FastAPI app entry point."""
 
+import re
 import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -12,12 +12,16 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from oopsie.api.errors import router as errors_router
 from oopsie.auth_routes import router as auth_router
 from oopsie.config import get_settings
-from oopsie.logging import RequestLoggingMiddleware, setup_logging
+from oopsie.logging import setup_logging
+from oopsie.middleware.csrf import FormCSRFMiddleware
+from oopsie.middleware.request_logging import RequestLoggingMiddleware
 from oopsie.queue import close_arq_pool
 from oopsie.services.bootstrap_service import bootstrap_if_needed
 from oopsie.session import close_redis
+from oopsie.web.admin import router as admin_router
 from oopsie.web.errors import router as web_errors_router
 from oopsie.web.github import router as github_router
+from oopsie.web.landing import router as landing_router
 from oopsie.web.members import router as web_members_router
 from oopsie.web.projects import router as web_projects_router
 from oopsie.web.settings import router as web_settings_router
@@ -55,6 +59,21 @@ _session_secret = secrets.token_urlsafe(32)
 app.add_middleware(SessionMiddleware, secret_key=_session_secret)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# CSRF double-submit cookie protection for all state-changing requests.
+# Exempt: API routes (use Bearer token auth), /signup-request (public,
+# unauthenticated), and /webhooks/github (verified via webhook signature).
+_csrf_secret = secrets.token_urlsafe(32)
+app.add_middleware(
+    FormCSRFMiddleware,
+    secret=_csrf_secret,
+    sensitive_cookies={"session_id"},
+    exempt_urls=[
+        re.compile(r"/api/.*"),
+        re.compile(r"/signup-request"),
+        re.compile(r"/webhooks/github"),
+    ],
+)
+
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
@@ -65,12 +84,8 @@ app.include_router(web_projects_router, tags=["web"])
 app.include_router(web_errors_router, tags=["web"])
 app.include_router(web_members_router, tags=["web"])
 app.include_router(web_settings_router, tags=["web"])
-
-
-@app.get("/")
-def root():
-    """Redirect to projects UI."""
-    return RedirectResponse(url="/auth/login")
+app.include_router(admin_router, tags=["admin"])
+app.include_router(landing_router, tags=["web"])
 
 
 @app.get("/health")

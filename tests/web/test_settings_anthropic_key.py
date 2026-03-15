@@ -104,9 +104,13 @@ class TestOrgSettingsAnthropicKey:
                 base_url="http://test",
                 cookies={"session_id": session_token},
             ) as client:
+                # Fetch CSRF cookie before making the POST
+                await client.get("/health")
+                csrf_token = client.cookies.get("csrftoken", "")
                 resp = await client.post(
                     f"/orgs/{organization.slug}/settings/anthropic-key",
                     data={"anthropic_api_key": "sk-ant-should-fail"},
+                    headers={"x-csrftoken": csrf_token},
                 )
         finally:
             app.dependency_overrides.pop(get_session, None)

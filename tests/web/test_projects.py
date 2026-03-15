@@ -4,12 +4,12 @@ import uuid
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from oopsie.exceptions import GitHubApiError
 from oopsie.models import Project
 from oopsie.services.anthropic_key_service import (
     get_anthropic_api_key,
     set_anthropic_api_key,
 )
-from oopsie.services.exceptions import GitHubApiError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -277,11 +277,11 @@ async def test_web_regenerate_api_key(
 
 
 @pytest.mark.asyncio
-async def test_root_redirects_to_login(api_client):
-    """GET / redirects to /auth/login."""
-    response = await api_client.get("/", follow_redirects=False)
-    assert response.status_code == 307
-    assert response.headers["location"] == "/auth/login"
+async def test_root_shows_landing_page(api_client):
+    """GET / shows the public landing page."""
+    response = await api_client.get("/")
+    assert response.status_code == 200
+    assert "Oopsie" in response.text
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en" data-color-mode="light" data-light-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oopsie — AI-Powered Error Fix Service</title>
+  <link rel="stylesheet" href="https://unpkg.com/@primer/css@21/dist/primer.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <header class="Header" data-color-mode="dark" data-dark-theme="dark">
+    <div class="Header-item">
+      <a href="/" class="Header-link f4 text-bold">Oopsie</a>
+    </div>
+    <div class="Header-item Header-item--full"></div>
+    {% if user %}
+    <div class="Header-item">
+      <a href="/auth/login" class="Header-link">Dashboard</a>
+    </div>
+    {% else %}
+    <div class="Header-item">
+      <a href="/auth/login" class="Header-link">Sign in</a>
+    </div>
+    {% endif %}
+  </header>
+
+  <main class="container-lg p-responsive py-6">
+    <div class="text-center mb-6">
+      <h1 class="h1-mktg mb-2">AI-Powered Error Fixing</h1>
+      <p class="f3 color-fg-muted">
+        Oopsie receives your error reports and automatically generates fix PRs using AI.
+      </p>
+    </div>
+
+    <div class="col-md-8 mx-auto">
+      {% if success %}
+      <div class="flash flash-success mb-4" role="alert">
+        <strong>Request submitted!</strong> Your signup request has been received. A platform admin will review it shortly.
+      </div>
+      {% endif %}
+
+      {% if error %}
+      <div class="flash flash-warn mb-4" role="alert">
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <div class="Box">
+        <div class="Box-header">
+          <h2 class="Box-title">Request Access</h2>
+        </div>
+        <div class="Box-body">
+          <p class="color-fg-muted mb-3">
+            Hey! Oopsie is a side project I'm building outside of work. Accounts are free, and I'd love for you
+            to try it out. Fair warning: if usage grows and hosting costs start adding up, I may need to introduce
+            pricing at some point — but that's a bridge I'll cross when I get there. Since it's just me running
+            this, things might break or take a bit to fix — thanks for your patience!
+          </p>
+          <p class="color-fg-muted mb-3">
+            Fill out the form below to request a new organization. A platform admin will review your request.
+            Once approved, you'll be able to sign in with your Google account.
+          </p>
+          <form method="post" action="/signup-request">
+            <div class="form-group mb-3">
+              <div class="form-group-header">
+                <label for="name">Name</label>
+              </div>
+              <div class="form-group-body">
+                <input type="text" id="name" name="name" class="form-control width-full"
+                       value="{{ form_name or '' }}" maxlength="255" required>
+                {% if field_errors and field_errors.get('name') %}
+                <p class="note color-fg-danger mt-1">{{ field_errors['name'] }}</p>
+                {% endif %}
+              </div>
+            </div>
+            <div class="form-group mb-3">
+              <div class="form-group-header">
+                <label for="email">Email</label>
+              </div>
+              <div class="form-group-body">
+                <input type="email" id="email" name="email" class="form-control width-full"
+                       value="{{ form_email or '' }}" maxlength="255" required>
+                {% if field_errors and field_errors.get('email') %}
+                <p class="note color-fg-danger mt-1">{{ field_errors['email'] }}</p>
+                {% endif %}
+              </div>
+            </div>
+            <div class="form-group mb-3">
+              <div class="form-group-header">
+                <label for="org_name">Organization Name</label>
+              </div>
+              <div class="form-group-body">
+                <input type="text" id="org_name" name="org_name" class="form-control width-full"
+                       value="{{ form_org_name or '' }}" maxlength="255" required>
+                {% if field_errors and field_errors.get('org_name') %}
+                <p class="note color-fg-danger mt-1">{{ field_errors['org_name'] }}</p>
+                {% endif %}
+              </div>
+            </div>
+            <div class="form-group mb-3">
+              <div class="form-group-header">
+                <label for="reason">Why do you want access?</label>
+              </div>
+              <div class="form-group-body">
+                <textarea id="reason" name="reason" class="form-control width-full" rows="4"
+                          maxlength="2000" required>{{ form_reason or '' }}</textarea>
+                {% if field_errors and field_errors.get('reason') %}
+                <p class="note color-fg-danger mt-1">{{ field_errors['reason'] }}</p>
+                {% endif %}
+              </div>
+            </div>
+            <div class="form-group">
+              <p class="note color-fg-muted mb-3">
+                Only Google authentication is supported. Make sure to use the email address associated with your Google account.
+              </p>
+              <button type="submit" class="btn btn-primary">Submit Request</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer class="container-lg p-responsive py-4 text-center">
+    <p class="color-fg-muted f6">
+      Run into a problem? Report it on <a href="https://github.com/jacobespersen/oopsie/issues">GitHub</a>.
+    </p>
+  </footer>
+</body>
+</html>

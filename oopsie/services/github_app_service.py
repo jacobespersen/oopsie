@@ -12,8 +12,8 @@ from githubkit import AppAuthStrategy, GitHub
 from githubkit.webhooks import verify as _githubkit_verify
 
 from oopsie.config import get_settings
+from oopsie.exceptions import GitHubApiError, GitHubAppNotConfiguredError
 from oopsie.logging import logger
-from oopsie.services.exceptions import GitHubApiError, GitHubAppNotConfiguredError
 
 
 @lru_cache(maxsize=1)

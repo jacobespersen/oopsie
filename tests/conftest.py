@@ -145,7 +145,12 @@ async def current_user(db_session: AsyncSession, organization) -> User:
 async def authenticated_client(
     db_session: AsyncSession, current_user: User, fake_redis
 ):
-    """HTTP client with a valid session cookie for current_user."""
+    """HTTP client with a valid session cookie and CSRF token for current_user.
+
+    Makes an initial GET to /health to obtain the CSRF cookie, then sets
+    the x-csrftoken header on all subsequent requests so that POST/PUT/DELETE
+    requests pass CSRF validation automatically.
+    """
 
     async def override_get_session():
         yield db_session
@@ -159,6 +164,11 @@ async def authenticated_client(
             base_url="http://test",
             cookies={"session_id": session_token},
         ) as client:
+            # Fetch the CSRF cookie from any safe endpoint, then set it as
+            # a default header so all state-changing requests pass validation.
+            await client.get("/health")
+            csrf_token = client.cookies.get("csrftoken", "")
+            client.headers["x-csrftoken"] = csrf_token
             yield client
     finally:
         app.dependency_overrides.pop(get_session, None)

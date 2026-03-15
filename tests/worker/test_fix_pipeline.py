@@ -5,15 +5,15 @@ from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from oopsie.models.error import ErrorStatus
-from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
-from oopsie.models.github_installation import InstallationStatus
-from oopsie.services.anthropic_key_service import set_anthropic_api_key
-from oopsie.services.exceptions import (
+from oopsie.exceptions import (
     ClaudeCodeError,
     GitHubApiError,
     GitOperationError,
 )
+from oopsie.models.error import ErrorStatus
+from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
+from oopsie.models.github_installation import InstallationStatus
+from oopsie.services.anthropic_key_service import set_anthropic_api_key
 from oopsie.services.pipeline_service import _JobContext
 from oopsie.worker.fix_pipeline import run_fix_pipeline
 from sqlalchemy import select

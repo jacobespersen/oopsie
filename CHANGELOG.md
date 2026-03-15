@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Detached ORM object bug in `accept_org_creation_invitation` logging after invitation deletion
+- Auth callback now catches only `NoInvitationError` instead of bare `ValueError`, allowing other exceptions to propagate
+- Stale docstring in `require_platform_admin` referencing JWT verification instead of session verification
+- `get_optional_user` now only catches 401 errors; other HTTP errors (500, etc.) propagate instead of being silently swallowed
+- Invalid `status` query param on `/admin/signup-requests` now returns 400 instead of silently defaulting to "pending"
+- `generate_unique_slug` loop is now bounded to `max_attempts=100` with warning logs on each collision retry and `RuntimeError` on exhaustion
+- Admin approve/reject error handlers now log warnings with request ID and error details for `LookupError` and `ValueError` cases
+- Row-level locking (`SELECT ... FOR UPDATE`) on approve/reject signup request to prevent race conditions
+- IntegrityError handling on signup form submission to gracefully handle concurrent duplicate requests
+
+### Added
+- `SignupRequestForm` Pydantic model for server-side input validation (field length limits, email format)
+- Frontend `maxlength` attributes on signup form inputs
+- `UniqueConstraint` on `OrgCreationInvitation.signup_request_id` preventing duplicate invitations per request
+- `CHECK` constraint on `SignupRequest` ensuring `reviewed_by_id`/`reviewed_at` consistency with status
+- Alembic migration 010 for new database constraints
+
+### Security
+- CSRF double-submit cookie protection on all state-changing web requests via `starlette-csrf` middleware; API routes, `/signup-request`, and `/webhooks/github` are exempt
+
+### Added
+- Public landing page at `/` with signup request form for new organization onboarding (#17)
+- `SignupRequest` model with partial unique index (one pending request per email, resubmission allowed after rejection)
+- `OrgCreationInvitation` model — created when a platform admin approves a signup request, consumed on OAuth login
+- Platform admin dashboard at `/admin/signup-requests` for reviewing, approving, and rejecting signup requests
+- `is_platform_admin` flag on User model, auto-set during OAuth login when email matches `ADMIN_EMAIL`
+- `require_platform_admin` FastAPI dependency for gating admin-only routes
+- `slugify` and `generate_unique_slug` utilities extracted to `oopsie/utils/slug.py` with slug collision handling
+- Auth flow (`resolve_or_register_user`) now handles org-creation invitations: creates org + OWNER membership on login
+- Admin navigation link in site header (visible only to platform admins)
+
 ### Changed
 - Web authentication migrated from JWT tokens to Redis-backed server-side sessions with 7-day sliding window TTL; instant session revocation on logout replaces the unbounded `revoked_tokens` table
 - Anthropic API key is now stored encrypted per-organization and per-project instead of as a global environment variable. Projects inherit the org key unless overridden. The `ANTHROPIC_API_KEY` environment variable is no longer used.

@@ -18,6 +18,7 @@ dependencies = [
     "asyncpg",
     "alembic",
     "pydantic-settings",
+    "email-validator",
     "cryptography",
     "greenlet",
     "psycopg2-binary",
@@ -29,6 +30,7 @@ dependencies = [
     "githubkit[auth-app]",
     "itsdangerous",
     "claude-agent-sdk",
+    "starlette-csrf",
 ]
 
 [project.optional-dependencies]

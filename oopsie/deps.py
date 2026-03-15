@@ -81,8 +81,10 @@ async def get_optional_user(
     """Like get_current_user but returns None instead of raising 401."""
     try:
         return await get_current_user(request, session)
-    except HTTPException:
-        return None
+    except HTTPException as exc:
+        if exc.status_code == 401:
+            return None
+        raise
 
 
 async def get_authenticated_membership(
@@ -196,3 +198,16 @@ class RequireRole:
                 detail=f"Insufficient permissions. Required: {self._label}",
             )
         return membership
+
+
+async def require_platform_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Gate access to platform admin features.
+
+    Reuses get_current_user for session verification, then checks
+    the is_platform_admin flag. Returns 403 for non-admins.
+    """
+    if not current_user.is_platform_admin:
+        raise HTTPException(status_code=403, detail="Platform admin access required")
+    return current_user

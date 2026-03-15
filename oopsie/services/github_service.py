@@ -6,8 +6,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from oopsie.exceptions import GitHubApiError, GitOperationError
 from oopsie.logging import logger
-from oopsie.services.exceptions import GitHubApiError, GitOperationError
 
 
 def _git_env() -> dict[str, str]:

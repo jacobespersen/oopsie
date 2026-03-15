@@ -6,7 +6,7 @@ import pytest
 from githubkit import GitHub
 from githubkit.webhooks import sign as webhook_sign
 from oopsie.config import Settings
-from oopsie.services.exceptions import GitHubApiError, GitHubAppNotConfiguredError
+from oopsie.exceptions import GitHubApiError, GitHubAppNotConfiguredError
 from oopsie.services.github_app_service import (
     get_app_client,
     get_installation_client,

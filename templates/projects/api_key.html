@@ -22,6 +22,7 @@
 <p class="mb-3">If you have lost your key, regenerate a new one below.</p>
 {% endif %}
 <form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/regenerate-api-key" method="post" class="mb-3">
+
   <button type="submit" class="btn btn-danger" onclick="return confirm('Regenerate API key? The current key will stop working immediately.');">Regenerate API Key</button>
 </form>
 <div class="d-flex gap-2">

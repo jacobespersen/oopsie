@@ -47,10 +47,12 @@
       {% set latest = fix_attempts[0] %}
       {% if error.status == 'open' and latest.status not in ['pending', 'running'] %}
       <form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
+
         <button type="submit" class="btn btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
       </form>
       {% elif latest.status == 'failed' %}
       <form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors/{{ error.id }}/fix" method="post">
+
         <button type="submit" class="btn">Retry</button>
       </form>
       {% elif latest.status == 'pending' %}

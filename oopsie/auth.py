@@ -8,12 +8,14 @@ from sqlalchemy.orm import joinedload
 if TYPE_CHECKING:
     from oopsie.models.invitation import Invitation
     from oopsie.models.membership import Membership
+    from oopsie.models.org_creation_invitation import OrgCreationInvitation
 
 from authlib.integrations.starlette_client import OAuth
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.config import get_settings
+from oopsie.exceptions import NoInvitationError
 from oopsie.logging import logger
 from oopsie.models.user import User
 
@@ -83,7 +85,11 @@ async def get_pending_invitations(
     """Return all pending invitations for the given email."""
     from oopsie.models.invitation import Invitation
 
-    result = await session.execute(select(Invitation).where(Invitation.email == email))
+    result = await session.execute(
+        select(Invitation)
+        .options(joinedload(Invitation.organization))
+        .where(Invitation.email == email)
+    )
     return list(result.scalars().all())
 
 
@@ -99,6 +105,9 @@ async def accept_invitation(
         user_id=user.id,
         role=invitation.role,
     )
+    # Set the relationship directly so callers can access .organization
+    # without triggering a lazy load (which fails in async context).
+    membership.organization = invitation.organization
     session.add(membership)
     # Invitation is transient — delete now that it's fulfilled
     await session.delete(invitation)
@@ -112,15 +121,72 @@ async def accept_invitation(
     return membership
 
 
+async def get_pending_org_creation_invitations(
+    session: AsyncSession, email: str
+) -> "list[OrgCreationInvitation]":
+    """Return all pending org-creation invitations for the given email."""
+    from oopsie.models.org_creation_invitation import OrgCreationInvitation
+
+    result = await session.execute(
+        select(OrgCreationInvitation).where(OrgCreationInvitation.email == email)
+    )
+    return list(result.scalars().all())
+
+
+async def accept_org_creation_invitation(
+    session: AsyncSession,
+    invitation: "OrgCreationInvitation",
+    user: User,
+) -> "Membership":
+    """Accept an org-creation invitation: create Organization + OWNER Membership.
+
+    The invitation row is deleted after acceptance (matching the existing
+    Invitation pattern).
+    """
+    from oopsie.models.membership import MemberRole, Membership
+    from oopsie.models.organization import Organization
+    from oopsie.utils.slug import generate_unique_slug
+
+    slug = await generate_unique_slug(session, invitation.org_name)
+    org = Organization(name=invitation.org_name, slug=slug)
+    session.add(org)
+    await session.flush()
+
+    membership = Membership(
+        organization_id=org.id,
+        user_id=user.id,
+        role=MemberRole.owner,
+    )
+    # Set the relationship directly so callers can access .organization
+    # without triggering a lazy load (which fails in async context).
+    membership.organization = org
+    session.add(membership)
+
+    invitation_id = invitation.id
+    org_name = invitation.org_name
+    await session.delete(invitation)
+    await session.flush()
+
+    logger.info(
+        "org_creation_invitation_accepted",
+        invitation_id=str(invitation_id),
+        user_id=str(user.id),
+        org_id=str(org.id),
+        org_name=org_name,
+    )
+    return membership
+
+
 async def resolve_or_register_user(
     session: AsyncSession, google_user_info: dict[str, Any]
 ) -> tuple[User, "list[Membership]"]:
     """Authenticate a Google OAuth user, handling invitation-gated registration.
 
     Returns the user and a list of new Memberships from accepted invitations.
-    Raises ValueError with a redirect hint if the user is new and has no invitation.
+    Raises NoInvitationError if the user is new and has no invitation.
 
-    For existing users, skips the invitation lookup entirely (saves a DB round-trip).
+    Handles both membership invitations and org-creation invitations.
+    Sets is_platform_admin when email matches ADMIN_EMAIL.
     Eagerly loads memberships + organizations so callers can derive redirect URLs
     without an additional query.
     """
@@ -134,21 +200,48 @@ async def resolve_or_register_user(
     )
     existing = result.unique().scalar_one_or_none()
 
-    if existing is not None:
-        # Returning user — skip invitation lookup, just update profile fields
+    email = google_user_info["email"]
+
+    # Check for pending org-creation invitations (needed for both new and existing)
+    org_creation_invitations = await get_pending_org_creation_invitations(
+        session, email
+    )
+
+    if existing is not None and not org_creation_invitations:
+        # Returning user with no org-creation invitations — just update profile
         user = await upsert_user(session, google_user_info, existing=existing)
+        _set_platform_admin_if_needed(user, email)
+        if user.is_platform_admin:
+            await session.flush()
         return user, []
 
-    # New user — check for pending invitations (required for registration)
-    invitations = await get_pending_invitations(session, google_user_info["email"])
-    if not invitations:
-        raise ValueError("no_invitation")
+    # New user or existing user with org-creation invitations — check all invitations
+    invitations = await get_pending_invitations(session, email)
 
-    user = await upsert_user(session, google_user_info)
+    if existing is None and not invitations and not org_creation_invitations:
+        # New user with no invitation of either type — reject registration
+        raise NoInvitationError("no_invitation")
+
+    user = await upsert_user(session, google_user_info, existing=existing)
+    _set_platform_admin_if_needed(user, email)
+    if user.is_platform_admin:
+        await session.flush()
 
     memberships: list[Membership] = []
     for invitation in invitations:
         membership = await accept_invitation(session, invitation, user)
         memberships.append(membership)
 
+    # Accept any pending org-creation invitations (creates org + OWNER membership)
+    for org_invitation in org_creation_invitations:
+        membership = await accept_org_creation_invitation(session, org_invitation, user)
+        memberships.append(membership)
+
     return user, memberships
+
+
+def _set_platform_admin_if_needed(user: User, email: str) -> None:
+    """Set is_platform_admin flag if email matches ADMIN_EMAIL."""
+    settings = get_settings()
+    if settings.admin_email and email.lower() == settings.admin_email.lower():
+        user.is_platform_admin = True

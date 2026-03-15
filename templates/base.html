@@ -18,6 +18,11 @@
     <div class="Header-item">
       <a href="/orgs/{{ org_slug }}/settings" class="Header-link">Settings</a>
     </div>
+    {% if user and user.is_platform_admin %}
+    <div class="Header-item">
+      <a href="/admin/signup-requests" class="Header-link">Admin</a>
+    </div>
+    {% endif %}
     <div class="Header-item Header-item--full"></div>
     {% if user %}
     <div class="Header-item d-flex flex-items-center gap-2">
@@ -38,5 +43,27 @@
   <main class="container-lg p-responsive py-4">
     {% block content %}{% endblock %}
   </main>
+  <footer class="container-lg p-responsive py-4 text-center">
+    <p class="color-fg-muted f6">
+      Run into a problem? Report it on <a href="https://github.com/jacobespersen/oopsie/issues">GitHub</a>.
+    </p>
+  </footer>
+  <script>
+    // Auto-inject CSRF token from cookie into all forms so individual
+    // templates don't need to include a hidden csrftoken input manually.
+    (function() {
+      var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
+      if (!m) return;
+      var token = decodeURIComponent(m[1]);
+      document.querySelectorAll('form').forEach(function(form) {
+        if (form.querySelector('input[name="csrftoken"]')) return;
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'csrftoken';
+        input.value = token;
+        form.appendChild(input);
+      });
+    })();
+  </script>
 </body>
 </html>

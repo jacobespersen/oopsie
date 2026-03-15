@@ -3,9 +3,9 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from oopsie.exceptions import GitHubApiError
 from oopsie.models.fix_attempt import FixAttemptStatus
 from oopsie.models.github_installation import InstallationStatus
-from oopsie.services.exceptions import GitHubApiError
 from oopsie.services.github_installation_service import (
     get_installation_repos,
     handle_installation_event,

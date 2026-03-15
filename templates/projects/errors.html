@@ -34,6 +34,7 @@
           {% set fix_status = fix_statuses.get(e.id) %}
           {% if e.status == 'open' and fix_status not in ['pending', 'running'] %}
           <form action="/orgs/{{ org_slug }}/projects/{{ project.id }}/errors/{{ e.id }}/fix" method="post" style="display:inline;">
+
             <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm('Trigger a fix attempt for this error?');">Fix</button>
           </form>
           {% elif fix_status == 'pending' %}

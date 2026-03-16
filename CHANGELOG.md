@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IntegrityError handling on signup form submission to gracefully handle concurrent duplicate requests
 
 ### Added
+- Error reporting instructions panel on project errors page (client libraries + HTTP example), expanded when no errors, collapsible when errors exist
 - Tests for OrgSlugMiddleware (including Redis failure resilience)
 - Tests for stale session key eviction (pre-hash migration `WRONGTYPE` handling)
 - DB-level unique constraint test for single-org enforcement (`uq_membership_user`)

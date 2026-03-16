@@ -2,6 +2,7 @@
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -26,26 +27,33 @@ def _adapt_url_for_asyncpg(url: str) -> str:
     return urlunparse(parsed._replace(query=new_query))
 
 
-engine = create_async_engine(
-    _adapt_url_for_asyncpg(get_settings().database_url),
-    echo=False,
-    # LIFO reuse keeps the hottest connections active, reducing Neon cold starts
-    pool_use_lifo=True,
-    pool_size=5,
-)
-async_session_factory = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autocommit=False,
-    autoflush=False,
-)
+@lru_cache
+def _get_engine():
+    """Create the async engine lazily (on first call, not at import time)."""
+    return create_async_engine(
+        _adapt_url_for_asyncpg(get_settings().database_url),
+        echo=False,
+        pool_use_lifo=True,
+        pool_size=5,
+    )
+
+
+@lru_cache
+def _get_session_factory():
+    """Create the session factory lazily, bound to the lazy engine."""
+    return async_sessionmaker(
+        _get_engine(),
+        class_=AsyncSession,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
 
 
 @asynccontextmanager
 async def worker_session() -> AsyncGenerator[AsyncSession, None]:
     """Async context manager for DB sessions (FastAPI DI and worker jobs)."""
-    async with async_session_factory() as session:
+    async with _get_session_factory()() as session:
         try:
             yield session
             await session.commit()
@@ -65,4 +73,4 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 
 async def close_engine() -> None:
     """Dispose of the engine (for worker shutdown)."""
-    await engine.dispose()
+    await _get_engine().dispose()

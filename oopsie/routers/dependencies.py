@@ -51,9 +51,9 @@ async def get_current_user(
 ) -> User:
     """Extract session_id from cookie and return the current user.
 
-    Raises 401 if missing, invalid, or expired.
-    Used for non-org-scoped pages (e.g. GitHub callback) where only
-    the user is needed without membership context.
+    Raises 401 if missing, invalid, or expired. Eagerly loads the user's
+    membership + organization (single query) and stashes org_slug on
+    request.state for downstream use.
     """
     token = request.cookies.get("session_id")
     if not token:
@@ -63,10 +63,22 @@ async def get_current_user(
     if user_id is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    result = await session.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    # Single query: user + their membership's organization (user can only
+    # belong to one org due to uq_membership_user constraint).
+    result = await session.execute(
+        select(User)
+        .outerjoin(Membership, Membership.user_id == User.id)
+        .outerjoin(Organization, Organization.id == Membership.organization_id)
+        .options(joinedload(User.memberships).joinedload(Membership.organization))
+        .where(User.id == user_id)
+    )
+    user = result.unique().scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+
+    # Stash org_slug from the DB for downstream use (e.g., landing redirect)
+    membership = user.memberships[0] if user.memberships else None
+    request.state.org_slug = membership.organization.slug if membership else None
 
     # Reset sliding window TTL so active users stay logged in
     await extend_session(token)

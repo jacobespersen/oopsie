@@ -9,10 +9,20 @@ from tests.factories import SignupRequestFactory
 
 @pytest.mark.asyncio
 async def test_landing_page_loads(api_client):
-    """GET / returns the landing page."""
+    """GET / returns the landing page for unauthenticated users."""
     resp = await api_client.get("/")
     assert resp.status_code == 200
     assert "Request Access" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_landing_page_redirects_authenticated_user(
+    authenticated_client, organization
+):
+    """GET / redirects logged-in users to their org's projects page."""
+    resp = await authenticated_client.get("/", follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == f"/orgs/{organization.slug}/projects"
 
 
 @pytest.mark.asyncio

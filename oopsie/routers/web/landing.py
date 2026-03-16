@@ -1,7 +1,7 @@
 """Public landing page and signup request form."""
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field, ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from oopsie.models.user import User
 from oopsie.routers.dependencies import get_optional_user, get_session
 from oopsie.routers.web import templates
 from oopsie.services.signup_request_service import create_signup_request
+from oopsie.session import get_session_org_slug
 
 router = APIRouter()
 
@@ -34,16 +35,25 @@ def _extract_field_errors(exc: ValidationError) -> dict[str, str]:
     return errors
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse, response_model=None)
 async def landing_page(
     request: Request,
     user: User | None = Depends(get_optional_user),
-) -> HTMLResponse:
-    """Public landing page with signup request form."""
+) -> HTMLResponse | RedirectResponse:
+    """Public landing page — redirects logged-in users to their org."""
+    if user is not None:
+        # org_slug is always cached in the Redis session at login
+        token = request.cookies.get("session_id")
+        if token:
+            org_slug = await get_session_org_slug(token)
+            if org_slug:
+                return RedirectResponse(
+                    url=f"/orgs/{org_slug}/projects", status_code=302
+                )
+
     return templates.TemplateResponse(
         request=request,
         name="landing.html",
-        context={"user": user},
     )
 
 

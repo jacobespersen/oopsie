@@ -58,7 +58,44 @@
 {% else %}
 <div class="blankslate blankslate-border-dashed">
   <h2 class="blankslate-heading">No errors yet</h2>
-  <p>No errors have been recorded for this project.</p>
+  <p>Start reporting errors to this project using one of the methods below.</p>
 </div>
 {% endif %}
+{# Reporting instructions — open when empty, collapsed when errors exist #}
+<details class="mt-3"{% if not errors %} open{% endif %}>
+  <summary class="btn btn-outline width-full text-left px-3 py-2 f5" style="list-style:none;cursor:pointer;">
+    <span style="font-weight:600;">Reporting Errors</span>
+    {% if errors %}
+    <span class="color-fg-muted f6 ml-1">— client libraries and HTTP examples</span>
+    {% endif %}
+  </summary>
+  <div class="Box mt-2 p-3">
+    <div class="d-flex flex-column flex-md-row gap-3">
+      <div class="flex-1">
+        <h4 class="f6 color-fg-muted text-uppercase mb-2" style="font-weight:600;">Client Libraries</h4>
+        <div class="Box color-bg-subtle p-3">
+          <div class="d-flex flex-items-center gap-2">
+            <span class="Label Label--danger" style="font-size:11px;">Ruby</span>
+            <a href="https://github.com/jacobespersen/oopsie-ruby" class="Link f5">oopsie-ruby</a>
+          </div>
+          <p class="color-fg-muted f6 mt-1 mb-0">Rack middleware and manual reporting — zero runtime dependencies</p>
+        </div>
+      </div>
+      <div class="flex-1">
+        <h4 class="f6 color-fg-muted text-uppercase mb-2" style="font-weight:600;">Report via HTTP</h4>
+        <div class="rounded-2 p-3" style="background:#24292f;">
+          <pre class="f6 mb-0" style="white-space:pre;overflow-x:auto;color:#e6edf3;"><code>curl -X POST https://getoopsie.com/api/v1/errors \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "error_class": "ZeroDivisionError",
+    "message": "division by zero",
+    "stack_trace": "optional stack trace"
+  }'</code></pre>
+        </div>
+        <p class="color-fg-muted f6 mt-2 mb-0">Returns <code class="f6">202 Accepted</code>. Same class + message are deduplicated by fingerprint.</p>
+      </div>
+    </div>
+  </div>
+</details>
 {% endblock %}

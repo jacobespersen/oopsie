@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, Request
 
 # Keep HTTPBearer only for API key auth (get_project_from_api_key)
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -13,11 +13,31 @@ from oopsie.logging import logger
 from oopsie.models.membership import MemberRole, Membership, role_rank
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
+from oopsie.models.signup_request import SignupRequest, SignupRequestStatus
 from oopsie.models.user import User
 from oopsie.session import extend_session, get_session_user_id
 from oopsie.utils.encryption import hash_api_key
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def _stash_admin_context(
+    request: Request, user: User, session: AsyncSession
+) -> None:
+    """Stash admin-related template context on request.state.
+
+    Called by auth dependencies after resolving the user. Computes the
+    pending signup request count for platform admins so the header can
+    show a notification dot. Short-circuits for non-admin users.
+    """
+    if not user.is_platform_admin:
+        return
+    result = await session.execute(
+        select(func.count(SignupRequest.id)).where(
+            SignupRequest.status == SignupRequestStatus.pending
+        )
+    )
+    request.state.pending_signup_request_count = result.scalar_one()
 
 
 async def get_project_from_api_key(
@@ -83,6 +103,8 @@ async def get_current_user(
     # Reset sliding window TTL so active users stay logged in
     await extend_session(token)
 
+    await _stash_admin_context(request, user, session)
+
     return user
 
 
@@ -144,6 +166,8 @@ async def get_authenticated_membership(
 
     # Reset sliding window TTL so active users stay logged in
     await extend_session(token)
+
+    await _stash_admin_context(request, membership.user, session)
 
     return membership
 

@@ -301,3 +301,38 @@ async def test_trigger_fix_error_different_project(
             follow_redirects=False,
         )
         assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_errors_page_empty_shows_reporting_instructions(
+    authenticated_client, current_user, organization, factory
+):
+    """Empty errors page shows expanded reporting instructions."""
+    project = await factory(
+        ProjectFactory, name="test-project", organization_id=organization.id
+    )
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors"
+    )
+    assert resp.status_code == 200
+    assert "Reporting Errors" in resp.text
+    assert "oopsie-ruby" in resp.text
+    assert "api/v1/errors" in resp.text
+    assert '<details class="mt-3" open' in resp.text
+
+
+@pytest.mark.asyncio
+async def test_errors_page_with_errors_shows_collapsed_instructions(
+    authenticated_client, current_user, organization, factory
+):
+    """Errors page with errors shows collapsed reporting instructions."""
+    project = await factory(
+        ProjectFactory, name="test-project", organization_id=organization.id
+    )
+    await factory(ErrorFactory, project_id=project.id, fingerprint="fp-instr")
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors"
+    )
+    assert resp.status_code == 200
+    assert "Reporting Errors" in resp.text
+    assert '<details class="mt-3" open' not in resp.text

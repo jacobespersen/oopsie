@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Worker deployment crash caused by `database.py` eagerly validating all settings (including web-only `signing_secret`) at import time — engine and session factory are now created lazily
 
 ### Changed
+- Projects table shows error count instead of threshold column
 - Consolidated endpoint definitions under `oopsie/routers/` — moved `api/`, `web/`, `auth_routes.py`, and `deps.py` into a single `routers/` package following FastAPI conventions (#16)
 - Standardized `get_session` imports in `admin.py` and `landing.py` to use `oopsie.routers.dependencies` (consistent with all other routers)
 - Aligned `__all__` ordering in `routers/__init__.py` to match import order
@@ -44,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - IntegrityError handling on signup form submission to gracefully handle concurrent duplicate requests
 
 ### Added
+- Notification dot on admin header link when pending signup requests exist
+- Error reporting instructions panel on project errors page (client libraries + HTTP example), expanded when no errors, collapsible when errors exist
 - Tests for OrgSlugMiddleware (including Redis failure resilience)
 - Tests for stale session key eviction (pre-hash migration `WRONGTYPE` handling)
 - DB-level unique constraint test for single-org enforcement (`uq_membership_user`)

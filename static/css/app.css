@@ -29,8 +29,19 @@
 .projects-col-name      { width: 16%; }
 .projects-col-repo      { width: 28%; }
 .projects-col-branch    { width: 11%; }
-.projects-col-threshold { width: 10%; }
+.projects-col-errors   { width: 10%; }
 .projects-col-actions   { width: 35%; }
 
 /* Error detail key column */
 .detail-col-label { width: 160px; }
+
+/* Admin notification dot */
+.admin-notification-dot {
+  position: absolute;
+  top: -3px;
+  right: -9px;
+  width: 8px;
+  height: 8px;
+  background: #f85149;
+  border-radius: 50%;
+}

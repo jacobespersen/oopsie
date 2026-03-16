@@ -14,7 +14,7 @@ worker:
 console:
 	python scripts/console.py
 
-dev: services
+dev:
 	honcho start
 
 setup:

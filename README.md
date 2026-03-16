@@ -270,69 +270,6 @@ alembic/             — Database migrations
 tests/               — Test suite (pytest, factory-boy)
 ```
 
-## API Endpoints
-
-### Ingestion API
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/v1/errors` | Bearer token (API key) | Report an error (202 Accepted) |
-
-### Authentication
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/auth/login` | Login page |
-| `GET` | `/auth/login/google` | Redirect to Google OAuth |
-| `GET` | `/auth/callback` | Google OAuth callback |
-| `POST` | `/auth/logout` | Destroy session and redirect to login |
-
-### Web UI (org-scoped: `/orgs/{org_slug}/...`)
-
-| Method | Path | Role | Description |
-|--------|------|------|-------------|
-| `GET` | `/orgs/{org_slug}/projects` | MEMBER | List projects |
-| `GET` | `/orgs/{org_slug}/projects/new` | ADMIN | New project form |
-| `POST` | `/orgs/{org_slug}/projects` | ADMIN | Create project |
-| `GET` | `/orgs/{org_slug}/projects/{id}/edit` | ADMIN | Edit project form |
-| `POST` | `/orgs/{org_slug}/projects/{id}` | ADMIN | Update project |
-| `POST` | `/orgs/{org_slug}/projects/{id}/delete` | ADMIN | Delete project |
-| `GET` | `/orgs/{org_slug}/projects/{id}/api-key` | ADMIN | View API key |
-| `POST` | `/orgs/{org_slug}/projects/{id}/regenerate-api-key` | ADMIN | Regenerate API key |
-| `GET` | `/orgs/{org_slug}/projects/{pid}/errors` | MEMBER | List errors |
-| `GET` | `/orgs/{org_slug}/projects/{pid}/errors/{eid}` | MEMBER | Error detail |
-| `POST` | `/orgs/{org_slug}/projects/{pid}/errors/{eid}/fix` | MEMBER | Trigger fix attempt |
-| `GET` | `/orgs/{org_slug}/settings` | MEMBER | Org settings page |
-| `POST` | `/orgs/{org_slug}/settings/anthropic-key` | ADMIN | Set/clear Anthropic API key |
-| `POST` | `/orgs/{org_slug}/members/invite` | ADMIN | Send invitation |
-| `POST` | `/orgs/{org_slug}/members/invitations/{id}/revoke` | ADMIN | Revoke invitation |
-| `POST` | `/orgs/{org_slug}/members/{id}/role` | ADMIN | Change member role |
-| `POST` | `/orgs/{org_slug}/members/{id}/remove` | ADMIN | Remove member |
-| `GET` | `/orgs/{org_slug}/github/install` | ADMIN | Start GitHub App installation |
-| `GET` | `/github/callback` | Authenticated | GitHub App install callback |
-
-### GitHub Webhooks
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/webhooks/github` | HMAC signature | Receive GitHub webhook events |
-
-### Platform Admin
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/admin/signup-requests` | Platform admin | List signup requests |
-| `POST` | `/admin/signup-requests/{id}/approve` | Platform admin | Approve request |
-| `POST` | `/admin/signup-requests/{id}/reject` | Platform admin | Reject request |
-
-### Other
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | Landing page (redirects authenticated users to projects) |
-| `POST` | `/signup-request` | Submit signup request (public) |
-| `GET` | `/health` | Health check |
-
 ## Environment Variables
 
 | Variable | Required | Description |
@@ -349,10 +286,8 @@ tests/               — Test suite (pytest, factory-boy)
 | `GITHUB_APP_SLUG` | For GitHub | App slug from `github.com/apps/{slug}` |
 | `ADMIN_EMAIL` | First deploy | Email to seed the first OWNER invitation + platform admin |
 | `ORG_NAME` | No | Name for bootstrapped org (default: `"Default"`) |
-| `COOKIE_SECURE` | No | Set `true` for HTTPS in production (default: `false`) |
 | `WORKER_CONCURRENCY` | No | Max concurrent background jobs (default: `3`) |
 | `JOB_TIMEOUT_SECONDS` | No | Timeout for Claude Code execution in seconds (default: `600`) |
-| `CLONE_BASE_PATH` | No | Directory for temporary repo clones (default: system temp dir) |
 | `TEST_DATABASE_URL` | No | Defaults to `DATABASE_URL` with db name `oopsie_test` |
 | `LOG_LEVEL` | No | Default: `INFO` |
 | `LOG_FORMAT` | No | `json` (default) or `console` |

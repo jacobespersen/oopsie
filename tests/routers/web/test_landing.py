@@ -1,10 +1,18 @@
 """Tests for the public landing page and signup request form."""
 
-import pytest
-from oopsie.models.signup_request import SignupRequest, SignupRequestStatus
-from sqlalchemy import select
+from unittest.mock import AsyncMock
 
-from tests.factories import SignupRequestFactory
+import httpx
+import pytest
+from oopsie.database import get_session
+from oopsie.main import app
+from oopsie.models.signup_request import SignupRequest, SignupRequestStatus
+from oopsie.session import create_session
+from redis.exceptions import RedisError
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from tests.factories import SignupRequestFactory, UserFactory
 
 
 @pytest.mark.asyncio
@@ -133,3 +141,64 @@ async def test_signup_request_preserves_form_data_on_validation_error(api_client
     assert "Alice" in resp.text
     assert "bad-email" in resp.text
     assert "Alice Co" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_authenticated_user_without_membership_sees_landing(
+    db_session: AsyncSession, fake_redis
+):
+    """Authenticated user with no org membership sees the landing page."""
+    # Create a user with no membership (not using current_user fixture
+    # which auto-creates a membership).
+    user = UserFactory.build()
+    db_session.add(user)
+    await db_session.flush()
+
+    async def override_get_session():
+        yield db_session
+
+    app.dependency_overrides[get_session] = override_get_session
+    session_token = await create_session(user.id)
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+            cookies={"session_id": session_token},
+        ) as client:
+            resp = await client.get("/", follow_redirects=False)
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert resp.status_code == 200
+    assert "Request Access" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_redis_failure_falls_through_to_landing(
+    db_session: AsyncSession, fake_redis
+):
+    """Redis failure during session lookup gracefully shows landing page."""
+
+    async def override_get_session():
+        yield db_session
+
+    # Make the fake Redis raise on hget to simulate a connection failure.
+    # get_session_user_id catches RedisError internally and returns None,
+    # so the landing page should render normally.
+    fake_redis.hget = AsyncMock(side_effect=RedisError("connection lost"))
+
+    app.dependency_overrides[get_session] = override_get_session
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+            cookies={"session_id": "some-token"},
+        ) as client:
+            resp = await client.get("/", follow_redirects=False)
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert resp.status_code == 200
+    assert "Request Access" in resp.text

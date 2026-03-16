@@ -72,7 +72,7 @@ async def _handle_wrongtype_error(
     try:
         await r.delete(key)
     except redis.exceptions.RedisError:
-        logger.error("session_key_eviction_failed", key=key)
+        logger.error("session_key_eviction_failed", key=key, exc_info=True)
 
 
 async def get_session_user_id(token: str) -> UUID | None:
@@ -83,6 +83,9 @@ async def get_session_user_id(token: str) -> UUID | None:
         value: bytes | None = await r.hget(key, "user_id")  # type: ignore[misc]
     except redis.exceptions.ResponseError as e:
         await _handle_wrongtype_error(r, key, e)
+        return None
+    except redis.exceptions.RedisError:
+        logger.error("session_user_id_redis_error", key=key, exc_info=True)
         return None
     if value is None:
         return None
@@ -98,6 +101,9 @@ async def get_session_org_slug(token: str) -> str | None:
         value: bytes | None = await r.hget(key, "org_slug")  # type: ignore[misc]
     except redis.exceptions.ResponseError as e:
         await _handle_wrongtype_error(r, key, e)
+        return None
+    except redis.exceptions.RedisError:
+        logger.error("session_org_slug_redis_error", key=key, exc_info=True)
         return None
     if value is None:
         return None

@@ -7,11 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.exceptions import AlreadyHasOrganizationError
+from oopsie.logging import logger
 from oopsie.models.user import User
 from oopsie.routers.dependencies import get_optional_user, get_session
 from oopsie.routers.web import templates
 from oopsie.services.signup_request_service import create_signup_request
-from oopsie.session import get_session_org_slug
 
 router = APIRouter()
 
@@ -42,14 +42,11 @@ async def landing_page(
 ) -> HTMLResponse | RedirectResponse:
     """Public landing page — redirects logged-in users to their org."""
     if user is not None:
-        # org_slug is always cached in the Redis session at login
-        token = request.cookies.get("session_id")
-        if token:
-            org_slug = await get_session_org_slug(token)
-            if org_slug:
-                return RedirectResponse(
-                    url=f"/orgs/{org_slug}/projects", status_code=302
-                )
+        org_slug = getattr(request.state, "org_slug", None)
+        if org_slug:
+            return RedirectResponse(url=f"/orgs/{org_slug}/projects", status_code=302)
+        # Authenticated but no org — log and show landing page
+        logger.warning("authenticated_user_no_org_slug", user_id=str(user.id))
 
     return templates.TemplateResponse(
         request=request,

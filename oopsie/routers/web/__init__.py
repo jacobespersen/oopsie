@@ -14,7 +14,24 @@ def _org_slug_processor(request: Request) -> dict[str, str | None]:
     return {"org_slug": getattr(request.state, "org_slug", None)}
 
 
+def _pending_signup_count_processor(request: Request) -> dict[str, int]:
+    """Read pending signup request count from request.state for admin dot.
+
+    The count is computed by the auth dependencies and stashed on
+    request.state. This processor just reads it for template access.
+    """
+    return {
+        "pending_signup_request_count": getattr(
+            request.state, "pending_signup_request_count", 0
+        )
+    }
+
+
 templates = Jinja2Templates(
     directory=str(TEMPLATES_DIR),
-    context_processors=[csrf_token_processor(), _org_slug_processor],
+    context_processors=[
+        csrf_token_processor(),
+        _org_slug_processor,
+        _pending_signup_count_processor,
+    ],
 )

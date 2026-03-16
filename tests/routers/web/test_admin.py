@@ -213,3 +213,32 @@ async def test_csrf_rejection_without_token(
             assert resp.status_code == 403
     finally:
         app.dependency_overrides.pop(get_session, None)
+
+
+@pytest.mark.asyncio
+async def test_admin_notification_dot_shown_when_pending_requests(
+    authenticated_client, current_user, db_session, factory
+):
+    """Admin link shows notification dot when pending signup requests exist."""
+    current_user.is_platform_admin = True
+    await db_session.flush()
+
+    await factory(SignupRequestFactory)
+
+    resp = await authenticated_client.get("/admin/signup-requests")
+    assert resp.status_code == 200
+    assert "admin-notification-dot" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_admin_notification_dot_hidden_when_no_pending_requests(
+    authenticated_client, current_user, db_session
+):
+    """Admin link has no notification dot when no pending signup requests."""
+    current_user.is_platform_admin = True
+    await db_session.flush()
+
+    resp = await authenticated_client.get("/admin/signup-requests")
+    assert resp.status_code == 200
+    assert "Admin" in resp.text
+    assert "admin-notification-dot" not in resp.text

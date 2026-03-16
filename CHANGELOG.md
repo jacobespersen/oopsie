@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Worker deployment crash caused by `database.py` eagerly validating all settings (including web-only `signing_secret`) at import time — engine and session factory are now created lazily
+
 ### Changed
 - Replaced `ValueError` with `AlreadyHasOrganizationError` and `DuplicateInvitationError` for distinct single-org guard failures
 - Used `exists()` subquery in `has_membership_by_email` for efficiency

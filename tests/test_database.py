@@ -20,7 +20,7 @@ async def test_get_session_yields_and_commits():
 
     mock_factory = MagicMock(return_value=mock_cm)
 
-    with patch("oopsie.database.async_session_factory", mock_factory):
+    with patch("oopsie.database._get_session_factory", return_value=mock_factory):
         gen = get_session()
         async for session in gen:
             assert session is mock_session
@@ -44,7 +44,7 @@ async def test_get_session_rolls_back_on_exception():
 
     mock_factory = MagicMock(return_value=mock_cm)
 
-    with patch("oopsie.database.async_session_factory", mock_factory):
+    with patch("oopsie.database._get_session_factory", return_value=mock_factory):
         gen = get_session()
         with pytest.raises(RuntimeError, match="commit failed"):
             async for session in gen:

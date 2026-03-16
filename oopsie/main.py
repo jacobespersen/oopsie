@@ -33,9 +33,9 @@ setup_logging(_settings.log_level, _settings.log_format)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run bootstrap on startup, cleanup arq pool on shutdown."""
-    from oopsie.database import async_session_factory
+    from oopsie.database import _get_session_factory
 
-    async with async_session_factory() as session:
+    async with _get_session_factory()() as session:
         async with session.begin():
             await bootstrap_if_needed(
                 session,

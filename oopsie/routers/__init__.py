@@ -11,13 +11,13 @@ from oopsie.routers.web.projects import router as web_projects_router
 from oopsie.routers.web.settings import router as web_settings_router
 
 __all__ = [
-    "auth_router",
     "errors_router",
+    "auth_router",
     "github_router",
-    "web_projects_router",
-    "web_errors_router",
-    "web_members_router",
-    "web_settings_router",
     "admin_router",
+    "web_errors_router",
     "landing_router",
+    "web_members_router",
+    "web_projects_router",
+    "web_settings_router",
 ]

@@ -6,10 +6,9 @@ from pydantic import BaseModel, EmailStr, Field, ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.database import get_session
 from oopsie.exceptions import AlreadyHasOrganizationError
 from oopsie.models.user import User
-from oopsie.routers.dependencies import get_optional_user
+from oopsie.routers.dependencies import get_optional_user, get_session
 from oopsie.routers.web import templates
 from oopsie.services.signup_request_service import create_signup_request
 

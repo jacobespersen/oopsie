@@ -6,12 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.database import get_session
 from oopsie.exceptions import AlreadyHasOrganizationError
 from oopsie.logging import logger
 from oopsie.models.signup_request import SignupRequestStatus
 from oopsie.models.user import User
-from oopsie.routers.dependencies import require_platform_admin
+from oopsie.routers.dependencies import get_session, require_platform_admin
 from oopsie.routers.web import templates
 from oopsie.services.signup_request_service import (
     approve_signup_request,

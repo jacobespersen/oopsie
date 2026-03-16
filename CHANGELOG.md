@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Worker deployment crash caused by `database.py` eagerly validating all settings (including web-only `signing_secret`) at import time — engine and session factory are now created lazily
 
 ### Changed
+- Consolidated endpoint definitions under `oopsie/routers/` — moved `api/`, `web/`, `auth_routes.py`, and `deps.py` into a single `routers/` package following FastAPI conventions (#16)
+- Standardized `get_session` imports in `admin.py` and `landing.py` to use `oopsie.routers.dependencies` (consistent with all other routers)
+- Aligned `__all__` ordering in `routers/__init__.py` to match import order
 - Replaced `ValueError` with `AlreadyHasOrganizationError` and `DuplicateInvitationError` for distinct single-org guard failures
 - Used `exists()` subquery in `has_membership_by_email` for efficiency
 - Moved duplicated `_set_membership_role` test helper to `tests/conftest.py`

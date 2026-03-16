@@ -9,7 +9,7 @@ from oopsie.models.fix_attempt import FixAttemptStatus
 
 from tests.factories import ErrorFactory, FixAttemptFactory, ProjectFactory
 
-_ENQUEUE = "oopsie.web.errors.enqueue_fix_job"
+_ENQUEUE = "oopsie.routers.web.errors.enqueue_fix_job"
 
 
 # ---------------------------------------------------------------------------

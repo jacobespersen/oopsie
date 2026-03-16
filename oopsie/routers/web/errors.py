@@ -7,17 +7,17 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from oopsie.deps import RequireRole, get_session
 from oopsie.logging import logger
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.membership import MemberRole, Membership
 from oopsie.queue import enqueue_fix_job
+from oopsie.routers.dependencies import RequireRole, get_session
+from oopsie.routers.web import templates
+from oopsie.routers.web.projects import _get_org_project
 from oopsie.services.fix_service import (
     get_fix_attempt_status_for_errors,
     get_fix_attempts_for_error,
 )
-from oopsie.web import templates
-from oopsie.web.projects import _get_org_project
 
 router = APIRouter()
 

@@ -31,7 +31,7 @@ LOG_FORMAT=console uvicorn oopsie.main:app --reload  # pretty dev logs
 
 ```bash
 make test                             # starts test DB + runs pytest with coverage
-pytest tests/api/                     # run a subset
+pytest tests/routers/api/             # run a subset
 ```
 
 The `db_session` fixture auto-creates the `oopsie_test` database on port 5434 and rolls back each test. Set `DATABASE_URL` and optionally `TEST_DATABASE_URL` in `.env`.
@@ -48,18 +48,22 @@ ruff format .         # autoformat
 
 ```
 oopsie/
-  main.py          — FastAPI app, middleware, routers
+  main.py          — FastAPI app, middleware, router wiring
   config.py        — pydantic-settings (reads .env)
   database.py      — async SQLAlchemy engine + session factory
   logging.py       — structlog setup, request logging middleware
   auth.py          — Google OAuth, invitation gating
-  auth_routes.py   — /auth/* endpoints (login, callback, logout)
   session.py       — Redis-backed session management
-  api/             — REST endpoints (errors, projects, orgs) + deps (DI, auth, RBAC)
+  routers/         — all endpoint definitions
+    __init__.py    — aggregates & re-exports all router instances
+    dependencies.py — shared route deps (auth, RBAC, DI)
+    auth.py        — /auth/* endpoints (login, callback, logout)
+    github.py      — GitHub App install flow + webhooks
+    api/           — REST API endpoints (errors)
+    web/           — Jinja2 HTML views (projects, errors, members, settings, admin, landing)
   models/          — SQLAlchemy ORM (Base, Organization, Membership, Invitation, Project, Error, …)
   services/        — business logic (error, invitation, membership, bootstrap)
   utils/           — encryption (Fernet), fingerprinting
-  web/             — Jinja2 HTML views (projects, members)
   worker/          — background job processing (placeholder)
 templates/         — Jinja2 templates
 alembic/           — DB migrations
@@ -100,7 +104,7 @@ alembic/           — DB migrations
 - **Single root conftest** — all shared fixtures live in `tests/conftest.py`. Do not create additional conftest files in subdirectories unless there is a strong, specific reason.
 - **Factory-based test data** — use factory-boy factories in `tests/factories.py` for all test data creation. Inline factory calls per test, no fixture-based test data.
 - **No duplicated setup** — if multiple tests need similar setup, add a factory or extend an existing one rather than copy-pasting setup code.
-- **Test file organization** — mirrors source structure (`tests/api/`, `tests/models/`, `tests/services/`, etc.).
+- **Test file organization** — mirrors source structure (`tests/routers/`, `tests/models/`, `tests/services/`, etc.).
 
 ## Database
 

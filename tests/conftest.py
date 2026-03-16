@@ -18,7 +18,6 @@ from urllib.parse import urlparse, urlunparse  # noqa: E402
 import httpx  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from oopsie.config import Settings  # noqa: E402
-from oopsie.deps import get_session  # noqa: E402
 from oopsie.main import app  # noqa: E402
 from oopsie.models import (  # noqa: E402, F401
     Error,
@@ -28,6 +27,7 @@ from oopsie.models import (  # noqa: E402, F401
 )
 from oopsie.models.base import Base  # noqa: E402
 from oopsie.models.membership import MemberRole, Membership  # noqa: E402
+from oopsie.routers.dependencies import get_session  # noqa: E402
 from oopsie.session import create_session  # noqa: E402
 from sqlalchemy import update  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine  # noqa: E402

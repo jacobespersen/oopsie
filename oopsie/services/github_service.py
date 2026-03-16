@@ -9,6 +9,9 @@ import httpx
 from oopsie.exceptions import GitHubApiError, GitOperationError
 from oopsie.logging import logger
 
+BOT_NAME = "Oopsie Bot"
+BOT_EMAIL = "oopsie@noreply.github.com"
+
 
 def _git_env() -> dict[str, str]:
     """Build env for git subprocesses with credential caching disabled."""
@@ -16,6 +19,9 @@ def _git_env() -> dict[str, str]:
     # Prevent the credential helper from caching tokens in the system keychain
     env["GIT_CONFIG_NOSYSTEM"] = "1"
     env["GIT_TERMINAL_PROMPT"] = "0"
+    # Set committer identity so git commit works in containers without ~/.gitconfig
+    env["GIT_COMMITTER_NAME"] = BOT_NAME
+    env["GIT_COMMITTER_EMAIL"] = BOT_EMAIL
     return env
 
 
@@ -86,7 +92,7 @@ async def commit_and_push(
         "-m",
         commit_message,
         "--author",
-        "Oopsie Bot <oopsie@noreply.github.com>",
+        f"{BOT_NAME} <{BOT_EMAIL}>",
         cwd=repo_dir,
     )
     auth_url = _inject_token_into_url(repo_url, token)

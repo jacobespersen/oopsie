@@ -36,6 +36,8 @@ def test_git_env_disables_credential_caching():
     env = _git_env()
     assert env["GIT_CONFIG_NOSYSTEM"] == "1"
     assert env["GIT_TERMINAL_PROMPT"] == "0"
+    assert env["GIT_COMMITTER_NAME"] == "Oopsie Bot"
+    assert env["GIT_COMMITTER_EMAIL"] == "oopsie@noreply.github.com"
 
 
 @pytest.mark.asyncio

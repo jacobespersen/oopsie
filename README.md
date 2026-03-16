@@ -4,7 +4,11 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
+**[getoopsie.com](https://getoopsie.com)** — Hosted version, free to try.
+
 Oopsie is a self-hosted error tracking service that automatically generates fix PRs using [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Point your application at Oopsie's API, and when errors exceed a configured threshold it clones your repo, diagnoses the issue, and opens a pull request with the fix.
+
+> **Feature requests welcome!** Open an issue on [GitHub](https://github.com/jacobespersen/oopsie/issues) to suggest new features or improvements.
 
 ## How It Works
 
@@ -12,11 +16,38 @@ Oopsie is a self-hosted error tracking service that automatically generates fix 
 2. **Track** — Oopsie aggregates occurrences and surfaces errors in a web dashboard
 3. **Fix** — When an error crosses the threshold, a background worker invokes Claude Code to analyze the stack trace, write a fix, and open a PR on GitHub
 
+### Security: Claude Code Sandbox
+
+When generating fixes, Oopsie clones your repository into a temporary directory and runs Claude Code against that clone using the [Claude Code SDK](https://docs.anthropic.com/en/docs/claude-code). Claude Code operates in a sandboxed environment scoped to the cloned repository — it cannot access the deployed Oopsie application, your database, or any other files on the host. The clone is cleaned up after the fix attempt completes.
+
 ## Client Libraries
 
 | Language | Gem / Package | Description |
 |----------|---------------|-------------|
 | Ruby | [`oopsie-ruby`](https://github.com/jacobespersen/oopsie-ruby) | Lightweight gem with Rack middleware and manual reporting — zero runtime dependencies |
+
+### Reporting Errors via HTTP
+
+No client library required — you can report errors with a plain HTTP request:
+
+```bash
+curl -X POST https://getoopsie.com/api/v1/errors \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "error_class": "ZeroDivisionError",
+    "message": "division by zero",
+    "stack_trace": "app/models/calculator.rb:12:in `/'\'''\''napp/controllers/calc_controller.rb:8:in '\''compute'\''"
+  }'
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `error_class` | string | Yes | Exception class name (e.g. `ZeroDivisionError`, `TypeError`) |
+| `message` | string | Yes | Human-readable error message |
+| `stack_trace` | string | No | Full stack trace / backtrace |
+
+Returns `202 Accepted` on success. Errors with the same class and message are automatically deduplicated by fingerprint.
 
 ## Architecture
 
@@ -31,8 +62,9 @@ Oopsie is a self-hosted error tracking service that automatically generates fix 
                               │                     │                     │
                         ┌─────▼─────┐        ┌──────▼───────┐      ┌──────▼──────┐
                         │ PostgreSQL│        │    Redis     │      │   Web UI    │
-                        │ (storage) │        │  (job queue) │      │  (Jinja2)   │
-                        └───────────┘        └──────┬───────┘      └─────────────┘
+                        │ (storage) │        │  (sessions + │      │  (Jinja2)   │
+                        └───────────┘        │   job queue) │      └─────────────┘
+                                             └──────┬───────┘
                                                     │
                                              ┌──────▼──────┐
                                              │   Worker    │
@@ -71,11 +103,11 @@ cp .env.example .env
 Generate the required secrets:
 
 ```bash
+# Signing secret for cookies and CSRF tokens
+python -c 'import secrets; print(secrets.token_urlsafe(32))'
+
 # Fernet key for encrypting GitHub tokens
 python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
-
-# JWT secret for session tokens (min 32 characters)
-python -c 'import secrets; print(secrets.token_urlsafe(64))'
 ```
 
 ### 3. Set up Google OAuth
@@ -151,9 +183,21 @@ Oopsie uses invitation-gated registration. To create the first organization and 
 1. Set `ADMIN_EMAIL=you@example.com` in `.env` (optionally `ORG_NAME=My Org`)
 2. Start the server — it seeds the organization and an OWNER invitation on first boot
 3. Sign in with the matching Google account at `/auth/login`
-4. Invite additional users from the **Members** page
+4. The bootstrap user is automatically granted **platform admin** privileges (see [Platform Admin](#platform-admin) below)
+5. Invite additional users from the **Settings** page
 
 > Bootstrap only runs once and is a no-op if an organization already exists.
+
+## Platform Admin
+
+The `is_platform_admin` flag is a special privilege granted to the user whose email matches `ADMIN_EMAIL`. It is set automatically when that user first signs in via Google OAuth.
+
+Platform admins have access to features that operate outside any single organization:
+
+- **Signup request management** (`/admin/signup-requests`) — review, approve, or reject requests from users who want to create their own organization on the platform
+- Approving a signup request creates an org-creation invitation, allowing the requester to sign in and set up their own organization
+
+All other access control is org-scoped via role-based permissions (MEMBER, ADMIN, OWNER).
 
 ## Development
 
@@ -197,40 +241,118 @@ make ci               # lint + test in one command
 
 ```
 oopsie/
-  main.py          — FastAPI app, middleware, routers
-  config.py        — Pydantic Settings (reads .env)
-  database.py      — Async SQLAlchemy engine + session factory
-  auth.py          — JWT helpers, Google OAuth, invitation gating
-  auth_routes.py   — /auth/* endpoints (login, callback, logout)
-  api/             — REST API endpoints + dependencies
-  models/          — SQLAlchemy ORM models
-  services/        — Business logic layer
-  utils/           — Encryption, fingerprinting helpers
-  web/             — Jinja2 HTML views (projects, errors, members)
-  worker/          — Background job processing (arq)
-templates/         — Jinja2 templates
-alembic/           — Database migrations
-tests/             — Test suite (pytest, factory-boy)
+  main.py            — FastAPI app, middleware, router wiring
+  config.py          — Pydantic Settings (reads .env)
+  database.py        — Async SQLAlchemy engine + session factory
+  auth.py            — Google OAuth, invitation gating, platform admin assignment
+  session.py         — Redis-backed server-side session management
+  routers/           — All endpoint definitions
+    __init__.py      — Aggregates & re-exports all router instances
+    dependencies.py  — Shared route deps (auth, RBAC, DI)
+    auth.py          — /auth/* endpoints (login, callback, logout)
+    github.py        — GitHub App install flow + webhooks
+    api/
+      errors.py      — REST API error ingestion endpoint
+    web/
+      landing.py     — Public landing page + signup request form
+      projects.py    — Project CRUD
+      errors.py      — Error listing, detail view, fix triggering
+      members.py     — Member & invitation management
+      settings.py    — Org settings (GitHub connection, Anthropic key)
+      admin.py       — Platform admin: signup request management
+  models/            — SQLAlchemy ORM models
+  services/          — Business logic layer
+  middleware/        — Request logging, org slug extraction
+  utils/             — Encryption, fingerprinting, slug generation
+  worker/            — Background job processing (arq + Claude Code SDK)
+templates/           — Jinja2 templates
+alembic/             — Database migrations
+tests/               — Test suite (pytest, factory-boy)
 ```
+
+## API Endpoints
+
+### Ingestion API
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/api/v1/errors` | Bearer token (API key) | Report an error (202 Accepted) |
+
+### Authentication
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/auth/login` | Login page |
+| `GET` | `/auth/login/google` | Redirect to Google OAuth |
+| `GET` | `/auth/callback` | Google OAuth callback |
+| `POST` | `/auth/logout` | Destroy session and redirect to login |
+
+### Web UI (org-scoped: `/orgs/{org_slug}/...`)
+
+| Method | Path | Role | Description |
+|--------|------|------|-------------|
+| `GET` | `/orgs/{org_slug}/projects` | MEMBER | List projects |
+| `GET` | `/orgs/{org_slug}/projects/new` | ADMIN | New project form |
+| `POST` | `/orgs/{org_slug}/projects` | ADMIN | Create project |
+| `GET` | `/orgs/{org_slug}/projects/{id}/edit` | ADMIN | Edit project form |
+| `POST` | `/orgs/{org_slug}/projects/{id}` | ADMIN | Update project |
+| `POST` | `/orgs/{org_slug}/projects/{id}/delete` | ADMIN | Delete project |
+| `GET` | `/orgs/{org_slug}/projects/{id}/api-key` | ADMIN | View API key |
+| `POST` | `/orgs/{org_slug}/projects/{id}/regenerate-api-key` | ADMIN | Regenerate API key |
+| `GET` | `/orgs/{org_slug}/projects/{pid}/errors` | MEMBER | List errors |
+| `GET` | `/orgs/{org_slug}/projects/{pid}/errors/{eid}` | MEMBER | Error detail |
+| `POST` | `/orgs/{org_slug}/projects/{pid}/errors/{eid}/fix` | MEMBER | Trigger fix attempt |
+| `GET` | `/orgs/{org_slug}/settings` | MEMBER | Org settings page |
+| `POST` | `/orgs/{org_slug}/settings/anthropic-key` | ADMIN | Set/clear Anthropic API key |
+| `POST` | `/orgs/{org_slug}/members/invite` | ADMIN | Send invitation |
+| `POST` | `/orgs/{org_slug}/members/invitations/{id}/revoke` | ADMIN | Revoke invitation |
+| `POST` | `/orgs/{org_slug}/members/{id}/role` | ADMIN | Change member role |
+| `POST` | `/orgs/{org_slug}/members/{id}/remove` | ADMIN | Remove member |
+| `GET` | `/orgs/{org_slug}/github/install` | ADMIN | Start GitHub App installation |
+| `GET` | `/github/callback` | Authenticated | GitHub App install callback |
+
+### GitHub Webhooks
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/webhooks/github` | HMAC signature | Receive GitHub webhook events |
+
+### Platform Admin
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/admin/signup-requests` | Platform admin | List signup requests |
+| `POST` | `/admin/signup-requests/{id}/approve` | Platform admin | Approve request |
+| `POST` | `/admin/signup-requests/{id}/reject` | Platform admin | Reject request |
+
+### Other
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Landing page (redirects authenticated users to projects) |
+| `POST` | `/signup-request` | Submit signup request (public) |
+| `GET` | `/health` | Health check |
 
 ## Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | Async PostgreSQL URL (`postgresql+asyncpg://...`) |
-| `REDIS_URL` | Yes | Redis connection URL |
+| `REDIS_URL` | Yes | Redis connection URL (e.g. `redis://localhost:6379`) |
 | `SIGNING_SECRET` | Yes | Secret for signing cookies and CSRF tokens. Generate with: `python -c 'import secrets; print(secrets.token_urlsafe(32))'` |
-| `ENCRYPTION_KEY` | Yes | Fernet key for encrypting GitHub tokens |
-| `JWT_SECRET_KEY` | Yes | At least 32-char secret for signing JWTs |
-| `GOOGLE_CLIENT_ID` | Yes | Google OAuth 2.0 client ID |
-| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth 2.0 client secret |
-| `ANTHROPIC_API_KEY` | For AI fixes | Claude API key for generating fix PRs |
-| `GITHUB_APP_ID` | For GitHub integration | Numeric App ID from the GitHub App settings page |
-| `GITHUB_APP_PRIVATE_KEY_PEM` | For GitHub integration | RSA private key, base64-encoded (see [GitHub App Setup](#4-set-up-the-github-app)) |
-| `GITHUB_WEBHOOK_SECRET` | For GitHub integration | Webhook secret set in the GitHub App settings |
-| `GITHUB_APP_SLUG` | For GitHub integration | App slug from `github.com/apps/{slug}` |
-| `ADMIN_EMAIL` | First deploy | Email to seed the first OWNER invitation |
-| `ORG_NAME` | No | Name for bootstrapped org (default: `"Oopsie"`) |
+| `ENCRYPTION_KEY` | No | Fernet key for encrypting GitHub tokens (warned if missing) |
+| `GOOGLE_CLIENT_ID` | For OAuth | Google OAuth 2.0 client ID |
+| `GOOGLE_CLIENT_SECRET` | For OAuth | Google OAuth 2.0 client secret |
+| `GITHUB_APP_ID` | For GitHub | Numeric App ID from the GitHub App settings page |
+| `GITHUB_APP_PRIVATE_KEY_PEM` | For GitHub | RSA private key, base64-encoded (see [GitHub App Setup](#4-set-up-the-github-app)) |
+| `GITHUB_WEBHOOK_SECRET` | For GitHub | Webhook secret set in the GitHub App settings |
+| `GITHUB_APP_SLUG` | For GitHub | App slug from `github.com/apps/{slug}` |
+| `ADMIN_EMAIL` | First deploy | Email to seed the first OWNER invitation + platform admin |
+| `ORG_NAME` | No | Name for bootstrapped org (default: `"Default"`) |
+| `COOKIE_SECURE` | No | Set `true` for HTTPS in production (default: `false`) |
+| `WORKER_CONCURRENCY` | No | Max concurrent background jobs (default: `3`) |
+| `JOB_TIMEOUT_SECONDS` | No | Timeout for Claude Code execution in seconds (default: `600`) |
+| `CLONE_BASE_PATH` | No | Directory for temporary repo clones (default: system temp dir) |
 | `TEST_DATABASE_URL` | No | Defaults to `DATABASE_URL` with db name `oopsie_test` |
 | `LOG_LEVEL` | No | Default: `INFO` |
 | `LOG_FORMAT` | No | `json` (default) or `console` |

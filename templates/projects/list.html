@@ -13,7 +13,7 @@
         <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-name" style="font-weight:600;">Name</th>
         <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-repo" style="font-weight:600;">GitHub Repo</th>
         <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-branch" style="font-weight:600;">Branch</th>
-        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-threshold" style="font-weight:600;">Threshold</th>
+        <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-errors" style="font-weight:600;">Errors</th>
         <th class="px-3 py-2 text-left color-bg-subtle f6 color-fg-muted text-uppercase projects-col-actions" style="font-weight:600;">Actions</th>
       </tr>
     </thead>
@@ -25,7 +25,7 @@
           <a href="{{ p.github_repo_url }}" target="_blank" rel="noopener" class="col-truncate" style="display:block;">{{ p.github_repo_url }}</a>
         </td>
         <td class="px-3 py-2">{{ p.default_branch }}</td>
-        <td class="px-3 py-2">{{ p.error_threshold }}</td>
+        <td class="px-3 py-2">{{ error_counts[p.id] }}</td>
         <td class="px-3 py-2 col-nowrap">
           <a href="/orgs/{{ org_slug }}/projects/{{ p.id }}/errors" class="btn btn-sm">Errors</a>
           <a href="/orgs/{{ org_slug }}/projects/{{ p.id }}/api-key" class="btn btn-sm">API Key</a>

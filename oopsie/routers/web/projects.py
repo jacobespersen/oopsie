@@ -21,6 +21,7 @@ from oopsie.services.anthropic_key_service import (
     set_anthropic_api_key,
 )
 from oopsie.services.github_installation_service import get_installation_repos
+from oopsie.services.project_service import list_projects_with_error_counts
 from oopsie.utils.encryption import hash_api_key
 
 router = APIRouter()
@@ -48,17 +49,19 @@ async def list_projects_page(
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.member)),
 ) -> HTMLResponse:
-    """List projects in the current org."""
-    result = await session.execute(
-        select(Project)
-        .where(Project.organization_id == membership.organization_id)
-        .order_by(Project.created_at.desc())
+    """List projects in the current org with error counts."""
+    projects, error_counts = await list_projects_with_error_counts(
+        session, membership.organization_id
     )
-    projects = result.scalars().all()
     return templates.TemplateResponse(
         request=request,
         name="projects/list.html",
-        context={"projects": projects, "user": membership.user, "org_slug": org_slug},
+        context={
+            "projects": projects,
+            "error_counts": error_counts,
+            "user": membership.user,
+            "org_slug": org_slug,
+        },
     )
 
 

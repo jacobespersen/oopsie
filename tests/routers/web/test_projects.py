@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.conftest import TEST_ENCRYPTION_KEY
-from tests.factories import GithubInstallationFactory, ProjectFactory
+from tests.factories import ErrorFactory, GithubInstallationFactory, ProjectFactory
 
 # ---------------------------------------------------------------------------
 # Web UI endpoints
@@ -552,3 +552,43 @@ async def test_edit_page_shows_masked_anthropic_key(
     )
     assert response.status_code == 200
     assert "sk-\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022wxyz" in response.text
+
+
+@pytest.mark.asyncio
+async def test_web_list_projects_shows_error_count(
+    authenticated_client, current_user, organization, factory
+):
+    """GET /orgs/{slug}/projects shows correct error count per project."""
+    project = await factory(
+        ProjectFactory,
+        name="counted-project",
+        organization_id=organization.id,
+    )
+    await factory(ErrorFactory, project_id=project.id, fingerprint="fp-1")
+    await factory(ErrorFactory, project_id=project.id, fingerprint="fp-2")
+    await factory(ErrorFactory, project_id=project.id, fingerprint="fp-3")
+
+    response = await authenticated_client.get(f"/orgs/{organization.slug}/projects")
+    assert response.status_code == 200
+    assert b"counted-project" in response.content
+    assert b"Errors" in response.content
+    assert b"Threshold" not in response.content
+    # Verify the actual count renders correctly in the table cell
+    assert ">3<" in response.text
+
+
+@pytest.mark.asyncio
+async def test_web_list_projects_shows_zero_errors(
+    authenticated_client, current_user, organization, factory
+):
+    """GET /orgs/{slug}/projects shows 0 for projects with no errors."""
+    await factory(
+        ProjectFactory,
+        name="empty-project",
+        organization_id=organization.id,
+    )
+    response = await authenticated_client.get(f"/orgs/{organization.slug}/projects")
+    assert response.status_code == 200
+    assert b"empty-project" in response.content
+    assert b"Errors" in response.content
+    assert ">0<" in response.text

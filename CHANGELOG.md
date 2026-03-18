@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Pagination for the errors list page — defaults to 25 per page with Previous/Next controls (#12)
+
 ### Fixed
 - Fix pipeline git commit failing in containers with "Committer identity unknown" — set `GIT_COMMITTER_NAME`/`GIT_COMMITTER_EMAIL` env vars for git subprocesses
 - Worker deployment crash caused by `database.py` eagerly validating all settings (including web-only `signing_secret`) at import time — engine and session factory are now created lazily

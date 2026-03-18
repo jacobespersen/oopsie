@@ -3,11 +3,11 @@
 import pytest
 from oopsie.models.error import Error, ErrorStatus
 from oopsie.models.error_occurrence import ErrorOccurrence
-from oopsie.services.error_service import upsert_error
+from oopsie.services.error_service import get_errors_for_project, upsert_error
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.factories import OrganizationFactory, ProjectFactory
+from tests.factories import ErrorFactory, OrganizationFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
@@ -71,3 +71,95 @@ async def test_upsert_error_different_fingerprints_create_separate_errors(
         select(Error).where(Error.project_id == project.id)
     )
     assert len(result.scalars().all()) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_errors_for_project_returns_paginated_results(
+    db_session: AsyncSession, factory
+):
+    """Returns first page of errors ordered by last_seen_at desc."""
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
+    # Create 3 errors — factory auto-generates unique fingerprints
+    for _ in range(3):
+        await factory(ErrorFactory, project_id=project.id)
+
+    errors, total_count = await get_errors_for_project(
+        db_session, project.id, page=1, per_page=2
+    )
+
+    assert total_count == 3
+    assert len(errors) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_errors_for_project_second_page(db_session: AsyncSession, factory):
+    """Second page returns remaining errors."""
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
+    for _ in range(3):
+        await factory(ErrorFactory, project_id=project.id)
+
+    errors, total_count = await get_errors_for_project(
+        db_session, project.id, page=2, per_page=2
+    )
+
+    assert total_count == 3
+    assert len(errors) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_errors_for_project_empty(db_session: AsyncSession, factory):
+    """Returns empty list and 0 count when no errors exist."""
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
+
+    errors, total_count = await get_errors_for_project(
+        db_session, project.id, page=1, per_page=25
+    )
+
+    assert total_count == 0
+    assert len(errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_errors_for_project_ordered_by_last_seen(
+    db_session: AsyncSession, factory
+):
+    """Results are ordered by last_seen_at descending."""
+    from datetime import UTC, datetime, timedelta
+
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
+    now = datetime.now(UTC)
+    old = await factory(
+        ErrorFactory, project_id=project.id, last_seen_at=now - timedelta(hours=2)
+    )
+    new = await factory(ErrorFactory, project_id=project.id, last_seen_at=now)
+
+    errors, _ = await get_errors_for_project(
+        db_session, project.id, page=1, per_page=25
+    )
+
+    assert errors[0].id == new.id
+    assert errors[1].id == old.id
+
+
+@pytest.mark.asyncio
+async def test_get_errors_for_project_scoped_to_project(
+    db_session: AsyncSession, factory
+):
+    """Only returns errors for the specified project."""
+    org = await factory(OrganizationFactory)
+    project_a = await factory(ProjectFactory, organization_id=org.id)
+    project_b = await factory(ProjectFactory, organization_id=org.id)
+    await factory(ErrorFactory, project_id=project_a.id)
+    await factory(ErrorFactory, project_id=project_b.id)
+
+    errors, total_count = await get_errors_for_project(
+        db_session, project_a.id, page=1, per_page=25
+    )
+
+    assert total_count == 1
+    assert len(errors) == 1
+    assert errors[0].project_id == project_a.id

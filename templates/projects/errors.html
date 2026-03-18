@@ -55,6 +55,25 @@
     </tbody>
   </table>
 </div>
+{% if total_pages > 1 %}
+<nav class="paginate-container" aria-label="Pagination">
+  <div class="pagination">
+    {% if page > 1 %}
+    <a href="?page={{ page - 1 }}&per_page={{ per_page }}" class="previous_page" rel="prev">Previous</a>
+    {% else %}
+    <span class="previous_page disabled">Previous</span>
+    {% endif %}
+
+    <span class="px-2 f5">Page {{ page }} of {{ total_pages }}</span>
+
+    {% if page < total_pages %}
+    <a href="?page={{ page + 1 }}&per_page={{ per_page }}" class="next_page" rel="next">Next</a>
+    {% else %}
+    <span class="next_page disabled">Next</span>
+    {% endif %}
+  </div>
+</nav>
+{% endif %}
 {% else %}
 <div class="blankslate blankslate-border-dashed">
   <h2 class="blankslate-heading">No errors yet</h2>

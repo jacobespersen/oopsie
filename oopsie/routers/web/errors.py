@@ -1,8 +1,9 @@
 """Web UI routes for error viewing and fix triggering."""
 
+import math
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +15,7 @@ from oopsie.queue import enqueue_fix_job
 from oopsie.routers.dependencies import RequireRole, get_session
 from oopsie.routers.web import templates
 from oopsie.routers.web.projects import _get_org_project
+from oopsie.services.error_service import get_errors_for_project
 from oopsie.services.fix_service import (
     get_fix_attempt_status_for_errors,
     get_fix_attempts_for_error,
@@ -29,18 +31,24 @@ async def project_errors_page(
     request: Request,
     org_slug: str,
     project_id: uuid.UUID,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(25, ge=1, le=100),
     session: AsyncSession = Depends(get_session),
     membership: Membership = Depends(RequireRole(MemberRole.member)),
 ) -> HTMLResponse:
     """Show errors for a project."""
     project = await _get_org_project(session, project_id, membership.organization_id)
 
-    errors_result = await session.execute(
-        select(Error)
-        .where(Error.project_id == project_id)
-        .order_by(Error.last_seen_at.desc())
+    errors, total_count = await get_errors_for_project(
+        session, project_id, page, per_page
     )
-    errors = errors_result.scalars().all()
+    total_pages = math.ceil(total_count / per_page) if total_count > 0 else 0
+
+    # Return 404 for out-of-range pages (but allow page 1 on empty projects)
+    if total_pages > 0 and page > total_pages:
+        raise HTTPException(status_code=404, detail="Page not found")
+    if total_pages == 0 and page > 1:
+        raise HTTPException(status_code=404, detail="Page not found")
 
     error_ids = [e.id for e in errors]
     fix_statuses = (
@@ -56,6 +64,10 @@ async def project_errors_page(
             "fix_statuses": fix_statuses,
             "user": membership.user,
             "org_slug": org_slug,
+            "page": page,
+            "per_page": per_page,
+            "total_count": total_count,
+            "total_pages": total_pages,
         },
     )
 

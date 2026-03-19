@@ -336,3 +336,145 @@ async def test_errors_page_with_errors_shows_collapsed_instructions(
     assert resp.status_code == 200
     assert "Reporting Errors" in resp.text
     assert '<details class="mt-3" open' not in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Pagination
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_errors_page_default_pagination(
+    authenticated_client, current_user, organization, factory
+):
+    """Default pagination returns first 25 errors."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+    for _ in range(30):
+        await factory(ErrorFactory, project_id=project.id)
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors"
+    )
+    assert resp.status_code == 200
+    # Should show pagination controls (30 errors, 25 per page = 2 pages)
+    assert "Page 1 of 2" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_errors_page_explicit_page_param(
+    authenticated_client, current_user, organization, factory
+):
+    """Explicit page param returns that page."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+    for _ in range(30):
+        await factory(ErrorFactory, project_id=project.id)
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors?page=2"
+    )
+    assert resp.status_code == 200
+    assert "Page 2 of 2" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_errors_page_custom_per_page(
+    authenticated_client, current_user, organization, factory
+):
+    """Custom per_page param limits results."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+    for _ in range(5):
+        await factory(ErrorFactory, project_id=project.id)
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors?per_page=2"
+    )
+    assert resp.status_code == 200
+    assert "Page 1 of 3" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_errors_page_out_of_range_returns_404(
+    authenticated_client, current_user, organization, factory
+):
+    """Page beyond total_pages returns 404."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+    await factory(ErrorFactory, project_id=project.id)
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors?page=99"
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_errors_page_invalid_page_returns_422(
+    authenticated_client, current_user, organization, factory
+):
+    """page < 1 returns 422 via FastAPI validation."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors?page=0"
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_errors_page_invalid_per_page_returns_422(
+    authenticated_client, current_user, organization, factory
+):
+    """per_page out of range returns 422 via FastAPI validation."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors?per_page=0"
+    )
+    assert resp.status_code == 422
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors?per_page=101"
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_errors_page_no_pagination_controls_single_page(
+    authenticated_client, current_user, organization, factory
+):
+    """No pagination controls when all errors fit on one page."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+    for _ in range(3):
+        await factory(ErrorFactory, project_id=project.id)
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors"
+    )
+    assert resp.status_code == 200
+    assert "Page 1 of" not in resp.text
+
+
+@pytest.mark.asyncio
+async def test_errors_page_empty_project_page_one_returns_200(
+    authenticated_client, current_user, organization, factory
+):
+    """Empty project on page 1 returns 200 with blankslate."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors?page=1"
+    )
+    assert resp.status_code == 200
+    assert b"No errors" in resp.content
+
+
+@pytest.mark.asyncio
+async def test_errors_page_empty_project_page_two_returns_404(
+    authenticated_client, current_user, organization, factory
+):
+    """Empty project on page 2 returns 404."""
+    project = await factory(ProjectFactory, organization_id=organization.id)
+
+    resp = await authenticated_client.get(
+        f"/orgs/{organization.slug}/projects/{project.id}/errors?page=2"
+    )
+    assert resp.status_code == 404

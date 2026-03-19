@@ -1,9 +1,10 @@
 """Error ingestion and deduplication."""
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from oopsie.logging import logger
@@ -65,3 +66,34 @@ async def upsert_error(
     session.add(occurrence)
     await session.flush()
     return error
+
+
+async def get_errors_for_project(
+    session: AsyncSession,
+    project_id: UUID,
+    page: int,
+    per_page: int,
+) -> tuple[Sequence[Error], int]:
+    """Return a page of errors for a project, ordered by last_seen_at desc.
+
+    Returns (errors, total_count).
+    """
+    total_count = (
+        await session.scalar(
+            select(func.count())
+            .select_from(Error)
+            .where(Error.project_id == project_id)
+        )
+        or 0
+    )
+
+    result = await session.execute(
+        select(Error)
+        .where(Error.project_id == project_id)
+        .order_by(Error.last_seen_at.desc())
+        .limit(per_page)
+        .offset((page - 1) * per_page)
+    )
+    errors = result.scalars().all()
+
+    return errors, total_count

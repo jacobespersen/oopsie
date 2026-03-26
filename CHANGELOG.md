@@ -8,10 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `exception_chain` and `execution_context` JSONB columns on `error_occurrences` table for storing structured error context
-- Composite index `ix_error_occurrences_error_id_occurred_at` on `error_occurrences` for efficient occurrence lookups
+- `exception_chain` and `execution_context` optional fields on error ingestion API for richer AI context
+- 1MB request body size limit middleware
+- Prompt enrichment: Claude Code now receives exception chains, structured frames, and execution context when available
 - Pagination for the errors list page — defaults to 25 per page with Previous/Next controls (#12)
-- Request body size limit middleware — rejects payloads exceeding 1MB with HTTP 413
+
+### Changed
+- Extracted prompt building from `claude_service` into `prompt_service`
+- Moved `ErrorIngestBody` from `routers/api/errors.py` to `schemas/errors.py`
 
 ### Fixed
 - Fix pipeline git commit failing in containers with "Committer identity unknown" — set `GIT_COMMITTER_NAME`/`GIT_COMMITTER_EMAIL` env vars for git subprocesses

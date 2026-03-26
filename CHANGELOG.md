@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `exception_chain` and `execution_context` JSONB columns on `error_occurrences` table for storing structured error context
+- Composite index `ix_error_occurrences_error_id_occurred_at` on `error_occurrences` for efficient occurrence lookups
 - Pagination for the errors list page — defaults to 25 per page with Previous/Next controls (#12)
 - Request body size limit middleware — rejects payloads exceeding 1MB with HTTP 413
 

@@ -11,7 +11,7 @@ from claude_agent_sdk import (
     TextBlock,
 )
 from oopsie.exceptions import ClaudeCodeError
-from oopsie.services.claude_service import _build_prompt, run_claude_code
+from oopsie.services.claude_service import run_claude_code
 
 _QUERY = "oopsie.services.claude_service.query"
 
@@ -244,18 +244,3 @@ class TestRunClaudeCode:
         with patch(_QUERY, return_value=_mock_query_yielding(messages)):
             with pytest.raises(ClaudeCodeError, match="some_new_error: details here"):
                 await run_claude_code("/repo", "E", "m", None, "key", 300)
-
-
-class TestBuildPrompt:
-    def test_with_stack_trace(self):
-        prompt = _build_prompt("ValueError", "bad value", "  File main.py, line 1")
-        assert "ValueError" in prompt
-        assert "bad value" in prompt
-        assert "File main.py, line 1" in prompt
-        assert "Stack trace" in prompt
-
-    def test_without_stack_trace(self):
-        prompt = _build_prompt("RuntimeError", "oops", None)
-        assert "RuntimeError" in prompt
-        assert "oops" in prompt
-        assert "Stack trace" not in prompt

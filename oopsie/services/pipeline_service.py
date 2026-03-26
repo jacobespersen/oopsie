@@ -14,6 +14,7 @@ from oopsie.database import worker_session
 from oopsie.exceptions import AnthropicKeyNotConfiguredError
 from oopsie.logging import logger
 from oopsie.models.error import Error, ErrorStatus
+from oopsie.models.error_occurrence import ErrorOccurrence
 from oopsie.models.github_installation import InstallationStatus
 from oopsie.models.organization import Organization
 from oopsie.models.project import Project
@@ -40,6 +41,8 @@ class _JobContext:
     installation_id: int
     # Excluded from repr/str to prevent accidental key logging
     anthropic_api_key: str = field(repr=False)
+    exception_chain: list[dict] | None = None
+    execution_context: dict | None = None
 
 
 async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | None:
@@ -97,6 +100,15 @@ async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | Non
             )
             return None
 
+        # Fetch the latest occurrence for enriched context
+        occurrence_result = await session.execute(
+            select(ErrorOccurrence)
+            .where(ErrorOccurrence.error_id == error.id)
+            .order_by(ErrorOccurrence.occurred_at.desc())
+            .limit(1)
+        )
+        latest_occurrence = occurrence_result.scalar_one_or_none()
+
         branch_name = fix_service.generate_branch_name(error_id)
         fix_attempt = await fix_service.create_fix_attempt(
             session, error.id, branch_name
@@ -111,6 +123,12 @@ async def _load_and_prepare(error_id: str, project_id: str) -> _JobContext | Non
             repo_url=project.github_repo_url,
             default_branch=project.default_branch,
             installation_id=installation.github_installation_id,
+            exception_chain=(
+                latest_occurrence.exception_chain if latest_occurrence else None
+            ),
+            execution_context=(
+                latest_occurrence.execution_context if latest_occurrence else None
+            ),
             anthropic_api_key=anthropic_api_key,
         )
 
@@ -136,6 +154,8 @@ async def _run_fix(clone_dir: str, ctx: _JobContext, settings: Settings) -> str:
         ctx.stack_trace,
         ctx.anthropic_api_key,
         settings.job_timeout_seconds,
+        exception_chain=ctx.exception_chain,
+        execution_context=ctx.execution_context,
     )
 
     if not await github_service.has_changes(clone_dir):

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Pagination for the errors list page — defaults to 25 per page with Previous/Next controls (#12)
+- Request body size limit middleware — rejects payloads exceeding 1MB with HTTP 413
 
 ### Fixed
 - Fix pipeline git commit failing in containers with "Committer identity unknown" — set `GIT_COMMITTER_NAME`/`GIT_COMMITTER_EMAIL` env vars for git subprocesses

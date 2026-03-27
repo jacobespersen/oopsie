@@ -37,7 +37,20 @@ curl -X POST https://getoopsie.com/api/v1/errors \
   -d '{
     "error_class": "ZeroDivisionError",
     "message": "division by zero",
-    "stack_trace": "app/models/calculator.rb:12:in `/'\'''\''napp/controllers/calc_controller.rb:8:in '\''compute'\''"
+    "stack_trace": "app/models/calculator.rb:12",
+    "exception_chain": [
+      {
+        "type": "ZeroDivisionError",
+        "value": "division by zero",
+        "stacktrace": [
+          {"file": "app/models/calculator.rb", "function": "divide", "lineno": 12, "in_app": true}
+        ]
+      }
+    ],
+    "execution_context": {
+      "type": "http",
+      "description": "POST /api/calculate"
+    }
   }'
 ```
 

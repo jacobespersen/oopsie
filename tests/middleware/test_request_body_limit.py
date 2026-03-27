@@ -1,15 +1,14 @@
 """Tests for request body size limit middleware."""
 
 import pytest
+from oopsie.utils.encryption import hash_api_key
+
+from tests.factories import OrganizationFactory, ProjectFactory
 
 
 @pytest.mark.asyncio
 async def test_request_under_limit_succeeds(api_client, factory):
     """Normal-sized requests pass through."""
-    from oopsie.utils.encryption import hash_api_key
-
-    from tests.factories import OrganizationFactory, ProjectFactory
-
     org = await factory(OrganizationFactory)
     await factory(
         ProjectFactory, organization_id=org.id, api_key_hash=hash_api_key("key")

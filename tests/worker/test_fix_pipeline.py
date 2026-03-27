@@ -2,6 +2,7 @@
 
 import uuid
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -479,7 +480,6 @@ async def test_pipeline_uses_latest_occurrence_context(
     db_session: AsyncSession, factory
 ):
     """When multiple occurrences exist, the latest one's context is used."""
-    from datetime import UTC, datetime, timedelta
 
     org = await factory(OrganizationFactory)
     set_anthropic_api_key(org, "sk-ant-test-key", TEST_ENCRYPTION_KEY)

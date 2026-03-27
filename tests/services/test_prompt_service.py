@@ -155,3 +155,14 @@ class TestBuildPrompt:
         )
         assert "NoMethodError" in result
         assert "undefined method 'foo'" in result
+
+    def test_empty_exception_chain_falls_back_to_stack_trace(self):
+        """Empty list [] is falsy — falls back to raw stack_trace."""
+        result = build_prompt(
+            error_class="E",
+            message="m",
+            stack_trace="raw trace here",
+            exception_chain=[],
+        )
+        assert "raw trace here" in result
+        assert "Exception chain" not in result

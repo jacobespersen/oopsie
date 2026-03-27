@@ -8,16 +8,16 @@ from pydantic import BaseModel, Field, field_validator
 class MechanismInfo(BaseModel):
     """How an exception was raised (chained, generic, etc.)."""
 
-    type: str
+    type: str = Field(min_length=1)
     handled: bool = True
 
 
 class StackFrame(BaseModel):
     """A single frame in an exception's stack trace."""
 
-    file: str
+    file: str = Field(min_length=1)
     function: str | None = None
-    lineno: int | None = None
+    lineno: int | None = Field(None, ge=1)
     module: str | None = None
     in_app: bool = True
     context_line: str | None = None
@@ -37,8 +37,8 @@ class StackFrame(BaseModel):
 class ExceptionEntry(BaseModel):
     """One exception in a chain, with optional structured stack frames."""
 
-    type: str
-    value: str
+    type: str = Field(min_length=1)
+    value: str = Field(min_length=1)
     module: str | None = None
     mechanism: MechanismInfo | None = None
     stacktrace: list[StackFrame] | None = Field(None, max_length=100)
@@ -47,7 +47,7 @@ class ExceptionEntry(BaseModel):
 class ExecutionContext(BaseModel):
     """What the application was doing when the error occurred."""
 
-    type: str
+    type: str = Field(min_length=1)
     description: str | None = None
     data: dict[str, Any] | None = None
 

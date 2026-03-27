@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from typing import Any
 
 from claude_agent_sdk import (
     AssistantMessage,
@@ -74,8 +75,8 @@ async def run_claude_code(
     anthropic_api_key: str,
     timeout_seconds: int,
     *,
-    exception_chain: list[dict] | None = None,
-    execution_context: dict | None = None,
+    exception_chain: list[dict[str, Any]] | None = None,
+    execution_context: dict[str, Any] | None = None,
 ) -> str:
     """Run Claude Code on the repo via the Python SDK.
 

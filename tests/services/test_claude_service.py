@@ -244,3 +244,25 @@ class TestRunClaudeCode:
         with patch(_QUERY, return_value=_mock_query_yielding(messages)):
             with pytest.raises(ClaudeCodeError, match="some_new_error: details here"):
                 await run_claude_code("/repo", "E", "m", None, "key", 300)
+
+    async def test_forwards_context_kwargs_to_prompt(self):
+        """exception_chain and execution_context are forwarded to build_prompt."""
+        chain = [{"type": "E", "value": "v"}]
+        ctx = {"type": "http", "description": "GET /"}
+        with patch(
+            _QUERY,
+            return_value=_mock_query_yielding([_text_message("ok")]),
+        ) as mock_query:
+            await run_claude_code(
+                "/repo",
+                "E",
+                "m",
+                None,
+                "key",
+                300,
+                exception_chain=chain,
+                execution_context=ctx,
+            )
+            prompt = mock_query.call_args[1]["prompt"]
+            assert "Exception chain" in prompt
+            assert "GET /" in prompt

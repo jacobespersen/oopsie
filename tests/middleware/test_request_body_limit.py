@@ -32,3 +32,25 @@ async def test_request_over_limit_returns_413(api_client):
         content=f'{{"error_class":"E","message":"m","stack_trace":"{huge_trace}"}}',
     )
     assert response.status_code == 413
+
+
+@pytest.mark.asyncio
+async def test_malformed_content_length_returns_400(api_client):
+    """Non-numeric Content-Length returns 400, not 500."""
+    response = await api_client.post(
+        "/api/v1/errors",
+        headers={"Content-Length": "abc", "Content-Type": "application/json"},
+        content='{"error_class":"E","message":"m"}',
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_negative_content_length_returns_400(api_client):
+    """Negative Content-Length returns 400."""
+    response = await api_client.post(
+        "/api/v1/errors",
+        headers={"Content-Length": "-1", "Content-Type": "application/json"},
+        content='{"error_class":"E","message":"m"}',
+    )
+    assert response.status_code == 400

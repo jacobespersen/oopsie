@@ -1,6 +1,6 @@
 """add exception_chain and execution_context to error_occurrences
 
-Revision ID: ac0f5981e929
+Revision ID: 012
 Revises: 011
 Create Date: 2026-03-26 20:23:49.060090
 
@@ -13,7 +13,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = "ac0f5981e929"
+revision: str = "012"
 down_revision: str | Sequence[str] | None = "011"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

@@ -105,6 +105,7 @@ alembic/           — DB migrations
 - **Factory-based test data** — use factory-boy factories in `tests/factories.py` for all test data creation. Inline factory calls per test, no fixture-based test data.
 - **No duplicated setup** — if multiple tests need similar setup, add a factory or extend an existing one rather than copy-pasting setup code.
 - **Test file organization** — mirrors source structure (`tests/routers/`, `tests/models/`, `tests/services/`, etc.).
+- **Tests must exercise real code** — every test must call actual application code (service functions, endpoints, utilities). Never write tests that only exercise raw SQLAlchemy queries, ORM operations, or framework primitives outside of application code. If a function is hard to test, that's a signal to make it more testable — not to test a hand-rolled reimplementation of its internals.
 
 ## Database
 

@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -19,6 +20,9 @@ async def upsert_error(
     error_class: str,
     message: str,
     stack_trace: str | None = None,
+    *,
+    exception_chain: list[dict[str, Any]] | None = None,
+    execution_context: dict[str, Any] | None = None,
 ) -> Error:
     """Find or create an Error by fingerprint.
 
@@ -62,7 +66,11 @@ async def upsert_error(
             project_id=str(project_id),
             error_class=error_class,
         )
-    occurrence = ErrorOccurrence(error_id=error.id)
+    occurrence = ErrorOccurrence(
+        error_id=error.id,
+        exception_chain=exception_chain,
+        execution_context=execution_context,
+    )
     session.add(occurrence)
     await session.flush()
     return error

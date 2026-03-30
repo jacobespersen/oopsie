@@ -61,8 +61,10 @@ oopsie/
     github.py      — GitHub App install flow + webhooks
     api/           — REST API endpoints (errors)
     web/           — Jinja2 HTML views (projects, errors, members, settings, admin, landing)
+  schemas/         — Pydantic request/response models (context, errors)
   models/          — SQLAlchemy ORM (Base, Organization, Membership, Invitation, Project, Error, …)
-  services/        — business logic (error, invitation, membership, bootstrap)
+  services/        — business logic (error, invitation, membership, bootstrap, prompt)
+  middleware/      — ASGI middleware (request logging, org slug, request body limit)
   utils/           — encryption (Fernet), fingerprinting
   worker/          — background job processing (placeholder)
 templates/         — Jinja2 templates

@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+from typing import Any
 
 from claude_agent_sdk import (
     AssistantMessage,
@@ -16,6 +17,7 @@ from claude_agent_sdk import (
 
 from oopsie.exceptions import ClaudeCodeError
 from oopsie.logging import logger
+from oopsie.services.prompt_service import build_prompt
 
 # Environment variables that interfere with standalone Claude Code sessions.
 # The SDK merges os.environ into the child process, so these must be explicitly
@@ -46,24 +48,6 @@ _SYSTEM_PROMPT = (
 )
 
 
-def _build_prompt(error_class: str, message: str, stack_trace: str | None) -> str:
-    """Build a prompt instructing Claude to fix the bug."""
-    parts = [
-        "An error has been reported in this repository:",
-        f"\nError class: {error_class}",
-        f"Message: {message}",
-    ]
-    if stack_trace:
-        parts.append(f"\nStack trace:\n```\n{stack_trace}\n```")
-    parts.append(
-        "\nFind the root cause in this codebase and fix it by editing the "
-        "source files directly. You must use your tools to read the relevant "
-        "files, then write or edit them to apply the fix. "
-        "Make minimal, focused changes. Do not add unrelated improvements."
-    )
-    return "\n".join(parts)
-
-
 def _build_clean_env(anthropic_api_key: str) -> dict[str, str]:
     """Build the env dict for the SDK, clearing interfering vars."""
     sdk_env: dict[str, str] = {"ANTHROPIC_API_KEY": anthropic_api_key}
@@ -90,12 +74,21 @@ async def run_claude_code(
     stack_trace: str | None,
     anthropic_api_key: str,
     timeout_seconds: int,
+    *,
+    exception_chain: list[dict[str, Any]] | None = None,
+    execution_context: dict[str, Any] | None = None,
 ) -> str:
     """Run Claude Code on the repo via the Python SDK.
 
     Raises ClaudeCodeError on failure or timeout.
     """
-    prompt = _build_prompt(error_class, message, stack_trace)
+    prompt = build_prompt(
+        error_class=error_class,
+        message=message,
+        stack_trace=stack_trace,
+        exception_chain=exception_chain,
+        execution_context=execution_context,
+    )
     sdk_env = _build_clean_env(anthropic_api_key)
 
     logger.info(

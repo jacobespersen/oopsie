@@ -1,7 +1,10 @@
 """factory_boy factories for ORM model construction in tests."""
 
+from datetime import UTC, datetime
+
 import factory
 from oopsie.models.error import Error, ErrorStatus
+from oopsie.models.error_occurrence import ErrorOccurrence
 from oopsie.models.fix_attempt import FixAttempt, FixAttemptStatus
 from oopsie.models.github_installation import GithubInstallation, InstallationStatus
 from oopsie.models.invitation import Invitation
@@ -117,3 +120,13 @@ class OrgCreationInvitationFactory(factory.Factory):
     email = factory.Sequence(lambda n: f"org-invite-{n}@example.com")
     org_name = factory.Sequence(lambda n: f"New Org {n}")
     # signup_request_id and invited_by_id must be supplied by caller
+
+
+class ErrorOccurrenceFactory(factory.Factory):
+    class Meta:
+        model = ErrorOccurrence
+
+    occurred_at = factory.LazyFunction(lambda: datetime.now(UTC))
+    exception_chain = None
+    execution_context = None
+    # error_id must be supplied by the caller

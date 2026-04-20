@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudflared-config
+  namespace: oopsie
+data:
+  config.yaml: |
+    tunnel: 3e1b7129-8a62-41a9-8d08-b94a8e204b40
+    no-autoupdate: true
+    ingress:
+      - hostname: oopsie.jacobespersen.com
+        service: http://oopsie-web:8000
+      - hostname: argocd.jacobespersen.com
+        service: https://argocd-server.argocd:443
+        originRequest:
+          noTLSVerify: true
+      - service: http_status:404

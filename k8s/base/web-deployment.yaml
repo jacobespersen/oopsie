@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oopsie-web
+  namespace: oopsie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oopsie-web
+  template:
+    metadata:
+      labels:
+        app: oopsie-web
+    spec:
+      containers:
+        - name: oopsie-web
+          image: ghcr.io/jacobespersen/oopsie:latest # {"$imagepolicy": "flux-system:oopsie-web"}
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: oopsie-config
+            - secretRef:
+                name: oopsie-secrets
+          resources:
+            requests:
+              memory: "200Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            periodSeconds: 15
+            failureThreshold: 5

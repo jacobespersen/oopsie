@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oopsie-worker
+  namespace: oopsie
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oopsie-worker
+  template:
+    metadata:
+      labels:
+        app: oopsie-worker
+    spec:
+      containers:
+        - name: oopsie-worker
+          image: ghcr.io/jacobespersen/oopsie-worker:latest # {"$imagepolicy": "flux-system:oopsie-worker"}
+          envFrom:
+            - configMapRef:
+                name: oopsie-config
+            - secretRef:
+                name: oopsie-secrets
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "1.5Gi"
+              cpu: "1000m"
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f 'arq' > /dev/null"
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3

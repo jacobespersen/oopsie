@@ -37,7 +37,20 @@ curl -X POST https://getoopsie.com/api/v1/errors \
   -d '{
     "error_class": "ZeroDivisionError",
     "message": "division by zero",
-    "stack_trace": "app/models/calculator.rb:12:in `/'\'''\''napp/controllers/calc_controller.rb:8:in '\''compute'\''"
+    "stack_trace": "app/models/calculator.rb:12",
+    "exception_chain": [
+      {
+        "type": "ZeroDivisionError",
+        "value": "division by zero",
+        "stacktrace": [
+          {"file": "app/models/calculator.rb", "function": "divide", "lineno": 12, "in_app": true}
+        ]
+      }
+    ],
+    "execution_context": {
+      "type": "http",
+      "description": "POST /api/calculate"
+    }
   }'
 ```
 
@@ -46,8 +59,55 @@ curl -X POST https://getoopsie.com/api/v1/errors \
 | `error_class` | string | Yes | Exception class name (e.g. `ZeroDivisionError`, `TypeError`) |
 | `message` | string | Yes | Human-readable error message |
 | `stack_trace` | string | No | Full stack trace / backtrace |
+| `exception_chain` | array | No | Structured exception chain (max 20 entries) — see below |
+| `execution_context` | object | No | What the app was doing when the error occurred — see below |
 
 Returns `202 Accepted` on success. Errors with the same class and message are automatically deduplicated by fingerprint.
+
+Request body is limited to **1 MB**. Oversized payloads receive `413 Request Entity Too Large`.
+
+#### Enriched Context (optional)
+
+When provided, `exception_chain` and `execution_context` give Claude Code richer context for generating fixes.
+
+**`exception_chain`** — an array of exception entries from root cause to outermost:
+
+```json
+"exception_chain": [
+  {
+    "type": "ActiveRecord::RecordNotFound",
+    "value": "Couldn't find User with id=99",
+    "module": "ActiveRecord",
+    "mechanism": { "type": "chained", "handled": false },
+    "stacktrace": [
+      {
+        "file": "app/models/user.rb",
+        "function": "find_or_raise",
+        "lineno": 42,
+        "in_app": true,
+        "context_line": "User.find!(id)",
+        "pre_context": ["  def find_or_raise(id)"],
+        "post_context": ["  end"],
+        "vars": { "id": 99 }
+      }
+    ]
+  }
+]
+```
+
+Each stack frame supports: `file` (required), `function`, `lineno`, `module`, `in_app` (default `true`), `context_line`, `pre_context` (max 5 lines), `post_context` (max 5 lines), `vars` (max 50 keys).
+
+**`execution_context`** — what the application was doing:
+
+```json
+"execution_context": {
+  "type": "http",
+  "description": "POST /api/users",
+  "data": { "method": "POST", "url": "/api/users" }
+}
+```
+
+Fields: `type` (required), `description`, `data` (max 32 keys).
 
 ## Architecture
 

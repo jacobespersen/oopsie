@@ -50,7 +50,8 @@ jobs:
         run: bandit -r oopsie -ll
 
       - name: Run pip-audit
-        run: pip-audit
+        # CVE-2026-4539: pygments 2.19.2 — no fix release available yet
+        run: pip-audit --ignore-vuln CVE-2026-4539
 
       - name: Run pytest
         run: pytest -v --cov=oopsie --cov-report=term-missing --cov-fail-under=90

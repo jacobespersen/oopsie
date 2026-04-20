@@ -163,3 +163,67 @@ async def test_get_errors_for_project_scoped_to_project(
     assert total_count == 1
     assert len(errors) == 1
     assert errors[0].project_id == project_a.id
+
+
+@pytest.mark.asyncio
+async def test_upsert_error_stores_exception_chain(db_session: AsyncSession, factory):
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
+    chain = [
+        {"type": "ActiveRecord::RecordNotFound", "value": "Not found"},
+        {"type": "AuthError", "value": "Login failed"},
+    ]
+    error = await upsert_error(
+        session=db_session,
+        project_id=project.id,
+        error_class="AuthError",
+        message="Login failed",
+        stack_trace="tb",
+        exception_chain=chain,
+    )
+    result = await db_session.execute(
+        select(ErrorOccurrence).where(ErrorOccurrence.error_id == error.id)
+    )
+    occurrence = result.scalar_one()
+    assert occurrence.exception_chain == chain
+
+
+@pytest.mark.asyncio
+async def test_upsert_error_stores_execution_context(db_session: AsyncSession, factory):
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
+    ctx = {"type": "http", "description": "POST /api/users", "data": {"method": "POST"}}
+    error = await upsert_error(
+        session=db_session,
+        project_id=project.id,
+        error_class="ValueError",
+        message="bad",
+        stack_trace=None,
+        execution_context=ctx,
+    )
+    result = await db_session.execute(
+        select(ErrorOccurrence).where(ErrorOccurrence.error_id == error.id)
+    )
+    occurrence = result.scalar_one()
+    assert occurrence.execution_context == ctx
+
+
+@pytest.mark.asyncio
+async def test_upsert_error_context_fields_default_to_none(
+    db_session: AsyncSession, factory
+):
+    org = await factory(OrganizationFactory)
+    project = await factory(ProjectFactory, organization_id=org.id)
+    error = await upsert_error(
+        session=db_session,
+        project_id=project.id,
+        error_class="E",
+        message="m",
+        stack_trace=None,
+    )
+    result = await db_session.execute(
+        select(ErrorOccurrence).where(ErrorOccurrence.error_id == error.id)
+    )
+    occurrence = result.scalar_one()
+    assert occurrence.exception_chain is None
+    assert occurrence.execution_context is None

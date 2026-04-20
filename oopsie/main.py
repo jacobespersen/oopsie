@@ -12,6 +12,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from oopsie.config import get_settings
 from oopsie.logging import setup_logging
 from oopsie.middleware.org_slug import OrgSlugMiddleware
+from oopsie.middleware.request_body_limit import RequestBodyLimitMiddleware
 from oopsie.middleware.request_logging import RequestLoggingMiddleware
 from oopsie.queue import close_arq_pool
 from oopsie.routers import (
@@ -76,6 +77,7 @@ app.add_middleware(
 app.add_middleware(OrgSlugMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+app.add_middleware(RequestBodyLimitMiddleware)
 
 app.include_router(auth_router, tags=["auth"])
 app.include_router(errors_router, prefix="/api/v1/errors", tags=["errors"])

@@ -10,6 +10,8 @@ data:
     ingress:
       - hostname: oopsie.jacobespersen.com
         service: http://oopsie-web:8000
+      - hostname: owkin.jacobespersen.com
+        service: http://owkin-agent.owkin-agent.svc.cluster.local:8000
       - hostname: argocd.jacobespersen.com
         service: https://argocd-server.argocd:443
         originRequest:

@@ -15,3 +15,5 @@ data:
         originRequest:
           noTLSVerify: true
       - service: http_status:404
+      - hostname: owkin.jacobespersen.com
+        service: http://owkin-agent.owkin-agent.svc.cluster.local:8000
